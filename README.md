@@ -6,3 +6,9 @@ To work on the repo, do Git clone https://github.com/RohitTru/botStonkWar
 - git checkout -b feature-{name} 
 - git push origin feature-{name}
 - git pull origin feature-{name} --rebase
+
+
+
+## if you want to pull down the changes from the master branch:
+
+- git pull origin master --rebase
