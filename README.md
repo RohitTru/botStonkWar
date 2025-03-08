@@ -15,8 +15,10 @@ This will add the remote repo to your git workplace
 
 This pulls the latest update of the feature branch you want to work on
 - git pull origin feature-{name} --rebase
+
 This creates your own branch of the feature branch you want to work on (This creates it locally)
 - git checkout -b {bens part on sentiment analysis}
+
 say you write a bunch code, and you want to save your changes on the Github repo under your own branch
 - git push origin feature-{bens part on sentiment analysis}
 
@@ -29,5 +31,5 @@ So ben just finished big portion of sentiment analysis, and he wants to merge hi
 
 
 #### If you want to delete your branch:
-git branch -D name-of-the-branch
-git push origin --delete name-of-the-branch
+- git branch -D name-of-the-branch
+- git push origin --delete name-of-the-branch
