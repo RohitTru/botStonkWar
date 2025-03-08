@@ -8,7 +8,9 @@ This will add the remote repo to your git workplace
 #### If you want to create a feature (A portion of the app), run the following before you start working:
 
 - git checkout -b feature-{name} 
+
 - git push origin feature-{name}
+
 - git pull origin feature-{name} --rebase
 
 #### If you want to contribute to a feature branch (A portion of the application, say sentiment Analysis):
@@ -32,4 +34,5 @@ So ben just finished big portion of sentiment analysis, and he wants to merge hi
 
 #### If you want to delete your branch:
 - git branch -D name-of-the-branch
-- git push origin --delete name-of-the-branch
+ 
+-git push origin --delete name-of-the-branch
