@@ -12,6 +12,11 @@ This will add the remote repo to your git workplace
 
 - git push origin feature-{name}
 
+```
+
+#### If you want to pull the latest version of a branch do this:
+
+```bash
 - git pull origin feature-{name} --rebase
 ```
 #### If you want to contribute to a feature branch (A portion of the application, say sentiment Analysis):
@@ -23,7 +28,7 @@ This pulls the latest update of the feature branch you want to work on
 
 This creates your own branch of the feature branch you want to work on (This creates it locally)
 ```bash
-- git checkout -b {bens part on sentiment analysis}
+- git checkout -b {bens part on senptiment analysis}
 ```
 
 say you write a bunch code, and you want to save your changes on the Github repo under your own branch
