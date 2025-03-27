@@ -49,3 +49,15 @@ So ben just finished big portion of sentiment analysis, and he wants to merge hi
 git branch -D name-of-the-branch 
 git push origin --delete name-of-the-branch
 ```
+
+#### If you are working along side some, and they make changes and they commited to the branch, the local branch of the one you're using, is technically outdate. You have follow these set of commands:
+
+
+git stash // This stores your changes on your local project. (so it like locks em up and places them somewhere)
+git pull origin {the branch name} --rebase
+git stash pop // populates the changes that were stored away in the git stash command.
+
+// continue with committing your changes
+git add -A
+git commit -m "your commit message"
+git push origin {branch-name}
