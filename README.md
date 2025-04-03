@@ -39,7 +39,7 @@ say you write a bunch code, and you want to save your changes on the Github repo
 #### You now deem that your code should belong in the feature branch (say sentiment analysis)
 So ben just finished big portion of sentiment analysis, and he wants to merge his changes into the actual branch that the sentiment analysis engine will live in we need to do a pull request.
 
-#### If you want to pull down the changes from the master branch:
+#### If you want to pull down the changes from the main branch:
 ```bash
 - git pull origin main --rebase
 ```

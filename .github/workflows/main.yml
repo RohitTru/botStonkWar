@@ -5,12 +5,12 @@ on:
     branches:
       - "feature-*"
       - "staging"
-      - "master"
+      - "main"
   pull_request:
     types: [opened, synchronize, closed]
     branches:
       - "staging"
-      - "master"
+      - "main"
   delete:
     branches:
       - "feature-*"
@@ -26,7 +26,7 @@ jobs:
     name: Build & Deploy Feature App
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && github.ref != 'refs/heads/master' && github.ref != 'refs/heads/staging') || 
+      (github.event_name == 'push' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/staging') || 
       (github.event_name == 'pull_request' && github.event.action != 'closed')
 
     steps:
@@ -55,7 +55,7 @@ jobs:
           
           # Determine environment based on branch or PR target
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            if [[ "${{ github.base_ref }}" == "master" ]]; then
+            if [[ "${{ github.base_ref }}" == "main" ]]; then
               echo "TARGET_ENV=production" >> $GITHUB_ENV
               echo "SOURCE_ENV=staging" >> $GITHUB_ENV
             elif [[ "${{ github.base_ref }}" == "staging" ]]; then
@@ -63,7 +63,7 @@ jobs:
               echo "SOURCE_ENV=development" >> $GITHUB_ENV
             fi
           else
-            if [[ "${GITHUB_REF#refs/heads/}" == "master" ]]; then
+            if [[ "${GITHUB_REF#refs/heads/}" == "main" ]]; then
               echo "TARGET_ENV=production" >> $GITHUB_ENV
             elif [[ "${GITHUB_REF#refs/heads/}" == "staging" ]]; then
               echo "TARGET_ENV=staging" >> $GITHUB_ENV
@@ -121,18 +121,18 @@ jobs:
           git commit -m "Update port assignments for ${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" || echo "No changes to commit"
           git push origin HEAD || echo "Could not push port changes"
           
-          # Now sync to master branch
-          git fetch origin master
-          git checkout master
-          git pull origin master
+          # Now sync to main branch
+          git fetch origin main
+          git checkout main
+          git pull origin main
           
           # Copy the ports.json from feature branch
           git checkout HEAD@{1} -- ports.json
           
-          # Commit and push to master
+          # Commit and push to main
           git add ports.json
           git commit -m "Sync port assignments from ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
-          git push origin master || echo "Could not push to master"
+          git push origin main || echo "Could not push to main"
           
           # Return to original branch
           git checkout -
@@ -275,7 +275,7 @@ jobs:
       - name: Clean Up Workspace After Build
         run: |
           echo "Cleaning up temporary files..."
-          rm -rf "./master" || true
+          rm -rf "./main" || true
 
   cleanup:
     if: github.event_name == 'delete' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == false)
@@ -305,7 +305,7 @@ jobs:
           fi
           
           # Determine environment
-          if [[ "$BRANCH_NAME" == "master" ]]; then
+          if [[ "$BRANCH_NAME" == "main" ]]; then
             echo "SOURCE_ENV=production" >> $GITHUB_ENV
           elif [[ "$BRANCH_NAME" == "staging" ]]; then
             echo "SOURCE_ENV=staging" >> $GITHUB_ENV
@@ -320,15 +320,15 @@ jobs:
 
       - name: Release Port
         run: |
-          git checkout master
-          git pull origin master
+          git checkout main
+          git pull origin main
           
           chmod +x scripts/port_manager.py
           ./scripts/port_manager.py release "${{ env.MICROSERVICE_NAME }}/$BRANCH_NAME" "$SOURCE_ENV"
           
           git add ports.json
           git commit -m "Release port for ${{ env.MICROSERVICE_NAME }}/$BRANCH_NAME in $SOURCE_ENV" || echo "No changes to commit"
-          git push origin master
+          git push origin main
 
       - name: Log in to Docker Hub
         uses: docker/login-action@v2
@@ -393,7 +393,7 @@ jobs:
           
           git add environments
           git commit -m "Cleanup: Removed ${{ env.MICROSERVICE_NAME }} from $SOURCE_ENV and cleaned empty directories" || echo "No changes to commit"
-          git push origin master || echo "Nothing to push"
+          git push origin main || echo "Nothing to push"
 
       - name: Verify Repository State
         run: |
@@ -418,14 +418,14 @@ jobs:
           echo "✅ Repository state verified - cleanup successful"
 
   sync-staging:
-    name: Sync Staging with Master
+    name: Sync Staging with main
     runs-on: ubuntu-latest
     permissions:
       pull-requests: read
       contents: write
     if: |
       github.event_name == 'push' && 
-      github.ref == 'refs/heads/master' && 
+      github.ref == 'refs/heads/main' && 
       !contains(github.event.head_commit.message, 'Skip staging sync') ||
       github.event_name == 'schedule'
     
@@ -441,11 +441,11 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
       
-      - name: Sync Staging with Master
+      - name: Sync Staging with main
         run: |
           # Check if staging branch exists, create if it doesn't
           if ! git ls-remote --heads origin staging | grep staging > /dev/null; then
-            echo "Creating staging branch from master..."
+            echo "Creating staging branch from main..."
             git checkout -b staging
             git push -u origin staging
           else
@@ -457,7 +457,7 @@ jobs:
             "https://api.github.com/repos/${{ github.repository }}/pulls?base=staging&state=open" | jq length)
           
           if [ "$OPEN_PRS" -eq "0" ]; then
-            echo "No open PRs to staging, safe to sync with master"
+            echo "No open PRs to staging, safe to sync with main"
             
             # Backup ports.json from staging
             if [ -f "ports.json" ]; then
@@ -472,18 +472,18 @@ jobs:
               cp -r environments/staging/* /tmp/staging-backup/
             fi
             
-            # Merge master into staging
+            # Merge main into staging
             git pull origin staging
-            git merge origin/master --no-edit || {
+            git merge origin/main --no-edit || {
               # If merge fails, it's likely due to ports.json conflict
               if [ -f "ports.json.staging" ]; then
                 echo "Resolving ports.json conflict..."
                 # Keep staging's port assignments
                 cp ports.json.staging ports.json
                 git add ports.json
-                git commit -m "Merge master into staging (with preserved port assignments)"
+                git commit -m "Merge main into staging (with preserved port assignments)"
               else
-                echo "Failed to merge master into staging"
+                echo "Failed to merge main into staging"
                 exit 1
               fi
             }
@@ -495,9 +495,9 @@ jobs:
               
               # Update environment-specific variables
               find environments/staging -type f -name ".env" -exec sed -i'' \
-                -e 's/APP_NAME=.*_master/APP_NAME=microServiceCICDTest_staging/' \
+                -e 's/APP_NAME=.*_main/APP_NAME=microServiceCICDTest_staging/' \
                 -e 's/APP_IMAGE=.*:latest/APP_IMAGE=rohittru\/microservicecicdtest_staging:latest/' \
-                -e 's/VIRTUAL_HOST=master\./VIRTUAL_HOST=staging./' \
+                -e 's/VIRTUAL_HOST=main\./VIRTUAL_HOST=staging./' \
                 -e 's/ENVIRONMENT=production/ENVIRONMENT=staging/' {} +
               
               # Clean up backup
@@ -509,7 +509,7 @@ jobs:
             
             # Commit and push changes
             git add environments/staging ports.json
-            git commit -m "Sync staging with master while preserving staging-specific configs" || echo "No changes to commit"
+            git commit -m "Sync staging with main while preserving staging-specific configs" || echo "No changes to commit"
             git push origin staging
           else
             echo "Found open PRs to staging, skipping sync to avoid conflicts"
@@ -552,11 +552,11 @@ jobs:
           git checkout staging
           git pull origin staging
           
-          # Remove feature-specific files/changes by resetting to master
-          git fetch origin master:master
-          git reset --hard origin/master
+          # Remove feature-specific files/changes by resetting to main
+          git fetch origin main:main
+          git reset --hard origin/main
           
-          # Force push staging to be in sync with master
+          # Force push staging to be in sync with main
           git push -f origin staging
           
           echo "✅ Cleaned up abandoned feature $FEATURE_BRANCH from staging"
@@ -615,16 +615,16 @@ jobs:
           git push origin staging
           
           # Now sync ports.json to other branches
-          # Sync to master
-          git fetch origin master
-          git checkout master
-          git pull origin master
+          # Sync to main
+          git fetch origin main
+          git checkout main
+          git pull origin main
           cp ports.json ports.json.new
           git checkout staging -- ports.json
           if ! cmp -s ports.json ports.json.new; then
             git add ports.json
             git commit -m "Sync port assignments from staging"
-            git push origin master
+            git push origin main
           fi
           
           # Sync back to feature branch and restore its original port
@@ -698,13 +698,13 @@ jobs:
           git config --global user.name "GitHub Actions"
           git add ports.json
           git commit -m "Release port for deleted feature branch ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
-          git push origin master || echo "Could not push to master"
+          git push origin main || echo "Could not push to main"
 
   build-and-deploy:
     name: Build & Deploy App
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && github.ref != 'refs/heads/master' && github.ref != 'refs/heads/staging') || 
+      (github.event_name == 'push' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/staging') || 
       (github.event_name == 'pull_request' && github.event.action != 'closed')
 
     steps:

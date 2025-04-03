@@ -19,8 +19,8 @@ microservice-env-template.env
 # Do not ignore app folders for feature branches
 !feature-*/
 
-# Exclude the master app folder if it appears accidentally
-master/
+# Exclude the main app folder if it appears accidentally
+main/
 
 # Do not ignore ports.json
 !ports.json
