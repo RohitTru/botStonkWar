@@ -5,9 +5,7 @@
         "start": 5000,
         "end": 5999
       },
-      "assignments": {
-        "botStonkWar/feature-test6": 5000
-      }
+      "assignments": {}
     },
     "staging": {
       "port_range": {
