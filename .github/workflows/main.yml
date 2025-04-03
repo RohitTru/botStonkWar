@@ -164,7 +164,7 @@ jobs:
           # Generate .env file
           {
             echo "APP_NAME=${{ env.MICROSERVICE_NAME }}_${{ env.BRANCH_NAME }}"
-            echo "APP_IMAGE=rohittru/microservicecicdtest_${{ env.BRANCH_NAME }}:${{ env.VERSION }}"
+            echo "APP_IMAGE=rohittru/botStonkWar_${{ env.BRANCH_NAME }}:${{ env.VERSION }}"
             echo "APP_PORT=${{ env.APP_PORT }}"
             echo "VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com"
             echo "VIRTUAL_PORT=${{ env.APP_PORT }}"
@@ -208,8 +208,8 @@ jobs:
           file: ./app-template/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
-            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:latest
+            ${{ env.DOCKER_REGISTRY }}/botStonkWar:${{ env.BRANCH_NAME }}
+            ${{ env.DOCKER_REGISTRY }}/botStonkWar:latest
           build-args: |
             PYTHON_VERSION=${{ env.PYTHON_VERSION }}
 
@@ -281,8 +281,8 @@ jobs:
         run: |
           echo "Cleaning up Docker resources for $BRANCH_NAME..."
           docker rm -f $BRANCH_NAME || true
-          docker rmi rohittru/microservicecicdtest_${BRANCH_NAME}:latest || true
-          docker rmi rohittru/microservicecicdtest_${BRANCH_NAME}:* || true  # Remove all version tags
+          docker rmi rohittru/botStonkWar${BRANCH_NAME}:latest || true
+          docker rmi rohittru/botStonkWar${BRANCH_NAME}:* || true  # Remove all version tags
 
           TOKEN=$(curl -s -H "Content-Type: application/json" -X POST \
             -d '{"username": "${{ secrets.DOCKER_HUB_USERNAME }}", "password": "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}"}' \
@@ -291,7 +291,7 @@ jobs:
           if [ -n "$TOKEN" ]; then
             curl -s -X DELETE \
               -H "Authorization: Bearer $TOKEN" \
-              "https://hub.docker.com/v2/repositories/rohittru/microservicecicdtest_${BRANCH_NAME}/"
+              "https://hub.docker.com/v2/repositories/rohittru/botStonkWar${BRANCH_NAME}/"
           fi
 
       - name: Remove App Folder
@@ -436,8 +436,8 @@ jobs:
               
               # Update environment-specific variables
               find environments/staging -type f -name ".env" -exec sed -i'' \
-                -e 's/APP_NAME=.*_main/APP_NAME=microServiceCICDTest_staging/' \
-                -e 's/APP_IMAGE=.*:latest/APP_IMAGE=rohittru\/microservicecicdtest_staging:latest/' \
+                -e 's/APP_NAME=.*_main/APP_NAME=botStonkWarstaging/' \
+                -e 's/APP_IMAGE=.*:latest/APP_IMAGE=rohittru\/botStonkWarstaging:latest/' \
                 -e 's/VIRTUAL_HOST=main\./VIRTUAL_HOST=staging./' \
                 -e 's/ENVIRONMENT=production/ENVIRONMENT=staging/' {} +
               
@@ -683,8 +683,8 @@ jobs:
           file: ./app-template/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
-            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:latest
+            ${{ env.DOCKER_REGISTRY }}/botStonkWar:${{ env.BRANCH_NAME }}
+            ${{ env.DOCKER_REGISTRY }}/botStonkWar:latest
           build-args: |
             PYTHON_VERSION=${{ env.PYTHON_VERSION }}
 
