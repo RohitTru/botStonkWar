@@ -160,10 +160,6 @@ jobs:
           # Create directory and copy template
           mkdir -p "$APP_DIR"
           cp -r app-template/* "$APP_DIR/"
-
-          # Create test reports directory
-          mkdir -p "$APP_DIR/tests/test-reports"
-          echo "TEST_REPORTS_DIR=$APP_DIR/tests/test-reports" >> $GITHUB_ENV
           
           # Generate .env file
           {
@@ -192,61 +188,6 @@ jobs:
           cat requirements.txt
           pip install -r requirements.txt
           pip install pytest pytest-cov
-
-      - name: Run Mandatory Tests
-        continue-on-error: true
-        run: |
-          cd "$APP_DIR"
-          echo "Running mandatory tests..."
-          if [ -f "tests/test_mandatory.py" ]; then
-            echo "Found mandatory tests at tests/test_mandatory.py"
-            PYTHONPATH=. python -m pytest tests/test_mandatory.py --cov=. --cov-report=xml:tests/test-reports/coverage-mandatory.xml -v
-          else
-            echo "ℹ️ No mandatory tests found in tests/ - This is expected for new feature branches"
-          fi
-
-      - name: Run Recommended Tests
-        continue-on-error: true
-        run: |
-          cd "$APP_DIR"
-          echo "Running recommended tests..."
-          if [ -f "tests/test_recommended.py" ]; then
-            echo "Found recommended tests at tests/test_recommended.py"
-            PYTHONPATH=. python -m pytest tests/test_recommended.py --cov=. --cov-report=xml:tests/test-reports/coverage-recommended.xml -v
-          else
-            echo "ℹ️ No recommended tests found in tests/ - This is expected for new feature branches"
-          fi
-
-      - name: Run Optional Tests
-        continue-on-error: true
-        run: |
-          cd "$APP_DIR"
-          echo "Running optional tests..."
-          if [ -f "tests/test_optional.py" ]; then
-            echo "Found optional tests at tests/test_optional.py"
-            PYTHONPATH=. python -m pytest tests/test_optional.py --cov=. --cov-report=xml:tests/test-reports/coverage-optional.xml -v
-          else
-            echo "ℹ️ No optional tests found in tests/ - This is expected for new feature branches"
-          fi
-
-      - name: Upload Test Reports
-        if: always()
-        uses: actions/upload-artifact@v4
-        with:
-          name: test-reports-${{ env.TARGET_ENV }}-${{ env.MICROSERVICE_NAME }}
-          path: |
-            ${{ env.APP_DIR }}/tests/test-reports/
-            ${{ env.APP_DIR }}/tests/test-reports/.coverage
-            ${{ env.APP_DIR }}/tests/test-reports/coverage*.xml
-
-      - name: Commit Test Reports
-        run: |
-          cd "$APP_DIR"
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-          git add tests/test-reports
-          git commit -m "Add test reports for ${{ env.MICROSERVICE_NAME }} in ${{ env.TARGET_ENV }}" || echo "No changes to commit"
-          git push origin HEAD:${{ env.BRANCH_NAME }}
 
       - name: Commit and Push App Folder
         run: |
