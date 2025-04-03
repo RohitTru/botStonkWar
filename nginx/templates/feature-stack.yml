@@ -1,0 +1,36 @@
+version: '3.8'
+
+networks:
+  app-network:
+    external: true
+
+services:
+  app:
+    image: ${DOCKER_REGISTRY}/microservicecicidtest:feature-test
+    container_name: feature-test-app
+    networks:
+      - app-network
+    environment:
+      - VIRTUAL_HOST=feature-test.stockbotwars.emerginary.com
+      - VIRTUAL_PORT=5000
+      - APP_PORT=5000
+    expose:
+      - "5000"
+    healthcheck:
+      test: ["CMD", "python3", "-c", "import urllib.request; urllib.request.urlopen('http://localhost:5000/health')"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+
+  watchtower:
+    image: containrrr/watchtower
+    container_name: feature-test-watchtower
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: --interval 30 --cleanup
+    environment:
+      - WATCHTOWER_CLEANUP=true
+      - WATCHTOWER_USERNAME=${DOCKER_USERNAME}
+      - WATCHTOWER_PASSWORD=${DOCKER_PASSWORD}
+    labels:
+      - "com.docker.compose.project=feature-branches" 
