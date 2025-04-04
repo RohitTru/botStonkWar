@@ -87,22 +87,22 @@ jobs:
             # Copy app template
             cp -r app-template/* "${{ env.BRANCH_NAME }}/"
             
-            # Create .env file with port using template
+            # Create .env file with port using template as base
             cp app-template/microservice-env-template.env "${{ env.BRANCH_NAME }}/.env"
             
-            # Update environment variables
-            cat >> "${{ env.BRANCH_NAME }}/.env" << EOF
-            APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}
-            APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
-            APP_PORT=${{ env.APP_PORT }}
-            VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com
-            VIRTUAL_PORT=${{ env.APP_PORT }}
-            REDIS_HOST=redis
-            ENABLE_SSL=false
-            APP_VERSION=${{ env.VERSION }}
-            APP_COMMIT=${{ env.COMMIT_HASH }}
-            BUILD_TIMESTAMP=${{ env.TIMESTAMP }}
-            EOF
+            # Update environment variables without heredoc
+            {
+              echo "APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}"
+              echo "APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}"
+              echo "APP_PORT=${{ env.APP_PORT }}"
+              echo "VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com"
+              echo "VIRTUAL_PORT=${{ env.APP_PORT }}"
+              echo "REDIS_HOST=redis"
+              echo "ENABLE_SSL=false"
+              echo "APP_VERSION=${{ env.VERSION }}"
+              echo "APP_COMMIT=${{ env.COMMIT_HASH }}"
+              echo "BUILD_TIMESTAMP=${{ env.TIMESTAMP }}"
+            } > "${{ env.BRANCH_NAME }}/.env"
             
             # Stage and commit the new feature app
             git add "${{ env.BRANCH_NAME }}"
