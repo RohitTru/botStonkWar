@@ -87,13 +87,21 @@ jobs:
             # Copy app template
             cp -r app-template/* "${{ env.BRANCH_NAME }}/"
             
-            # Create .env file with port (using heredoc without indentation)
-            cat << 'EOF' > "${{ env.BRANCH_NAME }}/.env"
-APP_NAME=bot-stonk-war-${{ env.BRANCH_NAME }}
-APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
+            # Create .env file with port using template
+            cp app-template/microservice-env-template.env "${{ env.BRANCH_NAME }}/.env"
+            
+            # Update environment variables
+            cat >> "${{ env.BRANCH_NAME }}/.env" << EOF
+APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}
+APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
 APP_PORT=${{ env.APP_PORT }}
-VIRTUAL_HOST=${{ env.BRANCH_NAME }}.bot-stonk-war.local
+VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com
 VIRTUAL_PORT=${{ env.APP_PORT }}
+REDIS_HOST=redis
+ENABLE_SSL=false
+APP_VERSION=${{ env.VERSION }}
+APP_COMMIT=${{ env.COMMIT_HASH }}
+BUILD_TIMESTAMP=${{ env.TIMESTAMP }}
 EOF
             
             # Stage and commit the new feature app
@@ -108,6 +116,9 @@ EOF
             # Update port in existing .env file
             sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
             sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
+            sed -i "s/APP_VERSION=.*/APP_VERSION=${{ env.VERSION }}/" "${{ env.BRANCH_NAME }}/.env"
+            sed -i "s/APP_COMMIT=.*/APP_COMMIT=${{ env.COMMIT_HASH }}/" "${{ env.BRANCH_NAME }}/.env"
+            sed -i "s/BUILD_TIMESTAMP=.*/BUILD_TIMESTAMP=${{ env.TIMESTAMP }}/" "${{ env.BRANCH_NAME }}/.env"
             
             # Commit port changes if any
             git add "${{ env.BRANCH_NAME }}/.env" ports.json
@@ -133,8 +144,8 @@ EOF
           file: ./${{ env.BRANCH_NAME }}/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
-            ${{ env.DOCKER_REGISTRY }}/bot-stonk-war:latest
+            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
+            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:latest
           build-args: |
             PYTHON_VERSION=${{ env.PYTHON_VERSION }}
 
