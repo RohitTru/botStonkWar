@@ -84,8 +84,11 @@ jobs:
             # Create app directory in root
             mkdir -p "${{ env.BRANCH_NAME }}"
             
-            # Copy app template
+            # Copy app template files
             cp -r app-template/* "${{ env.BRANCH_NAME }}/"
+            
+            # Rename the template .env file
+            mv "${{ env.BRANCH_NAME }}/microservice-env-template.env" "${{ env.BRANCH_NAME }}/.env"
             
             # Update environment variables in the copied template
             sed -i "s/APP_NAME=.*/APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}/" "${{ env.BRANCH_NAME }}/.env"
