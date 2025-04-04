@@ -92,17 +92,17 @@ jobs:
             
             # Update environment variables
             cat >> "${{ env.BRANCH_NAME }}/.env" << EOF
-APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}
-APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
-APP_PORT=${{ env.APP_PORT }}
-VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com
-VIRTUAL_PORT=${{ env.APP_PORT }}
-REDIS_HOST=redis
-ENABLE_SSL=false
-APP_VERSION=${{ env.VERSION }}
-APP_COMMIT=${{ env.COMMIT_HASH }}
-BUILD_TIMESTAMP=${{ env.TIMESTAMP }}
-EOF
+            APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}
+            APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
+            APP_PORT=${{ env.APP_PORT }}
+            VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com
+            VIRTUAL_PORT=${{ env.APP_PORT }}
+            REDIS_HOST=redis
+            ENABLE_SSL=false
+            APP_VERSION=${{ env.VERSION }}
+            APP_COMMIT=${{ env.COMMIT_HASH }}
+            BUILD_TIMESTAMP=${{ env.TIMESTAMP }}
+            EOF
             
             # Stage and commit the new feature app
             git add "${{ env.BRANCH_NAME }}"
