@@ -77,20 +77,43 @@ jobs:
 
       - name: Create Feature App
         run: |
-          # Create app directory in root
-          mkdir -p "${{ env.BRANCH_NAME }}"
-          
-          # Copy app template
-          cp -r app-template/* "${{ env.BRANCH_NAME }}/"
-          
-          # Create .env file with port
-          cat > "${{ env.BRANCH_NAME }}/.env" << EOF
-          APP_NAME=bot-stonk-war-${{ env.BRANCH_NAME }}
-          APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
-          APP_PORT=${{ env.APP_PORT }}
-          VIRTUAL_HOST=${{ env.BRANCH_NAME }}.bot-stonk-war.local
-          VIRTUAL_PORT=${{ env.APP_PORT }}
-          EOF
+          # Check if app directory already exists
+          if [ ! -d "${{ env.BRANCH_NAME }}" ]; then
+            echo "Creating new feature app directory..."
+            
+            # Create app directory in root
+            mkdir -p "${{ env.BRANCH_NAME }}"
+            
+            # Copy app template
+            cp -r app-template/* "${{ env.BRANCH_NAME }}/"
+            
+            # Create .env file with port
+            cat > "${{ env.BRANCH_NAME }}/.env" << EOF
+            APP_NAME=bot-stonk-war-${{ env.BRANCH_NAME }}
+            APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
+            APP_PORT=${{ env.APP_PORT }}
+            VIRTUAL_HOST=${{ env.BRANCH_NAME }}.bot-stonk-war.local
+            VIRTUAL_PORT=${{ env.APP_PORT }}
+            EOF
+            
+            # Stage and commit the new feature app
+            git add "${{ env.BRANCH_NAME }}"
+            git add ports.json
+            git commit -m "Create feature app for ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
+            
+            # Push to the feature branch
+            git push origin "${{ env.BRANCH_NAME }}"
+          else
+            echo "Feature app directory already exists, updating port if needed..."
+            # Update port in existing .env file
+            sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
+            sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
+            
+            # Commit port changes if any
+            git add "${{ env.BRANCH_NAME }}/.env" ports.json
+            git commit -m "Update port for ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
+            git push origin "${{ env.BRANCH_NAME }}"
+          fi
 
       - name: Install Dependencies
         run: |
