@@ -87,14 +87,14 @@ jobs:
             # Copy app template
             cp -r app-template/* "${{ env.BRANCH_NAME }}/"
             
-            # Create .env file with port
-            cat > "${{ env.BRANCH_NAME }}/.env" << EOF
-            APP_NAME=bot-stonk-war-${{ env.BRANCH_NAME }}
-            APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
-            APP_PORT=${{ env.APP_PORT }}
-            VIRTUAL_HOST=${{ env.BRANCH_NAME }}.bot-stonk-war.local
-            VIRTUAL_PORT=${{ env.APP_PORT }}
-            EOF
+            # Create .env file with port (using heredoc without indentation)
+            cat << 'EOF' > "${{ env.BRANCH_NAME }}/.env"
+APP_NAME=bot-stonk-war-${{ env.BRANCH_NAME }}
+APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
+APP_PORT=${{ env.APP_PORT }}
+VIRTUAL_HOST=${{ env.BRANCH_NAME }}.bot-stonk-war.local
+VIRTUAL_PORT=${{ env.APP_PORT }}
+EOF
             
             # Stage and commit the new feature app
             git add "${{ env.BRANCH_NAME }}"
