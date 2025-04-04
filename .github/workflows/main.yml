@@ -78,30 +78,33 @@ jobs:
       - name: Create Feature App
         run: |
           # Check if app directory already exists
-          if [ ! -d "${{ env.BRANCH_NAME }}" ]; then
+          APP_DIR="${{ env.BRANCH_NAME }}"
+          
+          if [ ! -d "$APP_DIR" ]; then
             echo "Creating new feature app directory..."
             
-            # Create app directory in root
-            mkdir -p "${{ env.BRANCH_NAME }}"
+            # Create app directory
+            mkdir -p "$APP_DIR"
             
             # Copy app template files
-            cp -r app-template/* "${{ env.BRANCH_NAME }}/"
+            cp -r app-template/* "$APP_DIR/"
             
-            # Rename the template .env file
-            mv "${{ env.BRANCH_NAME }}/microservice-env-template.env" "${{ env.BRANCH_NAME }}/.env"
-            
-            # Update environment variables in the copied template
-            sed -i "s/APP_NAME=.*/APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/APP_IMAGE=.*/APP_IMAGE=${{ env.DOCKER_REGISTRY }}\/microservicecicidtest:${{ env.BRANCH_NAME }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/VIRTUAL_HOST=.*/VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/APP_VERSION=.*/APP_VERSION=${{ env.VERSION }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/APP_COMMIT=.*/APP_COMMIT=${{ env.COMMIT_HASH }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/BUILD_TIMESTAMP=.*/BUILD_TIMESTAMP=${{ env.TIMESTAMP }}/" "${{ env.BRANCH_NAME }}/.env"
+            # Generate .env file
+            {
+              echo "APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}"
+              echo "APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}"
+              echo "APP_PORT=${{ env.APP_PORT }}"
+              echo "VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com"
+              echo "VIRTUAL_PORT=${{ env.APP_PORT }}"
+              echo "REDIS_HOST=redis"
+              echo "ENABLE_SSL=false"
+              echo "APP_VERSION=${{ env.VERSION }}"
+              echo "APP_COMMIT=${{ env.COMMIT_HASH }}"
+              echo "BUILD_TIMESTAMP=${{ env.TIMESTAMP }}"
+            } > "$APP_DIR/.env"
             
             # Stage and commit the new feature app
-            git add "${{ env.BRANCH_NAME }}"
+            git add "$APP_DIR"
             git add ports.json
             git commit -m "Create feature app for ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
             
@@ -110,17 +113,20 @@ jobs:
           else
             echo "Feature app directory already exists, updating port if needed..."
             # Update port in existing .env file
-            sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/APP_VERSION=.*/APP_VERSION=${{ env.VERSION }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/APP_COMMIT=.*/APP_COMMIT=${{ env.COMMIT_HASH }}/" "${{ env.BRANCH_NAME }}/.env"
-            sed -i "s/BUILD_TIMESTAMP=.*/BUILD_TIMESTAMP=${{ env.TIMESTAMP }}/" "${{ env.BRANCH_NAME }}/.env"
+            sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "$APP_DIR/.env"
+            sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "$APP_DIR/.env"
+            sed -i "s/APP_VERSION=.*/APP_VERSION=${{ env.VERSION }}/" "$APP_DIR/.env"
+            sed -i "s/APP_COMMIT=.*/APP_COMMIT=${{ env.COMMIT_HASH }}/" "$APP_DIR/.env"
+            sed -i "s/BUILD_TIMESTAMP=.*/BUILD_TIMESTAMP=${{ env.TIMESTAMP }}/" "$APP_DIR/.env"
             
             # Commit port changes if any
-            git add "${{ env.BRANCH_NAME }}/.env" ports.json
+            git add "$APP_DIR/.env" ports.json
             git commit -m "Update port for ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
             git push origin "${{ env.BRANCH_NAME }}"
           fi
+          
+          # Export APP_DIR for use in subsequent steps
+          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
 
       - name: Install Dependencies
         run: |
