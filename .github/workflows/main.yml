@@ -1,75 +1,50 @@
-name: Build & Deploy Feature Apps
+name: Build & Deploy Application
 
 on:
   push:
     branches:
-      - "feature-*"
-      - "staging"
-      - "main"
+      - "**"  # Trigger on all branches
   pull_request:
     types: [opened, synchronize, closed]
     branches:
-      - "staging"
-      - "main"
+      - "**"  # Trigger on all branches
   delete:
     branches:
-      - "feature-*"
-  schedule:
-    - cron: '0 0 * * *'  # Run daily at midnight
+      - "**"  # Trigger on all branches
 
 env:
   DOCKER_REGISTRY: rohittru
   PYTHON_VERSION: '3.11'
 
 jobs:
-  build-feature-app:
-    name: Build & Deploy Feature App
+  build-app:
+    name: Build & Deploy App
     runs-on: ubuntu-latest
     if: |
-      (github.event_name == 'push' && github.ref != 'refs/heads/main' && github.ref != 'refs/heads/staging') || 
+      (github.event_name == 'push') || 
       (github.event_name == 'pull_request' && github.event.action != 'closed')
 
     steps:
       - name: Checkout Code
         uses: actions/checkout@v4
         with:
-          fetch-depth: 0  # Get all branches
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
         with:
           python-version: '3.11'
 
-      - name: Extract Branch and Environment Info
+      - name: Extract Branch Info
         run: |
-          # Get repository name as microservice name
+          # Get repository name
           REPO_NAME=$(basename $(git rev-parse --show-toplevel))
-          echo "MICROSERVICE_NAME=${REPO_NAME}" >> $GITHUB_ENV
+          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
           
           if [[ "${{ github.event_name }}" == "pull_request" ]]; then
             echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
-            echo "TARGET_BRANCH=${{ github.base_ref }}" >> $GITHUB_ENV
           else
             echo "BRANCH_NAME=${GITHUB_REF#refs/heads/}" >> $GITHUB_ENV
-          fi
-          
-          # Determine environment based on branch or PR target
-          if [[ "${{ github.event_name }}" == "pull_request" ]]; then
-            if [[ "${{ github.base_ref }}" == "main" ]]; then
-              echo "TARGET_ENV=production" >> $GITHUB_ENV
-              echo "SOURCE_ENV=staging" >> $GITHUB_ENV
-            elif [[ "${{ github.base_ref }}" == "staging" ]]; then
-              echo "TARGET_ENV=staging" >> $GITHUB_ENV
-              echo "SOURCE_ENV=development" >> $GITHUB_ENV
-            fi
-          else
-            if [[ "${GITHUB_REF#refs/heads/}" == "main" ]]; then
-              echo "TARGET_ENV=production" >> $GITHUB_ENV
-            elif [[ "${GITHUB_REF#refs/heads/}" == "staging" ]]; then
-              echo "TARGET_ENV=staging" >> $GITHUB_ENV
-            else
-              echo "TARGET_ENV=development" >> $GITHUB_ENV
-            fi
           fi
 
       - name: Generate Version Info
@@ -88,112 +63,22 @@ jobs:
           
           # Combined version string
           echo "VERSION=${COMMIT_COUNT}-${COMMIT_HASH}" >> $GITHUB_ENV
-          
-          echo "Generated version info:"
-          echo "Commit Hash: ${COMMIT_HASH}"
-          echo "Commit Count: ${COMMIT_COUNT}"
-          echo "Timestamp: ${TIMESTAMP}"
-          echo "Version: ${COMMIT_COUNT}-${COMMIT_HASH}"
 
       - name: Setup Git
         run: |
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Handle Port Assignment
+      - name: Assign Port
         run: |
           chmod +x scripts/port_manager.py
-          
-          # For pull requests to staging, always assign a new port
-          if [[ "${{ github.event_name }}" == "pull_request" && "${{ github.base_ref }}" == "staging" ]]; then
-            echo "Assigning new port for staging PR"
-            ./scripts/port_manager.py assign "${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" "staging" >> $GITHUB_ENV
-          else
-            # For direct pushes, assign a port for the target environment
-            echo "Assigning port for ${{ env.BRANCH_NAME }} in ${{ env.TARGET_ENV }}"
-            ./scripts/port_manager.py assign "${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" "${{ env.TARGET_ENV }}" >> $GITHUB_ENV
-          fi
-          
+          ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
           echo "Assigned port: ${{ env.APP_PORT }}"
-          
-          # First commit to current branch
-          git add ports.json
-          git commit -m "Update port assignments for ${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" || echo "No changes to commit"
-          git push origin HEAD || echo "Could not push port changes"
-          
-          # Now sync to main branch
-          git fetch origin main
-          git checkout main
-          git pull origin main
-          
-          # Copy the ports.json from feature branch
-          git checkout HEAD@{1} -- ports.json
-          
-          # Commit and push to main
-          git add ports.json
-          git commit -m "Sync port assignments from ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
-          git push origin main || echo "Could not push to main"
-          
-          # Return to original branch
-          git checkout -
 
-      - name: Setup Environment Manager
+      - name: Install Dependencies
         run: |
-          chmod +x scripts/environment_manager.py
-          
-          # Track feature branch for all environments
-          if [[ "${{ github.event_name }}" == "push" && "${{ env.BRANCH_NAME }}" =~ ^feature- ]]; then
-            ./scripts/environment_manager.py track --branch "${{ env.BRANCH_NAME }}" --microservice "${{ env.MICROSERVICE_NAME }}"
-          fi
-
-      - name: Setup App Environment
-        run: |
-          # Create environment directory based on branch type
-          if [[ "${{ env.BRANCH_NAME }}" =~ ^feature- ]]; then
-            APP_DIR="environments/development/${{ env.BRANCH_NAME }}"
-          elif [[ "${{ env.BRANCH_NAME }}" == "staging" ]]; then
-            APP_DIR="environments/staging/${{ env.MICROSERVICE_NAME }}"
-          else
-            APP_DIR="environments/production/${{ env.MICROSERVICE_NAME }}"
-          fi
-
-          # Create directory and copy template
-          mkdir -p "$APP_DIR"
-          cp -r app-template/* "$APP_DIR/"
-          
-          # Generate .env file
-          {
-            echo "APP_NAME=${{ env.MICROSERVICE_NAME }}_${{ env.BRANCH_NAME }}"
-            echo "APP_IMAGE=rohittru/bot-stonk-war_${{ env.BRANCH_NAME }}:${{ env.VERSION }}"
-            echo "APP_PORT=${{ env.APP_PORT }}"
-            echo "VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com"
-            echo "VIRTUAL_PORT=${{ env.APP_PORT }}"
-            echo "REDIS_HOST=redis"
-            echo "ENABLE_SSL=false"
-            echo "APP_VERSION=${{ env.VERSION }}"
-            echo "APP_COMMIT=${{ env.COMMIT_HASH }}"
-            echo "BUILD_TIMESTAMP=${{ env.TIMESTAMP }}"
-            echo "ENVIRONMENT=${{ env.TARGET_ENV }}"
-          } > "$APP_DIR/.env"
-          
-          echo "APP_DIR=$APP_DIR" >> $GITHUB_ENV
-
-      - name: Install Test Dependencies
-        run: |
-          cd "${{ env.APP_DIR }}"
-          echo "Current directory: $(pwd)"
-          echo "Contents of current directory:"
-          ls -la
-          echo "Contents of requirements.txt:"
-          cat requirements.txt
-          pip install -r requirements.txt
+          pip install -r app-template/requirements.txt
           pip install pytest pytest-cov
-
-      - name: Commit and Push App Folder
-        run: |
-          git add "environments" ports.json
-          git commit -m "Update ${{ env.MICROSERVICE_NAME }} in ${{ env.TARGET_ENV }}" || echo "No changes to commit"
-          git push origin HEAD:${{ env.BRANCH_NAME }}
 
       - name: Login to Docker Hub
         uses: docker/login-action@v3
@@ -213,10 +98,47 @@ jobs:
           build-args: |
             PYTHON_VERSION=${{ env.PYTHON_VERSION }}
 
-      - name: Clean Up Workspace After Build
+  migrate-to-main:
+    name: Migrate to Main
+    runs-on: ubuntu-latest
+    if: |
+      github.event_name == 'pull_request' && 
+      github.event.action == 'closed' && 
+      github.event.pull_request.merged == true &&
+      github.base_ref == 'main'
+
+    steps:
+      - name: Checkout Code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Set up Python
+        uses: actions/setup-python@v4
+        with:
+          python-version: '3.11'
+
+      - name: Extract Branch Info
         run: |
-          echo "Cleaning up temporary files..."
-          rm -rf "./main" || true
+          echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
+          REPO_NAME=$(basename $(git rev-parse --show-toplevel))
+          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
+
+      - name: Setup Git
+        run: |
+          git config --global user.email "github-actions@github.com"
+          git config --global user.name "GitHub Actions"
+
+      - name: Migrate Port to Main Range
+        run: |
+          chmod +x scripts/port_manager.py
+          ./scripts/port_manager.py migrate "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
+          echo "Migrated port: ${{ env.APP_PORT }}"
+
+          # Commit port changes
+          git add ports.json
+          git commit -m "Migrate port for ${{ env.BRANCH_NAME }} to main range" || echo "No changes to commit"
+          git push origin main
 
   cleanup:
     if: github.event_name == 'delete' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == false)
@@ -235,23 +157,10 @@ jobs:
 
       - name: Extract Branch Info
         run: |
-          # Get repository name as microservice name
-          REPO_NAME=$(basename $(git rev-parse --show-toplevel))
-          echo "MICROSERVICE_NAME=${REPO_NAME}" >> $GITHUB_ENV
-          
           if [[ "${{ github.event_name }}" == "delete" ]]; then
             echo "BRANCH_NAME=${{ github.event.ref }}" >> $GITHUB_ENV
           else
             echo "BRANCH_NAME=${{ github.head_ref }}" >> $GITHUB_ENV
-          fi
-          
-          # Determine environment
-          if [[ "$BRANCH_NAME" == "main" ]]; then
-            echo "SOURCE_ENV=production" >> $GITHUB_ENV
-          elif [[ "$BRANCH_NAME" == "staging" ]]; then
-            echo "SOURCE_ENV=staging" >> $GITHUB_ENV
-          else
-            echo "SOURCE_ENV=development" >> $GITHUB_ENV
           fi
 
       - name: Setup Git
@@ -265,98 +174,11 @@ jobs:
           git pull origin main
           
           chmod +x scripts/port_manager.py
-          ./scripts/port_manager.py release "${{ env.MICROSERVICE_NAME }}/$BRANCH_NAME" "$SOURCE_ENV"
+          ./scripts/port_manager.py release "${{ env.REPO_NAME }}/$BRANCH_NAME"
           
           git add ports.json
-          git commit -m "Release port for ${{ env.MICROSERVICE_NAME }}/$BRANCH_NAME in $SOURCE_ENV" || echo "No changes to commit"
+          git commit -m "Release port for ${{ env.REPO_NAME }}/$BRANCH_NAME" || echo "No changes to commit"
           git push origin main
-
-      - name: Log in to Docker Hub
-        uses: docker/login-action@v2
-        with:
-          username: ${{ secrets.DOCKER_HUB_USERNAME }}
-          password: ${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}
-
-      - name: Remove Docker Resources
-        run: |
-          echo "Cleaning up Docker resources for $BRANCH_NAME..."
-          docker rm -f $BRANCH_NAME || true
-          docker rmi rohittru/bot-stonk-war${BRANCH_NAME}:latest || true
-          docker rmi rohittru/bot-stonk-war${BRANCH_NAME}:* || true  # Remove all version tags
-
-          TOKEN=$(curl -s -H "Content-Type: application/json" -X POST \
-            -d '{"username": "${{ secrets.DOCKER_HUB_USERNAME }}", "password": "${{ secrets.DOCKER_HUB_ACCESS_TOKEN }}"}' \
-            https://hub.docker.com/v2/users/login/ | jq -r .token)
-
-          if [ -n "$TOKEN" ]; then
-            curl -s -X DELETE \
-              -H "Authorization: Bearer $TOKEN" \
-              "https://hub.docker.com/v2/repositories/rohittru/bot-stonk-war${BRANCH_NAME}/"
-          fi
-
-      - name: Remove App Folder
-        run: |
-          echo "Removing app folder from repository..."
-          git config --global user.email "github-actions@github.com"
-          git config --global user.name "GitHub Actions"
-          
-          # Remove the environment-specific directory
-          if [[ "$SOURCE_ENV" == "development" ]]; then
-            git rm -rf "environments/$SOURCE_ENV/feature-branches/${{ env.BRANCH_NAME }}" || echo "No app folder to remove"
-          else
-            git rm -rf "environments/$SOURCE_ENV/current" || echo "No app folder to remove"
-          fi
-          
-          # Clean up any empty directories
-          find environments -type d -empty -delete || echo "No empty directories to clean"
-          
-          # Verify no unexpected files exist
-          echo "Verifying cleanup..."
-          if [[ "$SOURCE_ENV" == "development" ]]; then
-            if [[ -d "environments/$SOURCE_ENV/feature-branches/${{ env.BRANCH_NAME }}" ]]; then
-              echo "Error: Branch directory still exists after cleanup!"
-              exit 1
-            fi
-          else
-            if [[ -d "environments/$SOURCE_ENV/current" ]]; then
-              echo "Error: Environment directory still exists after cleanup!"
-              exit 1
-            fi
-          fi
-          
-          # Ensure only .gitkeep exists in environments if it's empty
-          if [[ $(ls -A environments | grep -v .gitkeep) ]]; then
-            echo "Warning: Found unexpected files in environments directory:"
-            ls -la environments
-            # Remove any unexpected files
-            find environments -not -name .gitkeep -type f -delete
-          fi
-          
-          git add environments
-          git commit -m "Cleanup: Removed ${{ env.MICROSERVICE_NAME }} from $SOURCE_ENV and cleaned empty directories" || echo "No changes to commit"
-          git push origin main || echo "Nothing to push"
-
-      - name: Verify Repository State
-        run: |
-          echo "Verifying repository state after cleanup..."
-          
-          # Check for any leftover files in environments
-          UNEXPECTED_FILES=$(find environments -type f ! -name .gitkeep)
-          if [[ -n "$UNEXPECTED_FILES" ]]; then
-            echo "Error: Found unexpected files after cleanup:"
-            echo "$UNEXPECTED_FILES"
-            exit 1
-          fi
-          
-          # Check for any empty directories that should have been cleaned
-          EMPTY_DIRS=$(find environments -type d -empty ! -name environments)
-          if [[ -n "$EMPTY_DIRS" ]]; then
-            echo "Error: Found empty directories that should have been cleaned:"
-            echo "$EMPTY_DIRS"
-            exit 1
-          fi
-          
-          echo "✅ Repository state verified - cleanup successful"
 
   sync-staging:
     name: Sync Staging with main
@@ -524,7 +346,7 @@ jobs:
           
           # Get repository name
           REPO_NAME=$(basename $(git rev-parse --show-toplevel))
-          echo "MICROSERVICE_NAME=${REPO_NAME}" >> $GITHUB_ENV
+          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
 
       - name: Assign Staging Port
         if: github.event.pull_request.merged == true
@@ -532,7 +354,7 @@ jobs:
           chmod +x scripts/port_manager.py
           
           # Assign a new port for staging
-          ./scripts/port_manager.py assign "${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" "staging" >> $GITHUB_ENV
+          ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" "staging" >> $GITHUB_ENV
           
           echo "New staging port assigned: ${{ env.APP_PORT }}"
 
@@ -573,7 +395,7 @@ jobs:
           git pull origin "${{ env.BRANCH_NAME }}"
           
           # Get the original development port from ports.json
-          DEV_PORT=$(jq -r --arg key "${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" --arg env "development" \
+          DEV_PORT=$(jq -r --arg key "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" --arg env "development" \
             '.[$key][$env] // empty' ports.json)
           
           # Update the development .env file with the original port
@@ -616,7 +438,7 @@ jobs:
           BRANCH_NAME="${{ github.event.ref }}"
           REPO_NAME=$(basename $(git rev-parse --show-toplevel))
           echo "BRANCH_NAME=${BRANCH_NAME}" >> $GITHUB_ENV
-          echo "MICROSERVICE_NAME=${REPO_NAME}" >> $GITHUB_ENV
+          echo "REPO_NAME=${REPO_NAME}" >> $GITHUB_ENV
 
       - name: Setup Environment Manager
         run: |
@@ -625,14 +447,14 @@ jobs:
       - name: Cleanup Feature Environment
         run: |
           # Check if environment can be safely cleaned up
-          DEV_ENV_PATH="environments/development/${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}"
+          DEV_ENV_PATH="environments/development/${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}"
           
           # Attempt to cleanup the environment
           ./scripts/environment_manager.py cleanup --target "$DEV_ENV_PATH"
           
           # Release the port
           chmod +x scripts/port_manager.py
-          ./scripts/port_manager.py release "${{ env.MICROSERVICE_NAME }}/${{ env.BRANCH_NAME }}" "development"
+          ./scripts/port_manager.py release "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" "development"
           
           # Commit port changes
           git config --global user.email "github-actions@github.com"

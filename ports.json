@@ -1,27 +1,13 @@
 {
-  "environments": {
-    "development": {
-      "port_range": {
-        "start": 5000,
-        "end": 5999
-      },
-      "assignments": {}
+  "port_ranges": {
+    "feature": {
+      "start": 5000,
+      "end": 5999
     },
-    "staging": {
-      "port_range": {
-        "start": 6000,
-        "end": 6999
-      },
-      "assignments": {}
-    },
-    "production": {
-      "port_range": {
-        "start": 7000,
-        "end": 7999
-      },
-      "assignments": {
-        "main": 7000
-      }
+    "main": {
+      "start": 7000,
+      "end": 7999
     }
-  }
+  },
+  "assignments": {}
 }
