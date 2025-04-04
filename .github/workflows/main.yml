@@ -92,7 +92,7 @@ jobs:
             # Generate .env file
             {
               echo "APP_NAME=${{ env.REPO_NAME }}_${{ env.BRANCH_NAME }}"
-              echo "APP_IMAGE=${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}"
+              echo "APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}"
               echo "APP_PORT=${{ env.APP_PORT }}"
               echo "VIRTUAL_HOST=${{ env.BRANCH_NAME }}.emerginary.com"
               echo "VIRTUAL_PORT=${{ env.APP_PORT }}"
@@ -146,8 +146,8 @@ jobs:
           file: ./${{ env.BRANCH_NAME }}/Dockerfile
           push: true
           tags: |
-            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:${{ env.BRANCH_NAME }}
-            ${{ env.DOCKER_REGISTRY }}/microservicecicidtest:latest
+            ${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
+            ${{ env.DOCKER_REGISTRY }}/bot-stonk-war:latest
           build-args: |
             PYTHON_VERSION=${{ env.PYTHON_VERSION }}
 
