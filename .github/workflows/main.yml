@@ -75,6 +75,23 @@ jobs:
           ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
           echo "Assigned port: ${{ env.APP_PORT }}"
 
+      - name: Create Feature App
+        run: |
+          # Create app directory in root
+          mkdir -p "${{ env.BRANCH_NAME }}"
+          
+          # Copy app template
+          cp -r app-template/* "${{ env.BRANCH_NAME }}/"
+          
+          # Create .env file with port
+          cat > "${{ env.BRANCH_NAME }}/.env" << EOF
+          APP_NAME=bot-stonk-war-${{ env.BRANCH_NAME }}
+          APP_IMAGE=${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
+          APP_PORT=${{ env.APP_PORT }}
+          VIRTUAL_HOST=${{ env.BRANCH_NAME }}.bot-stonk-war.local
+          VIRTUAL_PORT=${{ env.APP_PORT }}
+          EOF
+
       - name: Install Dependencies
         run: |
           pip install -r app-template/requirements.txt
@@ -89,8 +106,8 @@ jobs:
       - name: Build and push Docker image
         uses: docker/build-push-action@v5
         with:
-          context: ./app-template
-          file: ./app-template/Dockerfile
+          context: ./${{ env.BRANCH_NAME }}
+          file: ./${{ env.BRANCH_NAME }}/Dockerfile
           push: true
           tags: |
             ${{ env.DOCKER_REGISTRY }}/bot-stonk-war:${{ env.BRANCH_NAME }}
@@ -135,8 +152,12 @@ jobs:
           ./scripts/port_manager.py migrate "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
           echo "Migrated port: ${{ env.APP_PORT }}"
 
+          # Update .env file with new port
+          sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
+          sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "${{ env.BRANCH_NAME }}/.env"
+
           # Commit port changes
-          git add ports.json
+          git add ports.json "${{ env.BRANCH_NAME }}/.env"
           git commit -m "Migrate port for ${{ env.BRANCH_NAME }} to main range" || echo "No changes to commit"
           git push origin main
 
@@ -168,16 +189,20 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Release Port
+      - name: Cleanup Feature App
         run: |
+          # Remove feature app directory
+          rm -rf "${{ env.BRANCH_NAME }}"
+          
+          # Release port
           git checkout main
           git pull origin main
           
           chmod +x scripts/port_manager.py
-          ./scripts/port_manager.py release "${{ env.REPO_NAME }}/$BRANCH_NAME"
+          ./scripts/port_manager.py release "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}"
           
           git add ports.json
-          git commit -m "Release port for ${{ env.REPO_NAME }}/$BRANCH_NAME" || echo "No changes to commit"
+          git commit -m "Release port for ${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" || echo "No changes to commit"
           git push origin main
 
   sync-staging:
