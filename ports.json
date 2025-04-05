@@ -9,5 +9,7 @@
       "end": 7999
     }
   },
-  "assignments": {}
+  "assignments": {
+    "botStonkWar/feature-WSS": 5000
+  }
 }
