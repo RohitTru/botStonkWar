@@ -10,6 +10,7 @@
     }
   },
   "assignments": {
-    "botStonkWar/main": 7000
+    "botStonkWar/main": 7000,
+    "botStonkWar/feature-test1": 5000
   }
 }
