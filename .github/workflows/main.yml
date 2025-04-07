@@ -69,11 +69,39 @@ jobs:
           git config --global user.email "github-actions@github.com"
           git config --global user.name "GitHub Actions"
 
-      - name: Assign Port
+      - name: Handle Port Assignment and Sync
         run: |
           chmod +x scripts/port_manager.py
+          
+          # First, always sync with main to get the latest ports.json
+          echo "Syncing with main branch first..."
+          git fetch origin main
+          git checkout main
+          git pull origin main
+          
+          # Copy ports.json to feature branch
+          git checkout ${{ env.BRANCH_NAME }}
+          git checkout main -- ports.json
+          
+          # Now assign a new port
+          echo "Assigning new port..."
           ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
           echo "Assigned port: ${{ env.APP_PORT }}"
+          
+          # Commit to feature branch
+          git add ports.json
+          git commit -m "Update port assignments for ${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" || echo "No changes to commit"
+          git push origin ${{ env.BRANCH_NAME }}
+          
+          # Sync back to main
+          git checkout main
+          git checkout ${{ env.BRANCH_NAME }} -- ports.json
+          git add ports.json
+          git commit -m "Sync port assignments from ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
+          git push origin main
+          
+          # Return to feature branch
+          git checkout ${{ env.BRANCH_NAME }}
 
       - name: Create Feature App
         run: |
@@ -198,8 +226,9 @@ jobs:
           git push origin main
 
   cleanup:
-    if: github.event_name == 'delete' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == false)
+    name: Cleanup
     runs-on: ubuntu-latest
+    if: github.event_name == 'delete' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == false)
 
     steps:
       - name: Checkout Code
@@ -267,5 +296,3 @@ jobs:
           git add ports.json
           git commit -m "Release port for ${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" || echo "No changes to commit"
           git push origin main
-
-  
