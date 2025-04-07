@@ -15,6 +15,7 @@
     "botStonkWar/feature-test2": 5003,
     "botStonkWar/feature-WebApp": 5000,
     "botStonkWar/feature-StockBot": 5002,
-    "botStonkWar/feature-WebScraperStockSelector": 5004
+    "botStonkWar/feature-WebScraperStockSelector": 5004,
+    "botStonkWar/feature-WebScraperSelectedStock": 5005
   }
 }
