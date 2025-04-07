@@ -188,9 +188,13 @@ if __name__ == "__main__":
     
     try:
         if action == "assign":
+            print(f"Debug: Assigning port for {branch_name}", file=sys.stderr)
             port = manager.get_next_available_port(branch_name)
+            print(f"Debug: Port assigned: {port}", file=sys.stderr)
             # Output in GitHub Actions environment format
             print(f"APP_PORT={port}")
+            # Also output to stderr for debugging
+            print(f"Debug: Setting APP_PORT={port}", file=sys.stderr)
         elif action == "release":
             manager.release_port(branch_name)
         elif action == "migrate":

@@ -79,25 +79,22 @@ jobs:
           git checkout main
           git pull origin main
           
-          # Debug: Show current ports.json content
-          echo "Current ports.json content:"
-          cat ports.json
-          
           # Copy ports.json to feature branch
           git checkout ${{ env.BRANCH_NAME }}
           git checkout main -- ports.json
           
           # Now assign a new port
           echo "Assigning new port..."
-          ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
+          # Capture the port assignment output
+          PORT_OUTPUT=$(./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}")
+          echo "$PORT_OUTPUT" >> $GITHUB_ENV
           
           # Debug: Show the assigned port
-          echo "Port assignment output:"
-          ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}"
+          echo "Port assignment output: $PORT_OUTPUT"
           
-          # Debug: Show updated ports.json
-          echo "Updated ports.json content:"
-          cat ports.json
+          # Extract port number for verification
+          PORT_NUMBER=$(echo "$PORT_OUTPUT" | grep APP_PORT= | cut -d'=' -f2)
+          echo "Assigned port number: $PORT_NUMBER"
           
           # Commit to feature branch
           git add ports.json
@@ -107,11 +104,6 @@ jobs:
           # Sync back to main
           git checkout main
           git checkout ${{ env.BRANCH_NAME }} -- ports.json
-          
-          # Debug: Show final ports.json
-          echo "Final ports.json content:"
-          cat ports.json
-          
           git add ports.json
           git commit -m "Sync port assignments from ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
           git push origin main
@@ -121,6 +113,9 @@ jobs:
 
       - name: Create Feature App
         run: |
+          # Debug: Show the assigned port
+          echo "Using assigned port: ${{ env.APP_PORT }}"
+          
           # Check if app directory already exists
           APP_DIR="${{ env.BRANCH_NAME }}"
           
@@ -147,6 +142,10 @@ jobs:
               echo "BUILD_TIMESTAMP=${{ env.TIMESTAMP }}"
             } > "$APP_DIR/.env"
             
+            # Debug: Show the generated .env file
+            echo "Generated .env file contents:"
+            cat "$APP_DIR/.env"
+            
             # Stage and commit the new feature app
             git add "$APP_DIR"
             git add ports.json
@@ -156,12 +155,18 @@ jobs:
             git push origin "${{ env.BRANCH_NAME }}"
           else
             echo "Feature app directory already exists, updating port if needed..."
+            echo "Current .env file contents:"
+            cat "$APP_DIR/.env"
+            
             # Update port in existing .env file
             sed -i "s/APP_PORT=.*/APP_PORT=${{ env.APP_PORT }}/" "$APP_DIR/.env"
             sed -i "s/VIRTUAL_PORT=.*/VIRTUAL_PORT=${{ env.APP_PORT }}/" "$APP_DIR/.env"
             sed -i "s/APP_VERSION=.*/APP_VERSION=${{ env.VERSION }}/" "$APP_DIR/.env"
             sed -i "s/APP_COMMIT=.*/APP_COMMIT=${{ env.COMMIT_HASH }}/" "$APP_DIR/.env"
             sed -i "s/BUILD_TIMESTAMP=.*/BUILD_TIMESTAMP=${{ env.TIMESTAMP }}/" "$APP_DIR/.env"
+            
+            echo "Updated .env file contents:"
+            cat "$APP_DIR/.env"
             
             # Commit port changes if any
             git add "$APP_DIR/.env" ports.json
