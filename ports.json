@@ -16,6 +16,7 @@
     "botStonkWar/feature-WebApp": 5000,
     "botStonkWar/feature-StockBot": 5002,
     "botStonkWar/feature-WebScraperStockSelector": 5004,
-    "botStonkWar/feature-WebScraperSelectedStock": 5005
+    "botStonkWar/feature-WebScraperSelectedStock": 5005,
+    "botStonkWar/feature-SentimentAnalysisEngine": 5006
   }
 }
