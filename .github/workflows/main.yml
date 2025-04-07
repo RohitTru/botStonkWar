@@ -79,6 +79,10 @@ jobs:
           git checkout main
           git pull origin main
           
+          # Debug: Show current ports.json content
+          echo "Current ports.json content:"
+          cat ports.json
+          
           # Copy ports.json to feature branch
           git checkout ${{ env.BRANCH_NAME }}
           git checkout main -- ports.json
@@ -86,7 +90,14 @@ jobs:
           # Now assign a new port
           echo "Assigning new port..."
           ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" >> $GITHUB_ENV
-          echo "Assigned port: ${{ env.APP_PORT }}"
+          
+          # Debug: Show the assigned port
+          echo "Port assignment output:"
+          ./scripts/port_manager.py assign "${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}"
+          
+          # Debug: Show updated ports.json
+          echo "Updated ports.json content:"
+          cat ports.json
           
           # Commit to feature branch
           git add ports.json
@@ -96,6 +107,11 @@ jobs:
           # Sync back to main
           git checkout main
           git checkout ${{ env.BRANCH_NAME }} -- ports.json
+          
+          # Debug: Show final ports.json
+          echo "Final ports.json content:"
+          cat ports.json
+          
           git add ports.json
           git commit -m "Sync port assignments from ${{ env.BRANCH_NAME }}" || echo "No changes to commit"
           git push origin main
@@ -226,9 +242,8 @@ jobs:
           git push origin main
 
   cleanup:
-    name: Cleanup
-    runs-on: ubuntu-latest
     if: github.event_name == 'delete' || (github.event_name == 'pull_request' && github.event.action == 'closed' && github.event.pull_request.merged == false)
+    runs-on: ubuntu-latest
 
     steps:
       - name: Checkout Code
@@ -296,3 +311,5 @@ jobs:
           git add ports.json
           git commit -m "Release port for ${{ env.REPO_NAME }}/${{ env.BRANCH_NAME }}" || echo "No changes to commit"
           git push origin main
+
+  
