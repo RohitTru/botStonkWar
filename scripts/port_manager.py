@@ -77,7 +77,13 @@ class PortManager:
 
     def get_port_range(self, branch_name):
         """Determine which port range to use based on branch name"""
-        if branch_name == "main":
+        # Split branch name if it contains a slash
+        if "/" in branch_name:
+            _, branch = branch_name.split("/")
+        else:
+            branch = branch_name
+        
+        if branch == "main":
             return "main"
         return "feature"
 
