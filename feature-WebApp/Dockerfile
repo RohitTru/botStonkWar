@@ -36,18 +36,20 @@ WORKDIR /app
 # Install Python and dependencies
 RUN apk add --no-cache python3 py3-pip mysql-client mysql-dev gcc musl-dev python3-dev
 
+# Copy backend code and requirements first
+COPY backend/requirements.txt /app/backend/
+WORKDIR /app/backend
+RUN pip3 install --no-cache-dir -r requirements.txt
+WORKDIR /app
+
+# Copy backend from builder
+COPY --from=backend-builder /app/ ./backend/
+
 # Copy frontend from builder
 COPY --from=frontend-builder /app/package*.json ./
 COPY --from=frontend-builder /app/.next ./.next
 COPY --from=frontend-builder /app/public ./public
 COPY --from=frontend-builder /app/node_modules ./node_modules
-
-# Copy backend requirements and install dependencies
-COPY backend/requirements.txt ./backend/
-RUN cd backend && pip3 install --no-cache-dir -r requirements.txt
-
-# Copy backend from builder
-COPY --from=backend-builder /app/ ./backend/
 
 # Install PM2 globally
 RUN npm install -g pm2
