@@ -5,6 +5,8 @@ from pydantic import BaseModel
 from database.database import get_db
 from models.models import Trade, Vote, User
 from datetime import datetime
+from typing import Optional
+
 
 router = APIRouter()
 
@@ -18,10 +20,10 @@ class TradeResponse(BaseModel):
     id: int
     stock_symbol: str
     entry_price: float
-    exit_price: float | None
+    exit_price: Optional[float]
     quantity: int
     entry_time: datetime
-    exit_time: datetime | None
+    exit_time: Optional[datetime]
     trade_type: str
     status: str
     user_id: int
