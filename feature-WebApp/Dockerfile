@@ -41,15 +41,20 @@ RUN apt-get update && \
 
 # Copy backend from builder
 COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
-COPY --from=backend-builder /app/ ./
+COPY --from=backend-builder /app/ ./backend/
 
 # Copy frontend build from builder
-COPY --from=frontend-builder /app/.next ./.next
-COPY --from=frontend-builder /app/public ./public
-COPY --from=frontend-builder /app/package*.json ./
+COPY --from=frontend-builder /app/.next ./frontend/.next
+COPY --from=frontend-builder /app/public ./frontend/public
+COPY --from=frontend-builder /app/package*.json ./frontend/
+
+# Set environment variables
+ENV APP_PORT=5000
+ENV FRONTEND_PORT=3000
+ENV NODE_ENV=production
 
 # Expose ports
 EXPOSE 5000 3000
 
 # Start the application
-CMD ["python", "app/main.py"]
+CMD ["python", "backend/app/main.py"]
