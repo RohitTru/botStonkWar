@@ -9,7 +9,12 @@ from passlib.context import CryptContext
 from typing import Optional
 
 from database.database import get_db, engine
+from models import Base
 from api import users, trades
+
+# Create database tables
+Base.metadata.create_all(bind=engine)
+
 
 app = FastAPI(title="StockBotWar WebApp API")
 
