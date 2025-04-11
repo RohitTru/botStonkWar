@@ -42,20 +42,18 @@ COPY --from=frontend-builder /app/.next ./.next
 COPY --from=frontend-builder /app/public ./public
 COPY --from=frontend-builder /app/node_modules ./node_modules
 
+# Copy backend requirements and install dependencies
+COPY backend/requirements.txt ./backend/
+RUN cd backend && pip3 install --no-cache-dir -r requirements.txt
+
 # Copy backend from builder
-COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
 COPY --from=backend-builder /app/ ./backend/
 
 # Install PM2 globally
 RUN npm install -g pm2
 
 # Create start script
-COPY <<EOF /app/start.sh
-#!/bin/sh
-pm2 start "npm start" --name frontend
-cd backend && python3 app/main.py
-EOF
-
+RUN echo '#!/bin/sh\ncd /app && pm2 start "npm start" --name frontend && cd backend && python3 app/main.py' > /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Set environment variables
