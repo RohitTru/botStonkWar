@@ -36,10 +36,15 @@ WORKDIR /app
 # Install Python and dependencies
 RUN apk add --no-cache python3 py3-pip mysql-client mysql-dev gcc musl-dev python3-dev
 
+# Set up Python virtual environment
+ENV VIRTUAL_ENV=/app/venv
+RUN python3 -m venv $VIRTUAL_ENV
+ENV PATH="$VIRTUAL_ENV/bin:$PATH"
+
 # Copy backend code and requirements first
 COPY backend/requirements.txt /app/backend/
 WORKDIR /app/backend
-RUN pip3 install --no-cache-dir -r requirements.txt
+RUN . /app/venv/bin/activate && pip3 install --no-cache-dir -r requirements.txt
 WORKDIR /app
 
 # Copy backend from builder
@@ -55,7 +60,7 @@ COPY --from=frontend-builder /app/node_modules ./node_modules
 RUN npm install -g pm2
 
 # Create start script
-RUN echo '#!/bin/sh\ncd /app && pm2 start "npm start" --name frontend && cd backend && python3 app/main.py' > /app/start.sh
+RUN echo '#!/bin/sh\ncd /app && pm2 start "npm start" --name frontend && cd backend && . /app/venv/bin/activate && python3 app/main.py' > /app/start.sh
 RUN chmod +x /app/start.sh
 
 # Set environment variables
