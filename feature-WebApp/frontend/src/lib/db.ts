@@ -19,10 +19,10 @@ interface Session extends RowDataPacket {
 
 // Database connection configuration
 const dbConfig = {
-  host: process.env.DB_HOST || '127.0.0.1',
-  user: process.env.DB_USER || 'botstonkwar_user',
-  password: process.env.DB_PASSWORD || 'botstonkwar_password',
-  database: process.env.DB_NAME || 'botstonkwar-db',
+  host: process.env.MYSQL_HOST || '127.0.0.1',
+  user: process.env.MYSQL_USER || 'botstonkwar_user',
+  password: process.env.MYSQL_PASSWORD || 'botstonkwar_password',
+  database: process.env.MYSQL_DATABASE || 'botstonkwar-db',
   port: 3306
 };
 
