@@ -2,7 +2,7 @@
 FROM python:3.9-slim
 
 # Set working directory
-WORKDIR /app
+WORKDIR /app/backend
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
@@ -22,7 +22,7 @@ COPY . .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.main:app
+ENV FLASK_APP=wsgi.py
 ENV FLASK_ENV=production
 ENV PYTHONPATH=/app/backend
 
