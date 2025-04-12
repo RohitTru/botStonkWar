@@ -28,4 +28,8 @@ def create_app():
     db.init_app(app)
     bcrypt.init_app(app)
 
+    # Register blueprints
+    from app.routes import auth_bp
+    app.register_blueprint(auth_bp, url_prefix='/api/auth')
+
     return app 
