@@ -48,15 +48,29 @@ export async function getConnection() {
 
 // User-related database functions
 export async function createUser(username: string, email: string, passwordHash: string): Promise<ResultSetHeader> {
+  const connection = await pool.getConnection();
   try {
-    const [result] = await pool.execute<ResultSetHeader>(
+    console.log('Starting user creation:', { username, email });
+    
+    await connection.beginTransaction();
+    
+    const [result] = await connection.execute<ResultSetHeader>(
       'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
       [username, email, passwordHash]
     );
+    
+    console.log('Insert result:', result);
+    
+    await connection.commit();
+    console.log('Transaction committed successfully');
+    
     return result;
   } catch (error) {
-    console.error('Error creating user:', error);
+    console.error('Error creating user - FULL ERROR:', error);
+    await connection.rollback();
     throw error;
+  } finally {
+    connection.release();
   }
 }
 
