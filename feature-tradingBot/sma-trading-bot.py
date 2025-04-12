@@ -190,3 +190,6 @@ def real_time_sma_bot():
         print(f"Number of trades: {len(trade_log)}")
         print(f"Net P&L: ${net_pnl:.2f}")
         print("P&L per trade:", [f"${p:.2f}" for p in trade_log])
+
+# Run the trading bot
+real_time_sma_bot()
