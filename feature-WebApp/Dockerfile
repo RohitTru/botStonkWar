@@ -30,25 +30,21 @@ RUN pip install --no-cache-dir -r requirements.txt
 COPY backend/ .
 
 # Final stage
-FROM node:18-alpine
+FROM python:3.9-slim
 WORKDIR /app
 
-# Install Python and dependencies
-RUN apk add --no-cache python3 py3-pip mysql-client mysql-dev gcc musl-dev python3-dev
-
-# Set up Python virtual environment
-ENV VIRTUAL_ENV=/app/venv
-RUN python3 -m venv $VIRTUAL_ENV
-ENV PATH="$VIRTUAL_ENV/bin:$PATH"
-
-# Copy backend code and requirements first
-COPY backend/requirements.txt /app/backend/
-WORKDIR /app/backend
-RUN . /app/venv/bin/activate && pip3 install --no-cache-dir -r requirements.txt
-WORKDIR /app
-
-# Copy backend from builder
-COPY --from=backend-builder /app/ ./backend/
+# Install Node.js
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    curl \
+    gnupg \
+    nodejs \
+    npm \
+    default-libmysqlclient-dev && \
+    curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
+    apt-get install -y nodejs && \
+    npm install -g pm2 && \
+    rm -rf /var/lib/apt/lists/*
 
 # Copy frontend from builder
 COPY --from=frontend-builder /app/package*.json ./
@@ -56,12 +52,9 @@ COPY --from=frontend-builder /app/.next ./.next
 COPY --from=frontend-builder /app/public ./public
 COPY --from=frontend-builder /app/node_modules ./node_modules
 
-# Install PM2 globally
-RUN npm install -g pm2
-
-# Create start script
-RUN echo '#!/bin/sh\ncd /app && pm2 start "npm start" --name frontend && cd backend && . /app/venv/bin/activate && python3 app/main.py' > /app/start.sh
-RUN chmod +x /app/start.sh
+# Copy backend from builder
+COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
+COPY --from=backend-builder /app/ ./backend/
 
 # Set environment variables
 ENV NODE_ENV=production
@@ -71,5 +64,5 @@ ENV PORT=3000
 # Expose ports
 EXPOSE 3000 5000
 
-# Start both servers
-CMD ["/app/start.sh"]
+# Start both services using PM2
+CMD pm2 start "npm start" --name frontend && cd backend && python3 app/main.py
