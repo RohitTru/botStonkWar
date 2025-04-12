@@ -33,14 +33,15 @@ COPY backend/ .
 FROM python:3.9-slim
 WORKDIR /app
 
-# Install Node.js
+# Install Node.js and other dependencies
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
     curl \
     gnupg \
     nodejs \
     npm \
-    default-libmysqlclient-dev && \
+    default-libmysqlclient-dev \
+    netcat-traditional && \
     curl -fsSL https://deb.nodesource.com/setup_18.x | bash - && \
     apt-get install -y nodejs && \
     npm install -g pm2 && \
@@ -56,6 +57,11 @@ COPY --from=frontend-builder /app/node_modules ./node_modules
 COPY --from=backend-builder /usr/local/lib/python3.9/site-packages/ /usr/local/lib/python3.9/site-packages/
 COPY --from=backend-builder /app/ ./backend/
 
+# Create a healthcheck script
+RUN echo '#!/bin/sh\n\
+nc -z localhost 3000 && nc -z localhost 5000\n\
+' > /healthcheck.sh && chmod +x /healthcheck.sh
+
 # Set environment variables
 ENV NODE_ENV=production
 ENV APP_PORT=5000
@@ -66,3 +72,7 @@ EXPOSE 3000 5000
 
 # Start both services using PM2
 CMD pm2 start "npm start" --name frontend && cd backend && python3 app/main.py
+
+# Use netcat for healthcheck (already installed with netcat-traditional)
+HEALTHCHECK --interval=30s --timeout=10s --retries=3 \
+    CMD /healthcheck.sh
