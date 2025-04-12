@@ -22,10 +22,11 @@ COPY . .
 
 # Set environment variables
 ENV PYTHONUNBUFFERED=1
-ENV PYTHONPATH=/app
+ENV FLASK_APP=app.main:app
+ENV FLASK_ENV=production
 
 # Expose port
 EXPOSE 5000
 
-# Start the FastAPI application with uvicorn
-CMD ["uvicorn", "app.main:app", "--host", "0.0.0.0", "--port", "5000"] 
+# Start the Flask application
+CMD ["flask", "run", "--host=0.0.0.0", "--port=5000"] 

@@ -1,87 +1,65 @@
-from fastapi import FastAPI, Depends, HTTPException, status
-from fastapi.security import OAuth2PasswordBearer, OAuth2PasswordRequestForm
-from fastapi.middleware.cors import CORSMiddleware
-from sqlalchemy.orm import Session
-import os
+from flask import Flask, request, jsonify
+from flask_cors import CORS
 from datetime import datetime, timedelta
 from jose import JWTError, jwt
-from passlib.context import CryptContext
-from typing import Optional
+import os
+from . import create_app, db, bcrypt
+from .models.models import User
 
-from database.database import get_db, engine
-from models.models import Base
-from api import users, trades
-
-# Create database tables
-Base.metadata.create_all(bind=engine)
-
-
-app = FastAPI(title="StockBotWar WebApp API")
-
-# CORS middleware
-app.add_middleware(
-    CORSMiddleware,
-    allow_origins=["*"],
-    allow_credentials=True,
-    allow_methods=["*"],
-    allow_headers=["*"],
-)
+# Create the Flask application
+app = create_app()
 
 # Security
 SECRET_KEY = os.getenv("JWT_SECRET_KEY", "your-secret-key-here")
 ALGORITHM = "HS256"
 ACCESS_TOKEN_EXPIRE_MINUTES = 30
 
-pwd_context = CryptContext(schemes=["bcrypt"], deprecated="auto")
-oauth2_scheme = OAuth2PasswordBearer(tokenUrl="token")
-
-# Include routers
-app.include_router(users.router, prefix="/api", tags=["users"])
-app.include_router(trades.router, prefix="/api", tags=["trades"])
-
 # Routes
-@app.get("/")
-async def root():
-    return {"message": "Welcome to StockBotWar's WebApp API!"}
+@app.route("/")
+def root():
+    return jsonify({"message": "Welcome to StockBotWar's WebApp API!"})
 
-@app.get("/health")
-async def health_check():
-    return {"status": "healthy"}
+@app.route("/health")
+def health_check():
+    return jsonify({"status": "healthy"})
 
-@app.post("/token")
-async def login_for_access_token(
-    form_data: OAuth2PasswordRequestForm = Depends(),
-    db: Session = Depends(get_db)
-):
-    user = authenticate_user(db, form_data.username, form_data.password)
-    if not user:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Incorrect username or password",
-            headers={"WWW-Authenticate": "Bearer"},
-        )
-    access_token_expires = timedelta(minutes=ACCESS_TOKEN_EXPIRE_MINUTES)
-    access_token = create_access_token(
-        data={"sub": user.username}, expires_delta=access_token_expires
+@app.route("/api/auth/signup", methods=["POST"])
+def signup():
+    data = request.get_json()
+    
+    # Check if user already exists
+    if User.query.filter_by(username=data["username"]).first():
+        return jsonify({"error": "Username already exists"}), 400
+        
+    # Create new user
+    hashed_password = bcrypt.generate_password_hash(data["password"]).decode("utf-8")
+    new_user = User(
+        username=data["username"],
+        email=data["email"],
+        hashed_password=hashed_password
     )
-    return {"access_token": access_token, "token_type": "bearer"}
+    
+    db.session.add(new_user)
+    db.session.commit()
+    
+    return jsonify({"message": "User created successfully"}), 201
+
+@app.route("/api/auth/login", methods=["POST"])
+def login():
+    data = request.get_json()
+    user = User.query.filter_by(username=data["username"]).first()
+    
+    if user and bcrypt.check_password_hash(user.hashed_password, data["password"]):
+        access_token = create_access_token({"sub": user.username})
+        return jsonify({
+            "access_token": access_token,
+            "token_type": "bearer"
+        })
+    
+    return jsonify({"error": "Invalid username or password"}), 401
 
 # Helper functions
-def verify_password(plain_password, hashed_password):
-    return pwd_context.verify(plain_password, hashed_password)
-
-def get_password_hash(password):
-    return pwd_context.hash(password)
-
-def authenticate_user(db: Session, username: str, password: str):
-    user = db.query(users.User).filter(users.User.username == username).first()
-    if not user:
-        return False
-    if not verify_password(password, user.hashed_password):
-        return False
-    return user
-
-def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
+def create_access_token(data: dict, expires_delta: timedelta = None):
     to_encode = data.copy()
     if expires_delta:
         expire = datetime.utcnow() + expires_delta
@@ -92,6 +70,4 @@ def create_access_token(data: dict, expires_delta: Optional[timedelta] = None):
     return encoded_jwt
 
 if __name__ == "__main__":
-    import uvicorn
-    app_port = int(os.getenv("APP_PORT", 8000))
-    uvicorn.run(app, host="0.0.0.0", port=app_port)
+    app.run(host="0.0.0.0", port=int(os.getenv("APP_PORT", 5000)))
