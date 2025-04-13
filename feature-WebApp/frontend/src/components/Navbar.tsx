@@ -30,7 +30,7 @@ export default function Navbar() {
             flexGrow: 1,
           }}
         >
-          StockBotWar
+          BotStonkWar
         </Typography>
 
         <Box sx={{ display: 'flex', gap: 1 }}>

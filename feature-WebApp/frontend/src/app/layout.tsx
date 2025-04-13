@@ -10,7 +10,7 @@ const inter = Inter({
 });
 
 export const metadata: Metadata = {
-  title: "StockBotWar",
+  title: "BotStonkWar",
   description: "A platform for automated trading and community-driven investment strategies",
 };
 

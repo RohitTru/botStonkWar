@@ -8,7 +8,7 @@ app = create_app()
 
 @app.route("/")
 def root():
-    return {"message": "Welcome to StockBotWar's WebApp API!"}
+    return {"message": "Welcome to BotStonkWar's WebApp API!"}
 
 @app.route("/health")
 def health_check():

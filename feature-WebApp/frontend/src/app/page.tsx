@@ -6,7 +6,7 @@ export default function Home() {
     <Container maxWidth="lg">
       <Box sx={{ my: 4 }}>
         <Typography variant="h2" component="h1" gutterBottom align="center">
-          Welcome to StockBotWar
+          Welcome to BotStonkWar
         </Typography>
         <Typography variant="h5" component="h2" gutterBottom align="center" color="text.secondary">
           Democratize Your Trading Strategy
@@ -19,7 +19,7 @@ export default function Home() {
                 About Us
               </Typography>
               <Typography paragraph>
-                StockBotWar is a platform that combines AI-powered trading strategies with community voting to democratize trading decisions.
+                BotStonkWar is a platform that combines AI-powered trading strategies with community voting to democratize trading decisions.
                 Join our community of traders and investors to share strategies and grow together.
               </Typography>
             </Paper>
@@ -46,7 +46,7 @@ export default function Home() {
               </Typography>
               <Typography paragraph>
                 Ready to join the trading revolution? Sign up now and start your journey
-                with StockBotWar.
+                with BotStonkWar.
               </Typography>
               <Button
                 component={Link}
