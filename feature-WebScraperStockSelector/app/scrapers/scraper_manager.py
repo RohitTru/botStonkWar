@@ -1,7 +1,9 @@
 import threading
 from concurrent.futures import ThreadPoolExecutor
 import logging
+from flask import current_app
 from app.scrapers.yahoo_finance import YahooFinanceScraper
+from app import db
 
 logger = logging.getLogger(__name__)
 
@@ -11,6 +13,7 @@ class ScraperManager:
         self.executor = ThreadPoolExecutor(max_workers=max_workers)
         self.running = False
         self.threads = []
+        self._app = current_app._get_current_object()  # Get the actual app object
         self.initialize_scrapers()
         
     def initialize_scrapers(self):
@@ -22,7 +25,14 @@ class ScraperManager:
     def start_scraper(self, scraper):
         """Run a single scraper."""
         logger.info(f"Starting scraper: {scraper.name}")
-        scraper.run()
+        # Push the application context
+        with self._app.app_context():
+            try:
+                scraper.run()
+            except Exception as e:
+                logger.error(f"Error in scraper {scraper.name}: {str(e)}")
+                # Ensure the session is cleaned up in case of error
+                db.session.remove()
         
     def start(self):
         """Start all scrapers in separate threads."""
