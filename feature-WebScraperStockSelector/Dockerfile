@@ -2,7 +2,7 @@ FROM python:3.10-slim
 
 WORKDIR /app
 
-# Install system dependencies and rust
+# Install system dependencies and Rust
 RUN apt-get update && apt-get install -y \
     gcc \
     build-essential \
@@ -10,7 +10,8 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/* \
-    && curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path \
+    && curl https://sh.rustup.rs -sSf | bash -s -- -y \
+    && . "$HOME/.cargo/env" && rustup update stable \
     && ln -s /root/.cargo/bin/rustc /usr/local/bin/rustc \
     && ln -s /root/.cargo/bin/cargo /usr/local/bin/cargo
 
