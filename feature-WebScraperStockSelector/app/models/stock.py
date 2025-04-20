@@ -13,8 +13,7 @@ class Stock(db.Model):
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
     # Relationships
-    articles = db.relationship('Article', backref='stock', lazy=True)
-    analyses = db.relationship('Analysis', backref='stock', lazy=True)
+    raw_articles = db.relationship('RawArticle', backref='stock', lazy=True)
     
     def __repr__(self):
         return f'<Stock {self.symbol}>' 
