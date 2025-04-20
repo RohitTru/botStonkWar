@@ -10,10 +10,9 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     pkg-config \
     && rm -rf /var/lib/apt/lists/* \
-    && curl https://sh.rustup.rs -sSf | bash -s -- -y \
-    && . "$HOME/.cargo/env" \
-    && ln -s "$HOME/.cargo/bin/rustc" /usr/local/bin/rustc \
-    && ln -s "$HOME/.cargo/bin/cargo" /usr/local/bin/cargo
+    && curl https://sh.rustup.rs -sSf | bash -s -- -y --no-modify-path \
+    && ln -s /root/.cargo/bin/rustc /usr/local/bin/rustc \
+    && ln -s /root/.cargo/bin/cargo /usr/local/bin/cargo
 
 # Upgrade pip
 RUN pip install --upgrade pip
