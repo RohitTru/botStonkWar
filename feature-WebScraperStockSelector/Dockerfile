@@ -9,6 +9,10 @@ RUN apt-get update && apt-get install -y \
     default-libmysqlclient-dev \
     pkg-config \
     curl \
+    python3-dev \
+    libxml2-dev \
+    libxslt-dev \
+    build-essential \
     && rm -rf /var/lib/apt/lists/*
 
 # Install Rust for tokenizers
@@ -20,8 +24,9 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies with HTML clean support
+RUN pip install --no-cache-dir "lxml[html_clean]>=4.9.3" && \
+    pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
 COPY . .
