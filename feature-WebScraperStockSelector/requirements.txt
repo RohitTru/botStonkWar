@@ -1,6 +1,7 @@
 Flask==2.0.1
 Werkzeug==2.0.3
 Flask-SQLAlchemy==2.5.1
+SQLAlchemy==1.4.23
 mysqlclient==2.0.3
 requests==2.26.0
 beautifulsoup4==4.9.3
