@@ -2,9 +2,11 @@ from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
 import os
 from dotenv import load_dotenv
+from app.scrapers.scraper_manager import ScraperManager
 
 # Initialize extensions
 db = SQLAlchemy()
+scraper_manager = None
 
 def create_app():
     # Initialize Flask app
@@ -27,6 +29,15 @@ def create_app():
     
     # Initialize extensions with app
     db.init_app(app)
+    
+    with app.app_context():
+        # Create database tables
+        db.create_all()
+        
+        # Initialize and start scraper manager
+        global scraper_manager
+        scraper_manager = ScraperManager()
+        scraper_manager.start()
     
     # Import and register blueprints
     from app.routes import main_bp
