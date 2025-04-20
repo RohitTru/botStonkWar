@@ -1,26 +1,33 @@
+# Use Python 3.11 slim image
 FROM python:3.11-slim
+
+# Set working directory
+WORKDIR /app
 
 # Install system dependencies
 RUN apt-get update && apt-get install -y \
+    gcc \
     default-libmysqlclient-dev \
-    build-essential \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Set the working directory inside the container
-WORKDIR /app
+# Copy requirements file
+COPY requirements.txt .
 
-# Copy the current directory contents into the container at /app
+# Install Python dependencies
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy application code
 COPY . .
 
-# Create and activate the virtual environment
-RUN python3 -m venv venv && \
-    . venv/bin/activate && \
-    # Upgrade pip and install dependencies from the requirements file
-    pip install --upgrade pip && \
-    pip install -r requirements.txt
+# Set environment variables
+ENV PYTHONUNBUFFERED=1
+ENV FLASK_APP=app.py
+ENV FLASK_ENV=production
+ENV PYTHONPATH=/app
 
-# Expose the port (use the value from the .env if available)
+# Expose port
 EXPOSE ${APP_PORT}
 
-# Set the entrypoint to activate the virtual environment and run the app
-CMD ["/bin/bash", "-c", "source venv/bin/activate && python app.py"]
+# Start the Flask application
+CMD ["flask", "run", "--host=0.0.0.0", "--port=${APP_PORT}"]
