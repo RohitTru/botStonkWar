@@ -1,10 +1,9 @@
-from flask_sqlalchemy import SQLAlchemy
-from datetime import datetime
+from app import db
 from .stock import Stock
 from .article import Article
 from .analysis import Analysis
 
-db = SQLAlchemy()
+__all__ = ['Stock', 'Article', 'Analysis']
 
 class Stock(db.Model):
     __tablename__ = 'stocks'
