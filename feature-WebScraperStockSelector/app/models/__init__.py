@@ -1,4 +1,5 @@
 from app import db
+from datetime import datetime
 from .stock import Stock
 from .article import Article
 from .analysis import Analysis
