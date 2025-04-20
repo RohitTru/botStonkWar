@@ -1,5 +1,8 @@
 from flask_sqlalchemy import SQLAlchemy
 from datetime import datetime
+from .stock import Stock
+from .article import Article
+from .analysis import Analysis
 
 db = SQLAlchemy()
 
