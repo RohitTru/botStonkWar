@@ -11,7 +11,7 @@ RUN apt-get update && apt-get install -y \
     curl \
     python3-dev \
     libxml2-dev \
-    libxslt-dev \
+    libxslt1-dev \
     build-essential \
     && rm -rf /var/lib/apt/lists/*
 
@@ -24,8 +24,8 @@ RUN curl https://sh.rustup.rs -sSf | bash -s -- -y \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies with HTML clean support
-RUN pip install --no-cache-dir "lxml[html_clean]>=4.9.3" && \
+# Install Python dependencies
+RUN pip install --no-cache-dir lxml==4.9.3 lxml_html_clean && \
     pip install --no-cache-dir -r requirements.txt
 
 # Copy application code
