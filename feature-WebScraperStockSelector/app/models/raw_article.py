@@ -13,4 +13,4 @@ class RawArticle(db.Model):
     published_at = db.Column(db.DateTime)
     scraped_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    stock = db.relationship('Stock', backref=db.backref('articles', lazy=True)) 
+    stock = db.relationship('Stock', backref=db.backref('raw_articles', lazy=True)) 

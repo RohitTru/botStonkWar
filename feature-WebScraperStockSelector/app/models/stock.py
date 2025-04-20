@@ -7,8 +7,8 @@ class Stock(db.Model):
     id = db.Column(db.Integer, primary_key=True)
     symbol = db.Column(db.String(10), unique=True, nullable=False)
     name = db.Column(db.String(255))
-    sector = db.Column(db.String(100))
-    industry = db.Column(db.String(100))
+    sector = db.Column(db.String(255))
+    industry = db.Column(db.String(255))
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
