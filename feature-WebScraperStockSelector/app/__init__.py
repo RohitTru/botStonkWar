@@ -1,5 +1,7 @@
 from flask import Flask
 from flask_sqlalchemy import SQLAlchemy
+import os
+from dotenv import load_dotenv
 
 # Initialize extensions
 db = SQLAlchemy()
@@ -7,6 +9,17 @@ db = SQLAlchemy()
 def create_app():
     # Initialize Flask app
     app = Flask(__name__)
+    
+    # Load environment variables
+    load_dotenv()
+    
+    # Set configuration from environment variables
+    app.config.update(
+        MYSQL_HOST=os.getenv('MYSQL_HOST', 'mysql'),
+        MYSQL_USER=os.getenv('MYSQL_USER'),
+        MYSQL_PASSWORD=os.getenv('MYSQL_PASSWORD'),
+        MYSQL_SCRAPING_DATABASE=os.getenv('MYSQL_SCRAPING_DATABASE', 'bot_stonk_war_scraping')
+    )
     
     # Configure the Flask app
     app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{app.config['MYSQL_USER']}:{app.config['MYSQL_PASSWORD']}@{app.config['MYSQL_HOST']}/{app.config['MYSQL_SCRAPING_DATABASE']}"
