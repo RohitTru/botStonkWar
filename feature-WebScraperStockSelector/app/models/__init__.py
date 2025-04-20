@@ -1,10 +1,14 @@
 from app import db
 from datetime import datetime
 from .stock import Stock
-from .article import Article
-from .analysis import Analysis
+from .raw_article import RawArticle
+from .processed_article import ProcessedArticle
 
-__all__ = ['Stock', 'Article', 'Analysis']
+__all__ = [
+    'Stock',
+    'RawArticle',
+    'ProcessedArticle'
+]
 
 class Stock(db.Model):
     __tablename__ = 'stocks'
@@ -37,27 +41,4 @@ class ProcessedArticle(db.Model):
     processed_content = db.Column(db.Text)
     processed_at = db.Column(db.DateTime, default=datetime.utcnow)
     
-    raw_article = db.relationship('RawArticle', backref=db.backref('processed_article', uselist=False))
-
-class SentimentAnalysis(db.Model):
-    __tablename__ = 'sentiment_analysis'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    processed_article_id = db.Column(db.Integer, db.ForeignKey('processed_articles.id'), nullable=False)
-    sentiment_score = db.Column(db.Float)
-    confidence = db.Column(db.Float)
-    analysis_type = db.Column(db.String(50))
-    analyzed_at = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    processed_article = db.relationship('ProcessedArticle', backref=db.backref('sentiment_analysis', lazy=True))
-
-class TechnicalAnalysis(db.Model):
-    __tablename__ = 'technical_analysis'
-    
-    id = db.Column(db.Integer, primary_key=True)
-    stock_id = db.Column(db.Integer, db.ForeignKey('stocks.id'), nullable=False)
-    analysis_type = db.Column(db.String(50))
-    value = db.Column(db.Float)
-    timestamp = db.Column(db.DateTime, default=datetime.utcnow)
-    
-    stock = db.relationship('Stock', backref=db.backref('technical_analysis', lazy=True)) 
+    raw_article = db.relationship('RawArticle', backref=db.backref('processed_article', uselist=False)) 
