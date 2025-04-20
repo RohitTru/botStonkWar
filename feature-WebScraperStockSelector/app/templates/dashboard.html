@@ -1,0 +1,129 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stock Scraper Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        .status-card {
+            margin-bottom: 20px;
+        }
+        .log-container {
+            height: 300px;
+            overflow-y: auto;
+            background-color: #f8f9fa;
+            padding: 10px;
+            border-radius: 5px;
+        }
+    </style>
+</head>
+<body>
+    <div class="container mt-4">
+        <h1>Stock Scraper Dashboard</h1>
+        
+        <!-- Status Cards -->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="card status-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Scraper Status</h5>
+                        <p class="card-text" id="scraper-status">Loading...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card status-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Articles Found</h5>
+                        <p class="card-text" id="articles-count">Loading...</p>
+                    </div>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="card status-card">
+                    <div class="card-body">
+                        <h5 class="card-title">Database Status</h5>
+                        <p class="card-text" id="db-status">Loading...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Articles -->
+        <div class="card">
+            <div class="card-header">
+                <h5>Recent Articles</h5>
+            </div>
+            <div class="card-body">
+                <div class="table-responsive">
+                    <table class="table" id="articles-table">
+                        <thead>
+                            <tr>
+                                <th>Stock</th>
+                                <th>Title</th>
+                                <th>Source</th>
+                                <th>Date</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <!-- Articles will be populated here -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+
+        <!-- Logs -->
+        <div class="card mt-4">
+            <div class="card-header">
+                <h5>System Logs</h5>
+            </div>
+            <div class="card-body">
+                <div class="log-container" id="logs">
+                    <!-- Logs will be populated here -->
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Function to update dashboard data
+        function updateDashboard() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    document.getElementById('scraper-status').textContent = data.status;
+                    document.getElementById('articles-count').textContent = data.articles_count;
+                    document.getElementById('db-status').textContent = data.db_status;
+                    
+                    // Update articles table
+                    const tbody = document.querySelector('#articles-table tbody');
+                    tbody.innerHTML = '';
+                    data.recent_articles.forEach(article => {
+                        const row = document.createElement('tr');
+                        row.innerHTML = `
+                            <td>${article.stock}</td>
+                            <td>${article.title}</td>
+                            <td>${article.source}</td>
+                            <td>${article.date}</td>
+                        `;
+                        tbody.appendChild(row);
+                    });
+
+                    // Update logs
+                    const logsContainer = document.getElementById('logs');
+                    logsContainer.innerHTML = data.logs.map(log => 
+                        `<div class="log-entry">${log}</div>`
+                    ).join('');
+                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                });
+        }
+
+        // Update dashboard every 5 seconds
+        setInterval(updateDashboard, 5000);
+        updateDashboard(); // Initial update
+    </script>
+</body>
+</html> 
