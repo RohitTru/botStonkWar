@@ -16,7 +16,7 @@ logger = setup_logger()
 class YahooFinanceScraper:
     def __init__(self):
         self.db = Database()
-        self.paused = False
+        self._paused = False  # Make pause state private
         self.consecutive_failures = 0
         self.max_consecutive_failures = 5  # Threshold for logging warning
         # Updated RSS feed URLs
@@ -28,6 +28,25 @@ class YahooFinanceScraper:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+
+    @property
+    def paused(self):
+        """Get the current pause state."""
+        return self._paused
+
+    @paused.setter
+    def paused(self, value):
+        """Set the pause state with logging."""
+        if self._paused != value:
+            self._paused = value
+            logger.info(f"Scraper {'paused' if value else 'resumed'} explicitly")
+
+    def _check_pause_state(self):
+        """Check if scraper is paused and log if it is."""
+        if self._paused:
+            logger.debug("Scraper is currently paused")
+            return True
+        return False
 
     def test_feed_access(self):
         """Test access to RSS feeds"""
@@ -131,8 +150,7 @@ class YahooFinanceScraper:
             logger.info("Starting feed scraping cycle...")
             for feed_url in self.rss_feeds:
                 # Check pause state before processing each feed
-                if self.paused:
-                    logger.info("Scraper paused during feed processing")
+                if self._check_pause_state():
                     return
                     
                 try:
@@ -157,8 +175,7 @@ class YahooFinanceScraper:
                     
                     for entry in feed.entries:
                         # Check pause state before processing each article
-                        if self.paused:
-                            logger.info("Scraper paused during article processing")
+                        if self._check_pause_state():
                             return
                             
                         try:
@@ -276,14 +293,15 @@ class YahooFinanceScraper:
         while True:
             try:
                 # Check if paused
-                while self.paused:
-                    logger.info("Scraper is paused")
+                if self._check_pause_state():
                     time.sleep(5)
+                    continue
                 
                 logger.info("Waiting for next scrape cycle...")
                 time.sleep(60)  # Wait 60 seconds between cycles
                 
-                if not self.paused:  # Double check pause state before starting new cycle
+                # Double check pause state before starting new cycle
+                if not self._check_pause_state():
                     logger.info("Starting new scrape cycle...")
                     self.scrape_feed()
                     
