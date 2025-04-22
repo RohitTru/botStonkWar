@@ -17,6 +17,8 @@ class YahooFinanceScraper:
     def __init__(self):
         self.db = Database()
         self.paused = False
+        self.consecutive_failures = 0
+        self.max_consecutive_failures = 5  # Threshold for logging warning
         # Updated RSS feed URLs
         self.rss_feeds = [
             "https://finance.yahoo.com/news/rssindex",
@@ -195,9 +197,21 @@ class YahooFinanceScraper:
             existing_article = self.db.get_article_by_url(url)
             if existing_article:
                 logger.debug(f"Article already exists in database: {url}")
+                self.consecutive_failures = 0  # Reset on successful check
                 return
 
-            # Log start of scraping
+            # Get article details first before logging start
+            article_data = self.scrape_article(url)
+            if not article_data:
+                self.consecutive_failures += 1
+                if self.consecutive_failures >= self.max_consecutive_failures:
+                    logger.warning(f"High number of consecutive failures ({self.consecutive_failures}), but continuing...")
+                raise Exception("Failed to scrape article content")
+            
+            # Reset failure counter on successful scrape
+            self.consecutive_failures = 0
+            
+            # Only log STARTED if we successfully got the article content
             log_data = {
                 'timestamp': datetime.now(timezone.utc),
                 'status': 'STARTED',
@@ -205,11 +219,6 @@ class YahooFinanceScraper:
                 'url': url
             }
             self.db.add_scraping_log(log_data)
-            
-            # Get article details
-            article_data = self.scrape_article(url)
-            if not article_data:
-                raise Exception("Failed to scrape article content")
             
             # Convert published date to UTC
             if hasattr(entry, 'published_parsed'):
