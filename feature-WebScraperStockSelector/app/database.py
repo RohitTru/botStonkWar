@@ -275,4 +275,28 @@ class Database:
                 self.connection.close()
                 logger.info("Database connection closed")
         except Error as e:
-            logger.error(f"Error closing database connection: {e}") 
+            logger.error(f"Error closing database connection: {e}")
+
+    def check_connection(self):
+        """Check if the database connection is active."""
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT 1")
+            cursor.fetchone()
+            cursor.close()
+            return True
+        except Exception as e:
+            logger.error(f"Database connection check failed: {e}")
+            return False
+
+    def get_total_articles(self):
+        """Get the total number of articles in the database."""
+        try:
+            cursor = self.connection.cursor()
+            cursor.execute("SELECT COUNT(*) FROM articles WHERE deleted = 0")
+            count = cursor.fetchone()[0]
+            cursor.close()
+            return count
+        except Exception as e:
+            logger.error(f"Error getting total articles count: {e}")
+            return 0 

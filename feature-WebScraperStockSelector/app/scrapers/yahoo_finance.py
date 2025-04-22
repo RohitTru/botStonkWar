@@ -137,11 +137,15 @@ class YahooFinanceScraper:
 
     def run(self):
         """Run the scraper continuously."""
+        logger.info("Starting Yahoo Finance scraper...")
+        # Run immediately on startup
+        self.scrape_feed()
+        
         while True:
             try:
+                # Wait 1 minute before next scrape
+                time.sleep(60)
                 self.scrape_feed()
-                # Wait 5 minutes before next scrape
-                time.sleep(300)
             except Exception as e:
                 logger.error(f"Error in scraper run loop: {e}")
-                time.sleep(60)  # Wait 1 minute on error 
+                time.sleep(10)  # Wait 10 seconds on error before retrying 

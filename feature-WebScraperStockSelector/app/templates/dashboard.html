@@ -44,52 +44,51 @@
     <div class="container-fluid py-4">
         <h1 class="mb-4">Stock Scraper Dashboard</h1>
         
-        <!-- Status Cards -->
-        <div class="row mb-4">
-            <div class="col-md-3">
+        <div class="row mt-4">
+            <!-- Scraper Status Card -->
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Scraper Status</h5>
                         <p class="card-text" id="scraper-status">Loading...</p>
+                        <p class="card-text">
+                            <small class="text-muted">Database: <span id="db-status" class="badge bg-secondary">Checking...</span></small>
+                        </p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-3">
+            
+            <!-- Articles Found Card -->
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Articles Found</h5>
-                        <p class="card-text" id="articles-count">Loading...</p>
+                        <p class="card-text" id="articles-count">0</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-6">
+            
+            <!-- Last Hour Statistics Card -->
+            <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Last Hour Statistics</h5>
-                        <div class="row">
-                            <div class="col-3">
-                                <div class="stats-card">
-                                    <div class="stats-number" id="total-attempts">0</div>
-                                    <div>Attempts</div>
-                                </div>
+                        <div class="row text-center">
+                            <div class="col">
+                                <h2 id="total-attempts">0</h2>
+                                <p>Attempts</p>
                             </div>
-                            <div class="col-3">
-                                <div class="stats-card">
-                                    <div class="stats-number success" id="successful-attempts">0</div>
-                                    <div>Successful</div>
-                                </div>
+                            <div class="col">
+                                <h2 id="successful-attempts" class="text-success">0</h2>
+                                <p>Successful</p>
                             </div>
-                            <div class="col-3">
-                                <div class="stats-card">
-                                    <div class="stats-number error" id="failed-attempts">0</div>
-                                    <div>Failed</div>
-                                </div>
+                            <div class="col">
+                                <h2 id="failed-attempts" class="text-danger">0</h2>
+                                <p>Failed</p>
                             </div>
-                            <div class="col-3">
-                                <div class="stats-card">
-                                    <div class="stats-number" id="success-rate">0%</div>
-                                    <div>Success Rate</div>
-                                </div>
+                            <div class="col">
+                                <h2 id="success-rate">0%</h2>
+                                <p>Success Rate</p>
                             </div>
                         </div>
                     </div>
@@ -156,10 +155,22 @@
         let isLoading = false;
         let hasMoreArticles = true;
         const articlesPerPage = 10;
+        let autoRefreshInterval;
         
         function formatDateTime(isoString) {
             const date = new Date(isoString);
             return date.toLocaleString();
+        }
+        
+        function updateDatabaseStatus(status) {
+            const dbStatus = document.getElementById('db-status');
+            if (status) {
+                dbStatus.className = 'badge bg-success';
+                dbStatus.textContent = 'Connected';
+            } else {
+                dbStatus.className = 'badge bg-danger';
+                dbStatus.textContent = 'Disconnected';
+            }
         }
         
         function updateDashboard() {
@@ -171,6 +182,9 @@
                 .then(data => {
                     // Update scraper status
                     document.getElementById('scraper-status').textContent = data.status;
+                    
+                    // Update database status
+                    updateDatabaseStatus(data.db_connected);
                     
                     // Update articles count
                     document.getElementById('articles-count').textContent = data.articles_count;
@@ -210,17 +224,14 @@
                     
                     // Update scraping logs
                     const logsContainer = document.getElementById('scraping-logs');
-                    logsContainer.innerHTML = '';
-                    data.scraping_logs.forEach(log => {
-                        const logElement = document.createElement('div');
-                        logElement.className = `log-entry p-2 border-bottom ${log.status === 'SUCCESS' ? 'text-success' : 'text-danger'}`;
-                        logElement.innerHTML = `
-                            <small>${formatDateTime(log.timestamp)}</small><br>
-                            ${log.status}: ${log.source_type} - ${log.url}
-                            ${log.error_message ? `<br><small class="text-danger">${log.error_message}</small>` : ''}
-                        `;
-                        logsContainer.appendChild(logElement);
-                    });
+                    if (data.scraping_logs && data.scraping_logs.length > 0) {
+                        logsContainer.innerHTML = data.scraping_logs.map(log => `
+                            <div class="log-entry p-2 ${log.status === 'SUCCESS' ? 'text-success' : 'text-danger'}">
+                                <small>${formatDateTime(log.timestamp)} - ${log.status}: ${log.url}</small>
+                                ${log.error_message ? `<br><small class="text-danger">${log.error_message}</small>` : ''}
+                            </div>
+                        `).join('');
+                    }
                     
                     // Update pagination info
                     hasMoreArticles = currentPage < data.pagination.total_pages;
@@ -314,12 +325,15 @@
             // Add scroll event listener for infinite scrolling
             window.addEventListener('scroll', handleScroll);
             
-            // Regular updates for status and logs
-            setInterval(() => {
-                if (currentPage === 1) {
-                    updateDashboard();
-                }
-            }, 5000);
+            // Start auto-refresh when page loads
+            autoRefreshInterval = setInterval(updateDashboard, 30000);
+        });
+
+        // Clean up interval when page is unloaded
+        window.addEventListener('beforeunload', () => {
+            if (autoRefreshInterval) {
+                clearInterval(autoRefreshInterval);
+            }
         });
     </script>
 </body>

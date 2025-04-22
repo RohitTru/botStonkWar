@@ -17,45 +17,40 @@ def index():
     """Render the dashboard."""
     return render_template('dashboard.html')
 
+@main_bp.route('/health')
+def health():
+    return jsonify({'status': 'healthy'})
+
 @main_bp.route('/api/status')
 def status():
-    try:
-        # Get scraper status from manager
-        scraper_manager = current_app.scraper_manager
-        if scraper_manager:
-            scraper_status = scraper_manager.get_status()
-            status_text = "Running" if scraper_status['running'] else "Stopped"
-            active_scrapers = scraper_status['active_scrapers']
-        else:
-            status_text = "Not Initialized"
-            active_scrapers = []
-        
-        # Get pagination parameters
-        page = request.args.get('page', 1, type=int)
-        per_page = request.args.get('per_page', 10, type=int)
-        offset = (page - 1) * per_page
-        
-        # Get data from database
-        articles, article_count = db.get_recent_articles(limit=per_page, offset=offset)
-        scraping_logs = db.get_scraping_logs()
-        scraping_stats = db.get_scraping_stats()
-        
-        return jsonify({
-            'status': status_text,
-            'articles_count': article_count,
-            'recent_articles': articles,
-            'scraping_logs': scraping_logs,
-            'scraping_stats': scraping_stats,
-            'active_scrapers': active_scrapers,
-            'pagination': {
-                'current_page': page,
-                'per_page': per_page,
-                'total_pages': (article_count + per_page - 1) // per_page
-            }
-        })
-    except Exception as e:
-        logger.error(f"Error getting status: {e}")
-        return jsonify({'error': str(e)}), 500
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 10))
+    
+    # Get scraper status
+    scraper_status = "Running" if current_app.scraper_manager and current_app.scraper_manager.running else "Stopped"
+    
+    # Check database connection
+    db_connected = db.check_connection()
+    
+    # Get recent articles with pagination
+    articles = db.get_recent_articles(limit=per_page, offset=(page-1)*per_page)
+    total_articles = db.get_total_articles()
+    
+    # Get scraping logs
+    logs = db.get_scraping_logs(limit=50)  # Get last 50 logs
+    
+    # Calculate scraping statistics for the last hour
+    one_hour_ago = datetime.now() - timedelta(hours=1)
+    stats = db.get_scraping_stats(since=one_hour_ago)
+    
+    return jsonify({
+        'status': scraper_status,
+        'db_connected': db_connected,
+        'articles_count': total_articles,
+        'recent_articles': articles,
+        'scraping_logs': logs,
+        'scraping_stats': stats
+    })
 
 @main_bp.route('/api/article/<path:article_url>')
 def get_article(article_url):
@@ -83,8 +78,4 @@ def delete_article(article_url):
             return jsonify({'error': 'Failed to delete article'}), 500
     except Exception as e:
         logger.error(f"Error deleting article: {e}")
-        return jsonify({'error': str(e)}), 500
-
-@main_bp.route('/health')
-def health():
-    return jsonify(status="healthy") 
+        return jsonify({'error': str(e)}), 500 
