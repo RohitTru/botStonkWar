@@ -187,7 +187,12 @@
                         articlesContainer.innerHTML = '';
                     }
                     
-                    data.recent_articles.forEach(article => {
+                    // Sort articles by published_date in descending order
+                    const sortedArticles = data.recent_articles.sort((a, b) => {
+                        return new Date(b.published_date) - new Date(a.published_date);
+                    });
+                    
+                    sortedArticles.forEach(article => {
                         const articleElement = document.createElement('div');
                         articleElement.className = 'article-preview mb-4 p-3 border rounded';
                         articleElement.onclick = () => showArticle(article.link);

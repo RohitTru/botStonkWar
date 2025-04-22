@@ -4,7 +4,7 @@ FROM python:3.9-slim
 # Set environment variables
 ENV PYTHONDONTWRITEBYTECODE=1 \
     PYTHONUNBUFFERED=1 \
-    FLASK_APP=app.py \
+    FLASK_APP=run.py \
     FLASK_ENV=production
 
 # Set work directory
@@ -20,14 +20,16 @@ RUN apt-get update && apt-get install -y \
 # Copy requirements file
 COPY requirements.txt .
 
-# Install Python dependencies
-RUN pip install --no-cache-dir -r requirements.txt
+# Install Python dependencies and gunicorn
+RUN pip install --no-cache-dir -r requirements.txt gunicorn
 
 # Copy project
-COPY . .
+COPY app app/
+COPY config.py .
+COPY run.py .
 
 # Create necessary directories
-RUN mkdir -p logs
+RUN mkdir -p logs data
 
 # Create a non-root user
 RUN useradd -m appuser && chown -R appuser:appuser /app
@@ -36,5 +38,5 @@ USER appuser
 # Expose port
 EXPOSE 5004
 
-# Run the application
-CMD ["python", "app.py"]
+# Run the application with gunicorn
+CMD ["gunicorn", "--bind", "0.0.0.0:5004", "--workers", "4", "run:app"]
