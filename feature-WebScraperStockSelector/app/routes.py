@@ -40,8 +40,7 @@ def status():
     logs = db.get_scraping_logs(limit=50)  # Get last 50 logs
     
     # Calculate scraping statistics for the last hour
-    one_hour_ago = datetime.now() - timedelta(hours=1)
-    stats = db.get_scraping_stats(since=one_hour_ago)
+    stats = db.get_scraping_stats(hours=1)
     
     return jsonify({
         'status': scraper_status,

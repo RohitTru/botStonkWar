@@ -201,29 +201,28 @@ class Database:
         try:
             self.ensure_connection()
             cursor = self.connection.cursor(dictionary=True)
-
+            
             query = """
                 SELECT 
                     COUNT(*) as total_attempts,
                     SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
                     SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed
                 FROM scraping_logs 
-                WHERE timestamp >= NOW() - INTERVAL %s HOUR
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
             """
             cursor.execute(query, (hours,))
             stats = cursor.fetchone()
             cursor.close()
-
-            total_attempts = stats['total_attempts'] or 0
+            
+            total = stats['total_attempts'] or 0
             successful = stats['successful'] or 0
             failed = stats['failed'] or 0
-            success_rate = (successful / total_attempts * 100) if total_attempts > 0 else 0
-
+            
             return {
-                'total_attempts': total_attempts,
+                'total_attempts': total,
                 'successful': successful,
                 'failed': failed,
-                'success_rate': round(success_rate, 1)
+                'success_rate': (successful / total * 100) if total > 0 else 0
             }
         except Error as e:
             logger.error(f"Error getting scraping stats: {e}")
@@ -293,7 +292,7 @@ class Database:
         """Get the total number of articles in the database."""
         try:
             cursor = self.connection.cursor()
-            cursor.execute("SELECT COUNT(*) FROM articles WHERE deleted = 0")
+            cursor.execute("SELECT COUNT(*) FROM articles WHERE NOT is_deleted")
             count = cursor.fetchone()[0]
             cursor.close()
             return count
