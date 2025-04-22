@@ -217,9 +217,9 @@ class Database:
             with self.connection_pool.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
                     query = """
-                    SELECT id, title, url, published_date, scraped_date, source, content, symbols
+                    SELECT id, title, link, content, source, published_date, scraped_date, symbols
                     FROM articles
-                    WHERE deleted = 0
+                    WHERE NOT is_deleted
                     ORDER BY published_date DESC
                     LIMIT %s OFFSET %s
                     """
@@ -232,6 +232,13 @@ class Database:
                             article['published_date'] = article['published_date'].isoformat()
                         if article.get('scraped_date'):
                             article['scraped_date'] = article['scraped_date'].isoformat()
+                        # Parse JSON symbols
+                        if article.get('symbols'):
+                            article['symbols'] = json.loads(article['symbols'])
+                        else:
+                            article['symbols'] = []
+                        # Add URL field for frontend compatibility
+                        article['url'] = article['link']
                     
                     return articles
         except Exception as e:
@@ -405,7 +412,7 @@ class Database:
         try:
             with self.connection_pool.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
-                    cursor.execute("SELECT COUNT(*) as count FROM articles WHERE deleted = 0")
+                    cursor.execute("SELECT COUNT(*) as count FROM articles WHERE NOT is_deleted")
                     result = cursor.fetchone()
                     return result['count'] if result else 0
         except Exception as e:

@@ -13,10 +13,52 @@ class ScraperManager:
         self.db = Database()
         self._running = False
         self._thread = None
+        self._load_pause_states()  # Load pause states from database
+
+    def _load_pause_states(self):
+        """Load pause states from database."""
+        try:
+            with self.db.connection_pool.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    # Create table if it doesn't exist
+                    cursor.execute("""
+                        CREATE TABLE IF NOT EXISTS scraper_states (
+                            scraper_name VARCHAR(100) PRIMARY KEY,
+                            is_paused BOOLEAN NOT NULL DEFAULT FALSE,
+                            updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        )
+                    """)
+                    connection.commit()
+
+                    # Load states
+                    cursor.execute("SELECT scraper_name, is_paused FROM scraper_states")
+                    states = cursor.fetchall()
+                    for state in states:
+                        if state['is_paused']:
+                            self._paused_scrapers.add(state['scraper_name'])
+        except Exception as e:
+            logger.error(f"Error loading pause states: {str(e)}")
+
+    def _save_pause_state(self, scraper_name, is_paused):
+        """Save pause state to database."""
+        try:
+            with self.db.connection_pool.get_connection() as connection:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO scraper_states (scraper_name, is_paused)
+                        VALUES (%s, %s)
+                        ON DUPLICATE KEY UPDATE
+                            is_paused = VALUES(is_paused)
+                    """, (scraper_name, is_paused))
+                    connection.commit()
+        except Exception as e:
+            logger.error(f"Error saving pause state: {str(e)}")
 
     def add_scraper(self, name, scraper):
         """Add a scraper to the manager."""
         self.scrapers[name] = scraper
+        # Initialize pause state in database
+        self._save_pause_state(name, False)
         logger.info(f"Added scraper: {name}")
 
     def remove_scraper(self, name):
@@ -24,6 +66,14 @@ class ScraperManager:
         if name in self.scrapers:
             del self.scrapers[name]
             self._paused_scrapers.discard(name)
+            # Remove from database
+            try:
+                with self.db.connection_pool.get_connection() as connection:
+                    with connection.cursor() as cursor:
+                        cursor.execute("DELETE FROM scraper_states WHERE scraper_name = %s", (name,))
+                        connection.commit()
+            except Exception as e:
+                logger.error(f"Error removing scraper state: {str(e)}")
             logger.info(f"Removed scraper: {name}")
 
     def is_paused(self, scraper_name):
@@ -34,6 +84,7 @@ class ScraperManager:
         """Pause a specific scraper."""
         if scraper_name in self.scrapers:
             self._paused_scrapers.add(scraper_name)
+            self._save_pause_state(scraper_name, True)
             logger.info(f"Paused scraper: {scraper_name}")
             return True
         return False
@@ -42,6 +93,7 @@ class ScraperManager:
         """Resume a specific scraper."""
         if scraper_name in self.scrapers:
             self._paused_scrapers.discard(scraper_name)
+            self._save_pause_state(scraper_name, False)
             logger.info(f"Resumed scraper: {scraper_name}")
             return True
         return False
