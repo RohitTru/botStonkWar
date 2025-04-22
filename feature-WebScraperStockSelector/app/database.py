@@ -11,6 +11,7 @@ class Database:
     def __init__(self):
         self.connection = None
         self.connect()
+        self.verify_tables()
 
     def connect(self):
         """Establish database connection"""
@@ -77,6 +78,41 @@ class Database:
             logger.info("Database tables created successfully")
         except Error as e:
             logger.error(f"Error creating tables: {e}")
+            raise
+
+    def verify_tables(self):
+        """Verify that all required tables exist and have the correct structure."""
+        try:
+            self.ensure_connection()
+            cursor = self.connection.cursor()
+            
+            # Check if tables exist
+            cursor.execute("""
+                SELECT table_name 
+                FROM information_schema.tables 
+                WHERE table_schema = DATABASE()
+            """)
+            existing_tables = {row[0] for row in cursor.fetchall()}
+            logger.info(f"Existing tables in database: {existing_tables}")
+            
+            # Create tables if they don't exist
+            if 'articles' not in existing_tables or 'scraping_logs' not in existing_tables:
+                logger.info("Creating missing tables...")
+                self.create_tables()
+            
+            # Verify articles table structure
+            cursor.execute("DESCRIBE articles")
+            columns = {row[0] for row in cursor.fetchall()}
+            logger.info(f"Articles table columns: {columns}")
+            
+            # Verify scraping_logs table structure
+            cursor.execute("DESCRIBE scraping_logs")
+            log_columns = {row[0] for row in cursor.fetchall()}
+            logger.info(f"Scraping logs table columns: {log_columns}")
+            
+            cursor.close()
+        except Error as e:
+            logger.error(f"Error verifying tables: {e}")
             raise
 
     def add_article(self, article_data):

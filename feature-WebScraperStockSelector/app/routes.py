@@ -33,8 +33,7 @@ def status():
     db_connected = db.check_connection()
     
     # Get recent articles with pagination
-    articles = db.get_recent_articles(limit=per_page, offset=(page-1)*per_page)
-    total_articles = db.get_total_articles()
+    articles, total_count = db.get_recent_articles(limit=per_page, offset=(page-1)*per_page)
     
     # Get scraping logs
     logs = db.get_scraping_logs(limit=50)  # Get last 50 logs
@@ -45,7 +44,7 @@ def status():
     return jsonify({
         'status': scraper_status,
         'db_connected': db_connected,
-        'articles_count': total_articles,
+        'articles_count': total_count,
         'recent_articles': articles,
         'scraping_logs': logs,
         'scraping_stats': stats
