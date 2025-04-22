@@ -3,7 +3,7 @@ from datetime import datetime, timedelta
 from app.utils.logging import setup_logger
 from app.database import Database
 from decimal import Decimal
-from scraper_manager import ScraperManager
+from app.scraper_manager import ScraperManager
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
@@ -18,7 +18,7 @@ db = Database()
 scraper_manager = ScraperManager()
 
 # Add the Yahoo Finance scraper
-from scrapers.yahoo_finance import YahooFinanceScraper
+from app.scrapers.yahoo_finance import YahooFinanceScraper
 scraper_manager.add_scraper('yahoo_finance', YahooFinanceScraper())
 
 # Start the scraper manager

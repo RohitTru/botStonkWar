@@ -1,8 +1,10 @@
 import threading
 import time
 import traceback
-from database.database import Database
-from utils.logger import logger
+from app.database import Database
+from app.utils.logging import setup_logger
+
+logger = setup_logger()
 
 class ScraperManager:
     def __init__(self):
