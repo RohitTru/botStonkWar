@@ -212,47 +212,31 @@ class Database:
                 connection.close()
 
     def get_recent_articles(self, limit=10, offset=0):
-        """Get recent articles from database"""
-        connection = None
+        """Get recent articles with pagination."""
         try:
-            connection = self.get_connection()
-            cursor = connection.cursor(dictionary=True)
-
-            query = """
-                SELECT * FROM articles 
-                WHERE NOT is_deleted 
-                ORDER BY scraped_date DESC 
-                LIMIT %s OFFSET %s
-            """
-            cursor.execute(query, (limit, offset))
-            articles = cursor.fetchall()
-
-            # Get total count
-            cursor.execute("SELECT COUNT(*) as count FROM articles WHERE NOT is_deleted")
-            total_count = cursor.fetchone()['count']
-
-            # Format articles for display and convert timestamps to UTC
-            for article in articles:
-                article['symbols'] = json.loads(article['symbols']) if article['symbols'] else []
-                article['symbols'] = ', '.join(article['symbols'])
-                if article['content']:
-                    article['content_preview'] = article['content'][:200] + '...' if len(article['content']) > 200 else article['content']
-                else:
-                    article['content_preview'] = ''
-                
-                # Convert timestamps to UTC
-                if article.get('published_date'):
-                    article['published_date'] = article['published_date'].replace(tzinfo=timezone.utc)
-                if article.get('scraped_date'):
-                    article['scraped_date'] = article['scraped_date'].replace(tzinfo=timezone.utc)
-
-            return articles, total_count
-        except Error as e:
-            logger.error(f"Error getting recent articles: {e}")
-            return [], 0
-        finally:
-            if connection:
-                connection.close()
+            with self.connection_pool.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    query = """
+                    SELECT id, title, url, published_date, scraped_date, source, content, symbols
+                    FROM articles
+                    WHERE deleted = 0
+                    ORDER BY published_date DESC
+                    LIMIT %s OFFSET %s
+                    """
+                    cursor.execute(query, (limit, offset))
+                    articles = cursor.fetchall()
+                    
+                    # Convert datetime objects to ISO format strings
+                    for article in articles:
+                        if article.get('published_date'):
+                            article['published_date'] = article['published_date'].isoformat()
+                        if article.get('scraped_date'):
+                            article['scraped_date'] = article['scraped_date'].isoformat()
+                    
+                    return articles
+        except Exception as e:
+            logger.error(f"Error getting recent articles: {str(e)}")
+            return []
 
     def add_scraping_log(self, log_data):
         """Add a new scraping log entry"""
@@ -284,89 +268,71 @@ class Database:
             if connection:
                 connection.close()
 
-    def get_scraping_logs(self, limit=20):
-        """Get recent scraping logs"""
-        connection = None
+    def get_scraping_logs(self, limit=50):
+        """Get recent scraping logs."""
         try:
-            connection = self.get_connection()
-            cursor = connection.cursor(dictionary=True)
-
-            query = """
-                SELECT * FROM scraping_logs 
-                ORDER BY timestamp DESC 
-                LIMIT %s
-            """
-            cursor.execute(query, (limit,))
-            logs = cursor.fetchall()
-            
-            # Convert timestamps to UTC
-            for log in logs:
-                if log.get('timestamp'):
-                    log['timestamp'] = log['timestamp'].replace(tzinfo=timezone.utc)
-                if log.get('created_at'):
-                    log['created_at'] = log['created_at'].replace(tzinfo=timezone.utc)
-            
-            return logs
-        except Error as e:
-            logger.error(f"Error getting scraping logs: {e}")
+            with self.connection_pool.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    query = """
+                    SELECT timestamp, status, source_type, url, error_message
+                    FROM scraping_logs
+                    ORDER BY timestamp DESC
+                    LIMIT %s
+                    """
+                    cursor.execute(query, (limit,))
+                    logs = cursor.fetchall()
+                    
+                    # Convert datetime objects to ISO format strings
+                    for log in logs:
+                        if log.get('timestamp'):
+                            log['timestamp'] = log['timestamp'].isoformat()
+                    
+                    return logs
+        except Exception as e:
+            logger.error(f"Error getting scraping logs: {str(e)}")
             return []
-        finally:
-            if connection:
-                connection.close()
 
     def get_scraping_stats(self, hours=1):
-        """Get scraping statistics for the last N hours"""
-        connection = None
+        """Get scraping statistics for the last X hours."""
         try:
-            connection = self.get_connection()
-            cursor = connection.cursor(dictionary=True)
-            
-            # Get stats based on unique URLs to avoid counting retries
-            query = """
-                SELECT 
-                    COUNT(DISTINCT url) as total_attempts,
-                    SUM(CASE WHEN status = 'SUCCESS' AND url IN (
-                        SELECT url FROM scraping_logs l2 
-                        WHERE l2.status = 'SUCCESS' 
-                        AND l2.timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
-                        GROUP BY url
-                    ) THEN 1 ELSE 0 END) as successful,
-                    SUM(CASE WHEN status = 'FAILED' AND url NOT IN (
-                        SELECT url FROM scraping_logs l2 
-                        WHERE l2.status = 'SUCCESS' 
-                        AND l2.timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
-                        GROUP BY url
-                    ) THEN 1 ELSE 0 END) as failed
-                FROM (
-                    SELECT DISTINCT url, status
+            with self.connection_pool.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    query = """
+                    SELECT 
+                        COUNT(*) as total_attempts,
+                        SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
+                        SUM(CASE WHEN status = 'ERROR' THEN 1 ELSE 0 END) as failed
                     FROM scraping_logs
-                    WHERE timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
-                ) as unique_logs
-            """
-            cursor.execute(query, (hours, hours, hours))
-            stats = cursor.fetchone()
-            
-            total = stats['total_attempts'] or 0
-            successful = stats['successful'] or 0
-            failed = stats['failed'] or 0
-            
-            return {
-                'total_attempts': total,
-                'successful': successful,
-                'failed': failed,
-                'success_rate': round((successful / total * 100) if total > 0 else 0, 1)
-            }
-        except Error as e:
-            logger.error(f"Error getting scraping stats: {e}")
+                    WHERE timestamp >= NOW() - INTERVAL %s HOUR
+                    """
+                    cursor.execute(query, (hours,))
+                    stats = cursor.fetchone()
+                    
+                    if stats:
+                        total = stats['total_attempts'] or 0
+                        successful = stats['successful'] or 0
+                        failed = stats['failed'] or 0
+                        
+                        return {
+                            'total_attempts': total,
+                            'successful': successful,
+                            'failed': failed,
+                            'success_rate': round((successful / total * 100) if total > 0 else 0, 2)
+                        }
+                    return {
+                        'total_attempts': 0,
+                        'successful': 0,
+                        'failed': 0,
+                        'success_rate': 0
+                    }
+        except Exception as e:
+            logger.error(f"Error getting scraping stats: {str(e)}")
             return {
                 'total_attempts': 0,
                 'successful': 0,
                 'failed': 0,
                 'success_rate': 0
             }
-        finally:
-            if connection:
-                connection.close()
 
     def mark_article_deleted(self, article_url):
         """Mark an article as deleted"""
@@ -433,6 +399,18 @@ class Database:
         finally:
             if connection:
                 connection.close()
+
+    def get_article_count(self):
+        """Get the total number of articles in the database."""
+        try:
+            with self.connection_pool.get_connection() as connection:
+                with connection.cursor(dictionary=True) as cursor:
+                    cursor.execute("SELECT COUNT(*) as count FROM articles WHERE deleted = 0")
+                    result = cursor.fetchone()
+                    return result['count'] if result else 0
+        except Exception as e:
+            logger.error(f"Error getting article count: {str(e)}")
+            return 0
 
 # Create a global instance
 db = Database() 

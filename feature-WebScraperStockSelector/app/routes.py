@@ -50,36 +50,77 @@ def status():
         # Get database connection status
         db_connected = db.check_connection()
         
+        if not db_connected:
+            return jsonify({
+                'status': 'Error',
+                'error': 'Database disconnected',
+                'db_connected': False,
+                'articles_count': 0,
+                'recent_articles': [],
+                'scraping_logs': [],
+                'scraping_stats': {
+                    'total_attempts': 0,
+                    'successful': 0,
+                    'failed': 0,
+                    'success_rate': 0
+                },
+                'pagination': {
+                    'has_next': False
+                }
+            }), 500
+        
         # Get article count
         articles_count = db.get_article_count()
         
         # Get recent articles
+        page = request.args.get('page', 1, type=int)
+        per_page = request.args.get('per_page', 10, type=int)
         recent_articles = db.get_recent_articles(
-            limit=request.args.get('per_page', 10, type=int),
-            offset=(request.args.get('page', 1, type=int) - 1) * request.args.get('per_page', 10, type=int)
+            limit=per_page,
+            offset=(page - 1) * per_page
         )
         
         # Get scraping logs
         scraping_logs = db.get_scraping_logs(limit=50)
         
         # Get scraping stats
-        scraping_stats = db.get_scraping_stats()
+        scraping_stats = db.get_scraping_stats(hours=1)
         
         return jsonify({
             'status': scraper_status,
             'paused': scraper_status == 'Paused',
-            'db_connected': db_connected,
+            'db_connected': True,
             'articles_count': articles_count,
             'recent_articles': recent_articles,
             'scraping_logs': scraping_logs,
             'scraping_stats': scraping_stats,
             'pagination': {
-                'has_next': len(recent_articles) == request.args.get('per_page', 10, type=int)
+                'has_next': len(recent_articles) == per_page,
+                'page': page,
+                'per_page': per_page
             }
         })
     except Exception as e:
         logger.error(f"Error getting status: {str(e)}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({
+            'status': 'Error',
+            'error': str(e),
+            'db_connected': False,
+            'articles_count': 0,
+            'recent_articles': [],
+            'scraping_logs': [],
+            'scraping_stats': {
+                'total_attempts': 0,
+                'successful': 0,
+                'failed': 0,
+                'success_rate': 0
+            },
+            'pagination': {
+                'has_next': False,
+                'page': 1,
+                'per_page': 10
+            }
+        }), 500
 
 @main_bp.route('/api/article/<path:article_url>')
 def get_article(article_url):
