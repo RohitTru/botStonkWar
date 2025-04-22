@@ -178,54 +178,45 @@
         
         function updateScraperControls(status, isPaused) {
             const btn = document.getElementById('pauseResumeBtn');
-            if (status === 'Running') {
-                btn.style.display = 'block';
-                if (isPaused) {
-                    btn.textContent = 'Resume Scraper';
-                    btn.className = 'btn btn-success';
-                } else {
-                    btn.textContent = 'Pause Scraper';
-                    btn.className = 'btn btn-warning';
-                }
+            // Always show the button
+            btn.style.display = 'block';
+            if (isPaused) {
+                btn.textContent = 'Resume Scraper';
+                btn.className = 'btn btn-success';
             } else {
-                btn.style.display = 'none';
+                btn.textContent = 'Pause Scraper';
+                btn.className = 'btn btn-warning';
             }
         }
         
         function toggleScraper() {
-            const button = document.getElementById('pauseResumeBtn');
-            const isCurrentlyPaused = button.textContent.includes('Resume');
+            const btn = document.getElementById('pauseResumeBtn');
+            const action = btn.textContent === 'Pause Scraper' ? 'pause' : 'resume';
             
             fetch('/api/toggle_scraper', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json'
+                    'Content-Type': 'application/json',
                 },
-                body: JSON.stringify({
-                    action: isCurrentlyPaused ? 'resume' : 'pause'
-                })
+                body: JSON.stringify({ action: action })
             })
             .then(response => response.json())
             .then(data => {
                 if (data.success) {
                     // Update button state immediately
-                    button.textContent = isCurrentlyPaused ? 'Pause Scraper' : 'Resume Scraper';
-                    button.className = isCurrentlyPaused ? 'btn btn-warning' : 'btn btn-success';
-                    
-                    // Show success message
-                    const message = isCurrentlyPaused ? 'Scraper resumed successfully' : 'Scraper paused successfully';
-                    showMessage(message, 'success');
-                    
-                    // Update status immediately
-                    document.getElementById('scraper-status').textContent = isCurrentlyPaused ? 'Running' : 'Paused';
-                    document.getElementById('scraper-status').className = isCurrentlyPaused ? 'text-success' : 'text-warning';
+                    if (action === 'pause') {
+                        btn.textContent = 'Resume Scraper';
+                        btn.className = 'btn btn-success';
+                    } else {
+                        btn.textContent = 'Pause Scraper';
+                        btn.className = 'btn btn-warning';
+                    }
                 } else {
-                    showMessage('Failed to toggle scraper: ' + data.error, 'error');
+                    console.error('Failed to toggle scraper:', data.error);
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                showMessage('Error toggling scraper: ' + error.message, 'error');
             });
         }
         

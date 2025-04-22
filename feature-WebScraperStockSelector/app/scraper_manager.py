@@ -160,11 +160,13 @@ class ScraperManager:
                     # Get or create current hour's metrics
                     cursor.execute("""
                         INSERT INTO scraper_metrics (scraper_name, timestamp, total_attempts, successful, failed)
-                        SELECT %s, 
-                               DATE_FORMAT(NOW(), '%%Y-%%m-%%d %%H:00:00'),
-                               1,
-                               CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
-                               CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
+                        VALUES (
+                            %s, 
+                            DATE_FORMAT(NOW(), '%Y-%m-%d %H:00:00'),
+                            1,
+                            CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
+                            CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
+                        )
                         ON DUPLICATE KEY UPDATE
                             total_attempts = total_attempts + 1,
                             successful = successful + CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
@@ -174,6 +176,27 @@ class ScraperManager:
                     logger.debug(f"Updated metrics for {scraper_name}: {status}")
         except Exception as e:
             logger.error(f"Error updating scraper metrics: {str(e)}")
+            # Try alternative timestamp format if the first one fails
+            try:
+                with connection.cursor() as cursor:
+                    cursor.execute("""
+                        INSERT INTO scraper_metrics (scraper_name, timestamp, total_attempts, successful, failed)
+                        VALUES (
+                            %s, 
+                            NOW(),
+                            1,
+                            CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
+                            CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
+                        )
+                        ON DUPLICATE KEY UPDATE
+                            total_attempts = total_attempts + 1,
+                            successful = successful + CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
+                            failed = failed + CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
+                    """, (scraper_name, status, status, status, status))
+                    connection.commit()
+                    logger.debug(f"Updated metrics for {scraper_name} using alternative timestamp: {status}")
+            except Exception as e2:
+                logger.error(f"Error updating scraper metrics with alternative timestamp: {str(e2)}")
 
     def get_scraper_metrics(self, hours=1):
         """Get aggregated metrics for all scrapers for the last X hours."""
