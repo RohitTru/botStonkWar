@@ -1,83 +1,147 @@
-from app.scrapers.base import BaseScraper
-import yfinance as yf
-from bs4 import BeautifulSoup
+import feedparser
 import requests
+from bs4 import BeautifulSoup
+import json
 from datetime import datetime
-import re
+import time
+import random
+from app.utils.logging import setup_logger
+from app.database import Database
 
-class YahooFinanceScraper(BaseScraper):
+logger = setup_logger()
+
+class YahooFinanceScraper:
     def __init__(self):
-        super().__init__('yahoo_finance')
-        self.base_url = "https://finance.yahoo.com/news"
-    
-    def get_articles(self):
-        """Get articles from Yahoo Finance."""
+        self.seen_urls = set()
+        self.db = Database()
+        self.base_url = "https://finance.yahoo.com/rss"
+        self.headers = {
+            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
+        }
+
+    def scrape_article(self, url):
+        """Scrape a single article from Yahoo Finance."""
         try:
-            # Fetch the news page
-            response = self.session.get(self.base_url)
+            # Add random delay to avoid rate limiting
+            time.sleep(random.uniform(1, 3))
+            
+            response = requests.get(url, headers=self.headers)
             response.raise_for_status()
+            
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            articles = []
-            # Find all news articles
-            for article in soup.find_all('div', {'class': 'Ov(h)'}):
-                try:
-                    link = article.find('a')
-                    if not link:
-                        continue
-                        
-                    url = f"https://finance.yahoo.com{link['href']}" if link['href'].startswith('/') else link['href']
-                    title = link.text.strip()
-                    
-                    # Get article timestamp if available
-                    time_element = article.find('span', {'class': 'C($c-fuji-grey-j)'})
-                    published_at = datetime.now()  # Default to now if no timestamp found
-                    if time_element:
-                        try:
-                            # Parse the relative time text (e.g., "2 hours ago", "1 day ago")
-                            time_text = time_element.text.strip()
-                            # You might want to implement more sophisticated time parsing here
-                            published_at = datetime.now()  # For now, using current time
-                        except Exception as e:
-                            self.logger.warning(f"Error parsing time for article {title}: {str(e)}")
-                    
-                    articles.append({
-                        'url': url,
-                        'title': title,
-                        'source': 'Yahoo Finance',
-                        'published_at': published_at
-                    })
-                    
-                except Exception as e:
-                    self.logger.error(f"Error processing article element: {str(e)}")
-                    continue
+            # Extract article content
+            content_div = soup.find('div', {'class': 'caas-body'})
+            if not content_div:
+                logger.warning(f"No content found for article: {url}")
+                return None
+                
+            content = content_div.get_text(strip=True)
             
-            self.logger.info(f"Found {len(articles)} articles from Yahoo Finance")
-            return articles
+            # Extract stock symbols
+            symbols = []
+            symbol_tags = soup.find_all('a', {'class': 'caas-link'})
+            for tag in symbol_tags:
+                href = tag.get('href', '')
+                if '/quote/' in href:
+                    symbol = href.split('/quote/')[1].split('?')[0]
+                    symbols.append(symbol)
+            
+            return {
+                'content': content,
+                'symbols': list(set(symbols))  # Remove duplicates
+            }
             
         except Exception as e:
-            self.logger.error(f"Error fetching Yahoo Finance articles: {str(e)}")
-            return []
+            logger.error(f"Error scraping article {url}: {e}")
+            return None
+
+    def scrape_feed(self):
+        """Scrape articles from Yahoo Finance RSS feed."""
+        try:
+            feed = feedparser.parse(self.base_url)
             
-    def extract_stock_symbols(self, text):
-        """Extract stock symbols from text using regex pattern."""
-        # Look for stock symbols in parentheses (e.g., (AAPL), (GOOGL))
-        pattern = r'\(([A-Z]{1,5})\)'
-        matches = re.findall(pattern, text)
-        
-        # Also look for common stock symbol patterns
-        pattern2 = r'\b[A-Z]{1,5}\b'  # 1-5 uppercase letters
-        potential_symbols = re.findall(pattern2, text)
-        
-        # Verify symbols using yfinance
-        verified_symbols = set()
-        for symbol in set(matches + potential_symbols):
-            try:
-                ticker = yf.Ticker(symbol)
-                # Try to get basic info to verify it's a valid symbol
-                if ticker.info:
-                    verified_symbols.add(symbol)
-            except:
-                continue
+            for entry in feed.entries:
+                url = entry.link
                 
-        return list(verified_symbols) 
+                # Skip if already seen
+                if url in self.seen_urls:
+                    continue
+                    
+                self.seen_urls.add(url)
+                
+                # Log start of scraping
+                log_data = {
+                    'timestamp': datetime.now(),
+                    'status': 'STARTED',
+                    'source_type': 'yahoo_finance',
+                    'url': url
+                }
+                self.db.add_scraping_log(log_data)
+                
+                try:
+                    # Get article details
+                    article_data = self.scrape_article(url)
+                    if not article_data:
+                        raise Exception("Failed to scrape article content")
+                    
+                    # Prepare article data
+                    article = {
+                        'title': entry.title,
+                        'link': url,
+                        'content': article_data['content'],
+                        'symbols': article_data['symbols'],
+                        'source': 'yahoo_finance',
+                        'published_date': datetime(*entry.published_parsed[:6]),
+                        'scraped_date': datetime.now()
+                    }
+                    
+                    # Save to database
+                    if self.db.add_article(article):
+                        # Log success
+                        log_data = {
+                            'timestamp': datetime.now(),
+                            'status': 'SUCCESS',
+                            'source_type': 'yahoo_finance',
+                            'url': url
+                        }
+                        self.db.add_scraping_log(log_data)
+                        logger.info(f"Successfully scraped article: {url}")
+                    else:
+                        raise Exception("Failed to save article to database")
+                        
+                except Exception as e:
+                    # Log failure
+                    log_data = {
+                        'timestamp': datetime.now(),
+                        'status': 'FAILED',
+                        'source_type': 'yahoo_finance',
+                        'url': url,
+                        'error_message': str(e)
+                    }
+                    self.db.add_scraping_log(log_data)
+                    logger.error(f"Error processing article {url}: {e}")
+                    continue
+                    
+        except Exception as e:
+            logger.error(f"Error scraping Yahoo Finance feed: {e}")
+            # Log feed-level failure
+            log_data = {
+                'timestamp': datetime.now(),
+                'status': 'FAILED',
+                'source_type': 'yahoo_finance',
+                'url': self.base_url,
+                'error_message': str(e)
+            }
+            self.db.add_scraping_log(log_data)
+
+    def run(self):
+        """Run the scraper continuously."""
+        while True:
+            try:
+                self.scrape_feed()
+                # Wait 5 minutes before next scrape
+                time.sleep(300)
+            except Exception as e:
+                logger.error(f"Error in scraper run loop: {e}")
+                time.sleep(60)  # Wait 1 minute on error 

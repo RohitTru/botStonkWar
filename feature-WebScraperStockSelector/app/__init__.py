@@ -1,46 +1,58 @@
 from flask import Flask
-from flask_sqlalchemy import SQLAlchemy
 import os
+import logging
 from dotenv import load_dotenv
-from app.scrapers.scraper_manager import ScraperManager
+from config import config
 
-# Initialize extensions
-db = SQLAlchemy()
-scraper_manager = None
+# Configure logging
+logger = logging.getLogger(__name__)
 
-def create_app():
+def init_scraper_manager(app):
+    """Initialize scraper manager after app is set up."""
+    try:
+        logger.debug("Initializing scraper manager...")
+        from app.scrapers.scraper_manager import ScraperManager
+        scraper_manager = ScraperManager()
+        scraper_manager.init_app(app)
+        logger.debug("Scraper manager initialized successfully")
+        return scraper_manager
+    except Exception as e:
+        logger.error(f"Failed to initialize scraper manager: {str(e)}", exc_info=True)
+        raise
+
+def create_app(config_name='default'):
+    logger.debug(f"Creating Flask app with config: {config_name}")
+    
     # Initialize Flask app
     app = Flask(__name__)
     
     # Load environment variables
+    logger.debug("Loading environment variables...")
     load_dotenv()
     
-    # Set configuration from environment variables
-    app.config.update(
-        MYSQL_HOST=os.getenv('MYSQL_HOST', 'mysql'),
-        MYSQL_USER=os.getenv('MYSQL_USER'),
-        MYSQL_PASSWORD=os.getenv('MYSQL_PASSWORD'),
-        MYSQL_SCRAPING_DATABASE=os.getenv('MYSQL_SCRAPING_DATABASE', 'bot_stonk_war_scraping')
-    )
+    # Load config
+    logger.debug("Loading configuration...")
+    app.config.from_object(config[config_name])
     
-    # Configure the Flask app
-    app.config['SQLALCHEMY_DATABASE_URI'] = f"mysql://{app.config['MYSQL_USER']}:{app.config['MYSQL_PASSWORD']}@{app.config['MYSQL_HOST']}/{app.config['MYSQL_SCRAPING_DATABASE']}"
-    app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
-    
-    # Initialize extensions with app
-    db.init_app(app)
-    
-    with app.app_context():
-        # Create database tables
-        db.create_all()
-        
-        # Initialize and start scraper manager
-        global scraper_manager
-        scraper_manager = ScraperManager()
-        scraper_manager.start()
+    # Create logs directory if it doesn't exist
+    if not os.path.exists('logs'):
+        os.makedirs('logs')
+    if not os.path.exists('data'):
+        os.makedirs('data')
     
     # Import and register blueprints
+    logger.debug("Registering blueprints...")
     from app.routes import main_bp
     app.register_blueprint(main_bp)
     
+    # Initialize scraper manager
+    if not app.config['TESTING']:  # Don't start scrapers in testing mode
+        with app.app_context():
+            logger.debug("Starting scraper manager...")
+            scraper_manager = init_scraper_manager(app)
+            app.scraper_manager = scraper_manager  # Store reference in app
+            scraper_manager.start()
+            logger.debug("Scraper manager started successfully")
+    
+    logger.debug("Application creation completed successfully")
     return app 

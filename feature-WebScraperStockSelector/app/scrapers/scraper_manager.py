@@ -1,70 +1,56 @@
 import threading
-from concurrent.futures import ThreadPoolExecutor
-import logging
-from flask import current_app
 from app.scrapers.yahoo_finance import YahooFinanceScraper
-from app import db
+from app.utils.logging import setup_logger
 
-logger = logging.getLogger(__name__)
+logger = setup_logger()
 
 class ScraperManager:
-    def __init__(self, max_workers=3):
-        self.scrapers = []
-        self.executor = ThreadPoolExecutor(max_workers=max_workers)
+    def __init__(self):
+        """Initialize the scraper manager."""
+        self.yahoo_finance_scraper = None
+        self.scraper_thread = None
         self.running = False
-        self.threads = []
-        self._app = current_app._get_current_object()  # Get the actual app object
-        self.initialize_scrapers()
-        
-    def initialize_scrapers(self):
-        """Initialize all scrapers."""
-        # Add scrapers here
-        self.scrapers.append(YahooFinanceScraper())
-        logger.info(f"Initialized {len(self.scrapers)} scrapers")
-        
-    def start_scraper(self, scraper):
-        """Run a single scraper."""
-        logger.info(f"Starting scraper: {scraper.name}")
-        # Push the application context
-        with self._app.app_context():
-            try:
-                scraper.run()
-            except Exception as e:
-                logger.error(f"Error in scraper {scraper.name}: {str(e)}")
-                # Ensure the session is cleaned up in case of error
-                db.session.remove()
-        
+        logger.info("Scraper manager initialized")
+
     def start(self):
-        """Start all scrapers in separate threads."""
+        """Start the scraping process."""
         if self.running:
-            logger.warning("Scrapers are already running")
-            return
-            
-        self.running = True
-        logger.info("Starting all scrapers")
-        
-        # Submit each scraper to the thread pool
-        for scraper in self.scrapers:
-            future = self.executor.submit(self.start_scraper, scraper)
-            self.threads.append(future)
-            
+            logger.warning("Scraper is already running")
+            return False
+
+        try:
+            self.yahoo_finance_scraper = YahooFinanceScraper()
+            self.scraper_thread = threading.Thread(target=self.yahoo_finance_scraper.run)
+            self.scraper_thread.daemon = True
+            self.scraper_thread.start()
+            self.running = True
+            logger.info("Scraper started successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error starting scraper: {e}")
+            return False
+
     def stop(self):
-        """Stop all scrapers."""
+        """Stop the scraping process."""
         if not self.running:
-            logger.warning("Scrapers are not running")
-            return
-            
-        self.running = False
-        logger.info("Stopping all scrapers")
-        
-        # Shutdown the executor (will wait for running tasks to complete)
-        self.executor.shutdown(wait=True)
-        self.threads = []
-        
+            logger.warning("Scraper is not running")
+            return False
+
+        try:
+            self.running = False
+            if self.yahoo_finance_scraper:
+                self.yahoo_finance_scraper = None
+            if self.scraper_thread:
+                self.scraper_thread = None
+            logger.info("Scraper stopped successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error stopping scraper: {e}")
+            return False
+
     def get_status(self):
-        """Get the status of all scrapers."""
+        """Get the current status of the scraper."""
         return {
             'running': self.running,
-            'scraper_count': len(self.scrapers),
-            'active_scrapers': [scraper.name for scraper in self.scrapers]
+            'active_scrapers': ['yahoo_finance'] if self.running else []
         } 

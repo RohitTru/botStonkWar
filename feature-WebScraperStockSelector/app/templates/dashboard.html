@@ -4,126 +4,318 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Stock Scraper Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
     <style>
-        .status-card {
-            margin-bottom: 20px;
+        .success { color: #198754; }
+        .error { color: #dc3545; }
+        .article-preview {
+            cursor: pointer;
+            transition: background-color 0.2s;
         }
-        .log-container {
-            height: 300px;
-            overflow-y: auto;
+        .article-preview:hover {
             background-color: #f8f9fa;
-            padding: 10px;
-            border-radius: 5px;
+        }
+        .log-entry {
+            font-family: monospace;
+            font-size: 0.9em;
+        }
+        .log-success { color: #198754; }
+        .log-error { color: #dc3545; }
+        .stats-card {
+            text-align: center;
+            padding: 1rem;
+        }
+        .stats-number {
+            font-size: 2em;
+            font-weight: bold;
+        }
+        #loading-spinner {
+            display: none;
+            text-align: center;
+            padding: 20px;
+        }
+        .spinner-border {
+            width: 3rem;
+            height: 3rem;
         }
     </style>
 </head>
 <body>
-    <div class="container mt-4">
-        <h1>Stock Scraper Dashboard</h1>
+    <div class="container-fluid py-4">
+        <h1 class="mb-4">Stock Scraper Dashboard</h1>
         
         <!-- Status Cards -->
-        <div class="row">
-            <div class="col-md-4">
-                <div class="card status-card">
+        <div class="row mb-4">
+            <div class="col-md-3">
+                <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Scraper Status</h5>
                         <p class="card-text" id="scraper-status">Loading...</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card status-card">
+            <div class="col-md-3">
+                <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Articles Found</h5>
                         <p class="card-text" id="articles-count">Loading...</p>
                     </div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="card status-card">
+            <div class="col-md-6">
+                <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Database Status</h5>
-                        <p class="card-text" id="db-status">Loading...</p>
+                        <h5 class="card-title">Last Hour Statistics</h5>
+                        <div class="row">
+                            <div class="col-3">
+                                <div class="stats-card">
+                                    <div class="stats-number" id="total-attempts">0</div>
+                                    <div>Attempts</div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="stats-card">
+                                    <div class="stats-number success" id="successful-attempts">0</div>
+                                    <div>Successful</div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="stats-card">
+                                    <div class="stats-number error" id="failed-attempts">0</div>
+                                    <div>Failed</div>
+                                </div>
+                            </div>
+                            <div class="col-3">
+                                <div class="stats-card">
+                                    <div class="stats-number" id="success-rate">0%</div>
+                                    <div>Success Rate</div>
+                                </div>
+                            </div>
+                        </div>
                     </div>
                 </div>
             </div>
         </div>
 
-        <!-- Recent Articles -->
-        <div class="card">
-            <div class="card-header">
-                <h5>Recent Articles</h5>
-            </div>
-            <div class="card-body">
-                <div class="table-responsive">
-                    <table class="table" id="articles-table">
-                        <thead>
-                            <tr>
-                                <th>Stock</th>
-                                <th>Title</th>
-                                <th>Source</th>
-                                <th>Date</th>
-                            </tr>
-                        </thead>
-                        <tbody>
-                            <!-- Articles will be populated here -->
-                        </tbody>
-                    </table>
+        <div class="row">
+            <!-- Articles Section -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Recent Articles</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="articles-container"></div>
+                        <div id="loading-spinner">
+                            <div class="spinner-border text-primary" role="status">
+                                <span class="visually-hidden">Loading...</span>
+                            </div>
+                        </div>
+                    </div>
                 </div>
             </div>
-        </div>
 
-        <!-- Logs -->
-        <div class="card mt-4">
-            <div class="card-header">
-                <h5>System Logs</h5>
-            </div>
-            <div class="card-body">
-                <div class="log-container" id="logs">
-                    <!-- Logs will be populated here -->
+            <!-- Scraping Logs Section -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="mb-0">Scraping Logs</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="scraping-logs" style="height: 600px; overflow-y: auto;"></div>
+                    </div>
                 </div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- Article Modal -->
+    <div class="modal fade" id="articleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title" id="articleModalTitle"></h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body" id="articleModalBody">
+                </div>
+                <div class="modal-footer">
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                    <button type="button" class="btn btn-danger" id="articleModalDelete">Delete Article</button>
+                    <a href="#" class="btn btn-primary" id="articleModalLink" target="_blank">View Original</a>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Function to update dashboard data
+        let articleModal;
+        let currentArticleUrl;
+        let currentPage = 1;
+        let isLoading = false;
+        let hasMoreArticles = true;
+        const articlesPerPage = 10;
+        
+        function formatDateTime(isoString) {
+            const date = new Date(isoString);
+            return date.toLocaleString();
+        }
+        
         function updateDashboard() {
-            fetch('/api/status')
+            if (isLoading) return;
+            isLoading = true;
+            
+            fetch(`/api/status?page=${currentPage}&per_page=${articlesPerPage}`)
                 .then(response => response.json())
                 .then(data => {
+                    // Update scraper status
                     document.getElementById('scraper-status').textContent = data.status;
-                    document.getElementById('articles-count').textContent = data.articles_count;
-                    document.getElementById('db-status').textContent = data.db_status;
                     
-                    // Update articles table
-                    const tbody = document.querySelector('#articles-table tbody');
-                    tbody.innerHTML = '';
+                    // Update articles count
+                    document.getElementById('articles-count').textContent = data.articles_count;
+                    
+                    // Update scraping stats
+                    document.getElementById('total-attempts').textContent = data.scraping_stats.total_attempts;
+                    document.getElementById('successful-attempts').textContent = data.scraping_stats.successful;
+                    document.getElementById('failed-attempts').textContent = data.scraping_stats.failed;
+                    document.getElementById('success-rate').textContent = `${Math.round(data.scraping_stats.success_rate)}%`;
+                    
+                    // Update articles list
+                    const articlesContainer = document.getElementById('articles-container');
+                    if (currentPage === 1) {
+                        articlesContainer.innerHTML = '';
+                    }
+                    
                     data.recent_articles.forEach(article => {
-                        const row = document.createElement('tr');
-                        row.innerHTML = `
-                            <td>${article.stock}</td>
-                            <td>${article.title}</td>
-                            <td>${article.source}</td>
-                            <td>${article.date}</td>
+                        const articleElement = document.createElement('div');
+                        articleElement.className = 'article-preview mb-4 p-3 border rounded';
+                        articleElement.onclick = () => showArticle(article.link);
+                        articleElement.innerHTML = `
+                            <h5 class="mb-2">${article.title}</h5>
+                            <p class="text-muted mb-2">
+                                Source: ${article.source}<br>
+                                Published: ${formatDateTime(article.published_date)}<br>
+                                ${article.symbols ? `Symbols: ${article.symbols}` : ''}
+                            </p>
+                            <p class="mb-0">${article.content_preview}</p>
                         `;
-                        tbody.appendChild(row);
+                        articlesContainer.appendChild(articleElement);
                     });
-
-                    // Update logs
-                    const logsContainer = document.getElementById('logs');
-                    logsContainer.innerHTML = data.logs.map(log => 
-                        `<div class="log-entry">${log}</div>`
-                    ).join('');
-                    logsContainer.scrollTop = logsContainer.scrollHeight;
+                    
+                    // Update scraping logs
+                    const logsContainer = document.getElementById('scraping-logs');
+                    logsContainer.innerHTML = '';
+                    data.scraping_logs.forEach(log => {
+                        const logElement = document.createElement('div');
+                        logElement.className = `log-entry p-2 border-bottom ${log.status === 'SUCCESS' ? 'text-success' : 'text-danger'}`;
+                        logElement.innerHTML = `
+                            <small>${formatDateTime(log.timestamp)}</small><br>
+                            ${log.status}: ${log.source_type} - ${log.url}
+                            ${log.error_message ? `<br><small class="text-danger">${log.error_message}</small>` : ''}
+                        `;
+                        logsContainer.appendChild(logElement);
+                    });
+                    
+                    // Update pagination info
+                    hasMoreArticles = currentPage < data.pagination.total_pages;
+                    
+                    isLoading = false;
+                })
+                .catch(error => {
+                    console.error('Error updating dashboard:', error);
+                    isLoading = false;
                 });
         }
-
-        // Update dashboard every 5 seconds
-        setInterval(updateDashboard, 5000);
-        updateDashboard(); // Initial update
+        
+        function showArticle(url) {
+            currentArticleUrl = url;
+            fetch(`/api/article/${encodeURIComponent(url)}`)
+                .then(response => response.json())
+                .then(article => {
+                    document.getElementById('articleModalTitle').textContent = article.title;
+                    document.getElementById('articleModalBody').innerHTML = `
+                        <p class="text-muted">
+                            Source: ${article.source}<br>
+                            Published: ${formatDateTime(article.published_date)}<br>
+                            ${article.scraped_date ? `Scraped: ${formatDateTime(article.scraped_date)}<br>` : ''}
+                            Symbols: ${Array.isArray(article.symbols) ? article.symbols.join(', ') : article.symbols}
+                        </p>
+                        <div style="white-space: pre-wrap;">${article.content}</div>
+                    `;
+                    document.getElementById('articleModalLink').href = article.link;
+                    articleModal.show();
+                });
+        }
+        
+        function deleteArticle() {
+            if (!currentArticleUrl) return;
+            
+            if (!confirm('Are you sure you want to delete this article? It will be excluded from future scraping.')) {
+                return;
+            }
+            
+            fetch(`/api/article/${encodeURIComponent(currentArticleUrl)}`, {
+                method: 'DELETE'
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    // Close the modal
+                    articleModal.hide();
+                    
+                    // Remove the article from the view
+                    const articles = document.querySelectorAll('.article-preview');
+                    articles.forEach(article => {
+                        if (article.onclick.toString().includes(currentArticleUrl)) {
+                            article.remove();
+                        }
+                    });
+                    
+                    // Reset page and reload if we're on the first page
+                    if (currentPage === 1) {
+                        updateDashboard();
+                    }
+                } else {
+                    alert('Failed to delete article: ' + (data.error || 'Unknown error'));
+                }
+            })
+            .catch(error => {
+                alert('Error deleting article: ' + error);
+            });
+        }
+        
+        // Infinite scroll handler
+        function handleScroll() {
+            if (isLoading || !hasMoreArticles) return;
+            
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const documentHeight = document.documentElement.offsetHeight;
+            
+            if (scrollPosition >= documentHeight - 1000) {
+                currentPage++;
+                updateDashboard();
+            }
+        }
+        
+        document.addEventListener('DOMContentLoaded', () => {
+            articleModal = new bootstrap.Modal(document.getElementById('articleModal'));
+            
+            // Add delete button handler
+            document.getElementById('articleModalDelete').addEventListener('click', deleteArticle);
+            
+            updateDashboard();
+            
+            // Add scroll event listener for infinite scrolling
+            window.addEventListener('scroll', handleScroll);
+            
+            // Regular updates for status and logs
+            setInterval(() => {
+                if (currentPage === 1) {
+                    updateDashboard();
+                }
+            }, 5000);
+        });
     </script>
 </body>
 </html> 

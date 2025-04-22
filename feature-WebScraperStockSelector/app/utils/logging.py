@@ -1,4 +1,5 @@
 import logging
+import logging.handlers
 import os
 from datetime import datetime
 from collections import deque
@@ -21,7 +22,11 @@ class ScraperLogger:
 
         # Create file handler
         log_file = f'logs/scraper_{datetime.now().strftime("%Y%m%d")}.log'
-        file_handler = logging.FileHandler(log_file)
+        file_handler = logging.handlers.RotatingFileHandler(
+            log_file,
+            maxBytes=10485760,  # 10MB
+            backupCount=5
+        )
         file_handler.setLevel(logging.INFO)
 
         # Create console handler
@@ -77,6 +82,49 @@ class ScraperLogger:
         return [f"{log['timestamp']} - {log['level']} - {log['message']}" 
                 for log in list(self.logs)[-limit:]]
 
-def setup_logger():
-    """Create and return a logger instance."""
-    return ScraperLogger() 
+def setup_logger(name=__name__):
+    """
+    Set up logging configuration with both file and console handlers.
+    
+    File logs: Technical and operational issues
+    Console logs: Immediate feedback during development
+    Database logs: Handled separately for business metrics
+    """
+    logger = logging.getLogger(name)
+    logger.setLevel(logging.INFO)
+
+    # Prevent duplicate handlers
+    if logger.handlers:
+        return logger
+
+    # Ensure logs directory exists
+    os.makedirs('logs', exist_ok=True)
+
+    # File handler with rotation
+    log_file = f"logs/scraper_{datetime.now().strftime('%Y%m%d')}.log"
+    file_handler = logging.handlers.RotatingFileHandler(
+        log_file,
+        maxBytes=10485760,  # 10MB
+        backupCount=5
+    )
+    file_handler.setLevel(logging.INFO)
+    file_handler.setFormatter(logging.Formatter(
+        '%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+    ))
+
+    # Console handler
+    console_handler = logging.StreamHandler()
+    console_handler.setLevel(logging.INFO)
+    console_handler.setFormatter(logging.Formatter(
+        '%(levelname)s - %(message)s'
+    ))
+
+    # Add handlers
+    logger.addHandler(file_handler)
+    logger.addHandler(console_handler)
+
+    return logger
+
+def get_logger(name=__name__):
+    """Get an existing logger or create a new one."""
+    return logging.getLogger(name) 

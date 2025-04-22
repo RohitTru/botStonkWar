@@ -1,6 +1,13 @@
-# Use Python 3.10 slim image
-FROM python:3.10-slim
+# Use an official Python runtime as a parent image
+FROM python:3.9-slim
 
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=app.py \
+    FLASK_ENV=production
+
+# Set work directory
 WORKDIR /app
 
 # Install system dependencies
@@ -8,37 +15,26 @@ RUN apt-get update && apt-get install -y \
     gcc \
     default-libmysqlclient-dev \
     pkg-config \
-    curl \
-    python3-dev \
-    libxml2-dev \
-    libxslt1-dev \
-    build-essential \
     && rm -rf /var/lib/apt/lists/*
-
-# Install Rust for tokenizers
-RUN curl https://sh.rustup.rs -sSf | bash -s -- -y \
-    && . "$HOME/.cargo/env" && rustup update stable \
-    && ln -s /root/.cargo/bin/rustc /usr/local/bin/rustc \
-    && ln -s /root/.cargo/bin/cargo /usr/local/bin/cargo
 
 # Copy requirements file
 COPY requirements.txt .
 
 # Install Python dependencies
-RUN pip install --no-cache-dir lxml==4.9.3 lxml_html_clean && \
-    pip install --no-cache-dir -r requirements.txt
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Copy application code
+# Copy project
 COPY . .
 
-# Set environment variables
-ENV PYTHONUNBUFFERED=1
-ENV FLASK_APP=app.py
-ENV FLASK_ENV=production
-ENV PYTHONPATH=/app
+# Create necessary directories
+RUN mkdir -p logs
 
-# Expose port (will be overridden by docker-compose)
-EXPOSE ${APP_PORT:-5004}
+# Create a non-root user
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 
-# Start the Flask application
-CMD ["sh", "-c", "flask run --host=0.0.0.0 --port=${APP_PORT:-5004}"]
+# Expose port
+EXPOSE 5004
+
+# Run the application
+CMD ["python", "app.py"]
