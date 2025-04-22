@@ -1,26 +1,38 @@
+from flask import Flask
+from app.routes import main_bp
+from app.scrapers.scraper_manager import ScraperManager
+from config import config
 import os
-import logging
-from app import create_app
+from app.utils.logging import setup_logger
 
-# Configure logging
-logging.basicConfig(level=logging.DEBUG)
-logger = logging.getLogger(__name__)
+logger = setup_logger()
 
-# Get environment from environment variable or default to development
-env = os.getenv('FLASK_ENV', 'development')
-logger.debug(f"Starting application in {env} mode")
-
-try:
-    # Create Flask app with appropriate config
-    logger.debug("Creating Flask application...")
-    app = create_app(env)
+def create_app(config_name='production'):
+    """Create and configure the Flask application."""
+    app = Flask(__name__)
     
-    if __name__ == '__main__':
-        logger.debug("Starting Flask server...")
-        app.run(
-            host='0.0.0.0',
-            port=int(os.getenv('APP_PORT', 5004)),
-            debug=False  # Disable debug mode to avoid watchdog issues
-        )
-except Exception as e:
-    logger.error(f"Failed to start application: {str(e)}", exc_info=True)
+    # Load configuration
+    app.config.from_object(config[config_name])
+    
+    # Initialize scraper manager
+    app.scraper_manager = ScraperManager()
+    
+    # Register blueprints
+    app.register_blueprint(main_bp)
+    
+    # Start scraper
+    app.scraper_manager.start()
+    
+    return app
+
+if __name__ == '__main__':
+    # Get environment from environment variable
+    env = os.getenv('FLASK_ENV', 'production')
+    
+    # Create and run app
+    app = create_app(env)
+    app.run(
+        host='0.0.0.0',
+        port=int(os.getenv('APP_PORT', 5004)),
+        debug=False
+    )
