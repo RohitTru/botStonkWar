@@ -256,18 +256,19 @@ class YahooFinanceScraper:
         
         while True:
             try:
-                logger.info("Waiting for next scrape cycle...")
-                # Check pause state every 5 seconds
-                for _ in range(12):  # 60 seconds / 5 seconds = 12 iterations
-                    if self.paused:
-                        logger.info("Scraper is paused")
-                        time.sleep(5)
-                        continue
+                # Check if paused
+                while self.paused:
+                    logger.info("Scraper is paused")
                     time.sleep(5)
+                    continue
                 
-                if not self.paused:
+                logger.info("Waiting for next scrape cycle...")
+                time.sleep(60)  # Wait 60 seconds between cycles
+                
+                if not self.paused:  # Double check pause state before starting new cycle
                     logger.info("Starting new scrape cycle...")
                     self.scrape_feed()
+                    
             except Exception as e:
                 logger.error(f"Error in scraper run loop: {str(e)}")
                 logger.error(traceback.format_exc())
