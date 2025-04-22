@@ -14,7 +14,6 @@ logger = setup_logger()
 
 class YahooFinanceScraper:
     def __init__(self):
-        self.seen_urls = set()
         self.db = Database()
         # Updated RSS feed URLs
         self.rss_feeds = [
@@ -187,6 +186,12 @@ class YahooFinanceScraper:
         """Process a single article entry."""
         url = entry.get('link')
         try:
+            # Check if article already exists in database
+            existing_article = self.db.get_article_by_url(url)
+            if existing_article:
+                logger.debug(f"Article already exists in database: {url}")
+                return
+
             # Log start of scraping
             log_data = {
                 'timestamp': datetime.now(),

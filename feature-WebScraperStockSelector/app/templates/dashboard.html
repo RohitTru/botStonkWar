@@ -177,11 +177,15 @@
             if (isLoading) return;
             isLoading = true;
             
+            document.getElementById('loading-spinner').style.display = 'block';
+            
             fetch(`/api/status?page=${currentPage}&per_page=${articlesPerPage}`)
                 .then(response => response.json())
                 .then(data => {
-                    // Update scraper status
-                    document.getElementById('scraper-status').textContent = data.status;
+                    // Update scraper status with color coding
+                    const scraperStatusEl = document.getElementById('scraper-status');
+                    scraperStatusEl.textContent = data.status;
+                    scraperStatusEl.className = data.status === 'Running' ? 'text-success' : 'text-danger';
                     
                     // Update database status
                     updateDatabaseStatus(data.db_connected);
@@ -201,12 +205,7 @@
                         articlesContainer.innerHTML = '';
                     }
                     
-                    // Sort articles by published_date in descending order
-                    const sortedArticles = data.recent_articles.sort((a, b) => {
-                        return new Date(b.published_date) - new Date(a.published_date);
-                    });
-                    
-                    sortedArticles.forEach(article => {
+                    data.recent_articles.forEach(article => {
                         const articleElement = document.createElement('div');
                         articleElement.className = 'article-preview mb-4 p-3 border rounded';
                         articleElement.onclick = () => showArticle(article.link);
@@ -215,6 +214,7 @@
                             <p class="text-muted mb-2">
                                 Source: ${article.source}<br>
                                 Published: ${formatDateTime(article.published_date)}<br>
+                                Scraped: ${formatDateTime(article.scraped_date)}<br>
                                 ${article.symbols ? `Symbols: ${article.symbols}` : ''}
                             </p>
                             <p class="mb-0">${article.content_preview}</p>
@@ -222,25 +222,41 @@
                         articlesContainer.appendChild(articleElement);
                     });
                     
-                    // Update scraping logs
+                    // Update scraping logs with better formatting
                     const logsContainer = document.getElementById('scraping-logs');
                     if (data.scraping_logs && data.scraping_logs.length > 0) {
-                        logsContainer.innerHTML = data.scraping_logs.map(log => `
-                            <div class="log-entry p-2 ${log.status === 'SUCCESS' ? 'text-success' : 'text-danger'}">
-                                <small>${formatDateTime(log.timestamp)} - ${log.status}: ${log.url}</small>
-                                ${log.error_message ? `<br><small class="text-danger">${log.error_message}</small>` : ''}
-                            </div>
-                        `).join('');
+                        const logsHtml = data.scraping_logs.map(log => {
+                            const statusClass = log.status === 'SUCCESS' ? 'log-success' : 
+                                          log.status === 'FAILED' ? 'log-error' : 
+                                          'text-warning';
+                            return `
+                                <div class="log-entry p-2 ${statusClass}">
+                                    <div class="d-flex justify-content-between">
+                                        <small>${formatDateTime(log.timestamp)}</small>
+                                        <small class="badge ${log.status === 'SUCCESS' ? 'bg-success' : 'bg-danger'}">${log.status}</small>
+                                    </div>
+                                    <small>${log.url}</small>
+                                    ${log.error_message ? `<div class="text-danger"><small>${log.error_message}</small></div>` : ''}
+                                </div>
+                            `;
+                        }).join('');
+                        logsContainer.innerHTML = logsHtml;
                     }
                     
                     // Update pagination info
-                    hasMoreArticles = currentPage < data.pagination.total_pages;
+                    hasMoreArticles = data.pagination.has_next;
                     
                     isLoading = false;
+                    document.getElementById('loading-spinner').style.display = 'none';
                 })
                 .catch(error => {
                     console.error('Error updating dashboard:', error);
+                    // Show error state
+                    document.getElementById('scraper-status').textContent = 'Error';
+                    document.getElementById('scraper-status').className = 'text-danger';
+                    updateDatabaseStatus(false);
                     isLoading = false;
+                    document.getElementById('loading-spinner').style.display = 'none';
                 });
         }
         

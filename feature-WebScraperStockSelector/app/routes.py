@@ -28,13 +28,18 @@ def status():
         per_page = int(request.args.get('per_page', 10))
         
         # Get scraper status
-        scraper_status = "Running" if current_app.scraper_manager and current_app.scraper_manager.running else "Stopped"
+        scraper_status = "Running" if current_app.scraper_manager and current_app.scraper_manager.running else "Error"
         
         # Check database connection
         db_connected = db.check_connection()
         
         # Get recent articles with pagination
         articles, total_count = db.get_recent_articles(limit=per_page, offset=(page-1)*per_page)
+        
+        # Calculate pagination info
+        total_pages = (total_count + per_page - 1) // per_page
+        has_next = page < total_pages
+        has_prev = page > 1
         
         # Format dates for JSON serialization
         for article in articles:
@@ -46,12 +51,17 @@ def status():
         # Get scraping logs
         logs = db.get_scraping_logs(limit=50)  # Get last 50 logs
         
-        # Format dates in logs
+        # Format dates in logs and ensure all fields are present
+        formatted_logs = []
         for log in logs:
-            if log.get('timestamp'):
-                log['timestamp'] = log['timestamp'].isoformat()
-            if log.get('created_at'):
-                log['created_at'] = log['created_at'].isoformat()
+            formatted_log = {
+                'timestamp': log['timestamp'].isoformat() if log.get('timestamp') else None,
+                'status': log.get('status', 'UNKNOWN'),
+                'source_type': log.get('source_type', ''),
+                'url': log.get('url', ''),
+                'error_message': log.get('error_message', '')
+            }
+            formatted_logs.append(formatted_log)
         
         # Calculate scraping statistics for the last hour
         stats = db.get_scraping_stats(hours=1)
@@ -61,8 +71,16 @@ def status():
             'db_connected': db_connected,
             'articles_count': total_count,
             'recent_articles': articles,
-            'scraping_logs': logs,
-            'scraping_stats': stats
+            'scraping_logs': formatted_logs,
+            'scraping_stats': stats,
+            'pagination': {
+                'page': page,
+                'per_page': per_page,
+                'total_pages': total_pages,
+                'total_items': total_count,
+                'has_next': has_next,
+                'has_prev': has_prev
+            }
         })
     except Exception as e:
         logger.error(f"Error in status route: {str(e)}", exc_info=True)
@@ -77,6 +95,14 @@ def status():
                 'successful': 0,
                 'failed': 0,
                 'success_rate': 0
+            },
+            'pagination': {
+                'page': 1,
+                'per_page': per_page,
+                'total_pages': 0,
+                'total_items': 0,
+                'has_next': False,
+                'has_prev': False
             }
         }), 500
 
