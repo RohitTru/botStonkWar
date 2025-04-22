@@ -26,6 +26,7 @@ class Database:
         try:
             self.connection_pool = mysql.connector.pooling.MySQLConnectionPool(**self.pool_config)
             logger.info("Database connection pool created successfully")
+            self.create_tables()  # Create tables on initialization
         except Error as e:
             logger.error(f"Error creating connection pool: {e}")
             raise
@@ -81,9 +82,10 @@ class Database:
 
     def create_tables(self):
         """Create necessary tables if they don't exist"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor()
+            connection = self.get_connection()
+            cursor = connection.cursor()
 
             # Articles table
             cursor.execute("""
@@ -114,18 +116,22 @@ class Database:
                 )
             """)
 
-            self.connection_pool.get_connection().commit()
+            connection.commit()
             cursor.close()
             logger.info("Database tables created successfully")
         except Error as e:
             logger.error(f"Error creating tables: {e}")
             raise
+        finally:
+            if connection:
+                connection.close()
 
     def verify_tables(self):
         """Verify that all required tables exist and have the correct structure."""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor()
+            connection = self.get_connection()
+            cursor = connection.cursor()
             
             # Check if tables exist
             cursor.execute("""
@@ -155,12 +161,16 @@ class Database:
         except Error as e:
             logger.error(f"Error verifying tables: {e}")
             raise
+        finally:
+            if connection:
+                connection.close()
 
     def add_article(self, article_data):
         """Add a new article to the database"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor()
+            connection = self.get_connection()
+            cursor = connection.cursor()
 
             query = """
                 INSERT INTO articles (title, link, content, source, published_date, scraped_date, symbols)
@@ -186,18 +196,22 @@ class Database:
             )
 
             cursor.execute(query, values)
-            self.connection_pool.get_connection().commit()
+            connection.commit()
             cursor.close()
             return True
         except Error as e:
             logger.error(f"Error adding article: {e}")
             return False
+        finally:
+            if connection:
+                connection.close()
 
     def get_recent_articles(self, limit=10, offset=0):
         """Get recent articles from database"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor(dictionary=True)
+            connection = self.get_connection()
+            cursor = connection.cursor(dictionary=True)
 
             query = """
                 SELECT * FROM articles 
@@ -212,8 +226,6 @@ class Database:
             cursor.execute("SELECT COUNT(*) as count FROM articles WHERE NOT is_deleted")
             total_count = cursor.fetchone()['count']
 
-            cursor.close()
-
             # Format articles for display
             for article in articles:
                 article['symbols'] = json.loads(article['symbols']) if article['symbols'] else []
@@ -227,12 +239,16 @@ class Database:
         except Error as e:
             logger.error(f"Error getting recent articles: {e}")
             return [], 0
+        finally:
+            if connection:
+                connection.close()
 
     def add_scraping_log(self, log_data):
         """Add a new scraping log entry"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor()
+            connection = self.get_connection()
+            cursor = connection.cursor()
 
             query = """
                 INSERT INTO scraping_logs (timestamp, status, source_type, url, error_message)
@@ -247,18 +263,22 @@ class Database:
             )
 
             cursor.execute(query, values)
-            self.connection_pool.get_connection().commit()
+            connection.commit()
             cursor.close()
             return True
         except Error as e:
             logger.error(f"Error adding scraping log: {e}")
             return False
+        finally:
+            if connection:
+                connection.close()
 
     def get_scraping_logs(self, limit=20):
         """Get recent scraping logs"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor(dictionary=True)
+            connection = self.get_connection()
+            cursor = connection.cursor(dictionary=True)
 
             query = """
                 SELECT * FROM scraping_logs 
@@ -267,17 +287,20 @@ class Database:
             """
             cursor.execute(query, (limit,))
             logs = cursor.fetchall()
-            cursor.close()
             return logs
         except Error as e:
             logger.error(f"Error getting scraping logs: {e}")
             return []
+        finally:
+            if connection:
+                connection.close()
 
     def get_scraping_stats(self, hours=1):
         """Get scraping statistics for the last N hours"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor(dictionary=True)
+            connection = self.get_connection()
+            cursor = connection.cursor(dictionary=True)
             
             query = """
                 SELECT 
@@ -289,7 +312,6 @@ class Database:
             """
             cursor.execute(query, (hours,))
             stats = cursor.fetchone()
-            cursor.close()
             
             total = stats['total_attempts'] or 0
             successful = stats['successful'] or 0
@@ -309,32 +331,39 @@ class Database:
                 'failed': 0,
                 'success_rate': 0
             }
+        finally:
+            if connection:
+                connection.close()
 
     def mark_article_deleted(self, article_url):
         """Mark an article as deleted"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor()
+            connection = self.get_connection()
+            cursor = connection.cursor()
 
             query = "UPDATE articles SET is_deleted = TRUE WHERE link = %s"
             cursor.execute(query, (article_url,))
-            self.connection_pool.get_connection().commit()
+            connection.commit()
             cursor.close()
             return True
         except Error as e:
             logger.error(f"Error marking article as deleted: {e}")
             return False
+        finally:
+            if connection:
+                connection.close()
 
     def get_article_by_url(self, article_url):
         """Get article details by URL"""
+        connection = None
         try:
-            self.ensure_connection()
-            cursor = self.connection_pool.get_connection().cursor(dictionary=True)
+            connection = self.get_connection()
+            cursor = connection.cursor(dictionary=True)
 
             query = "SELECT * FROM articles WHERE link = %s AND NOT is_deleted"
             cursor.execute(query, (article_url,))
             article = cursor.fetchone()
-            cursor.close()
 
             if article:
                 article['symbols'] = json.loads(article['symbols']) if article['symbols'] else []
@@ -343,6 +372,9 @@ class Database:
         except Error as e:
             logger.error(f"Error getting article by URL: {e}")
             return None
+        finally:
+            if connection:
+                connection.close()
 
     def close(self):
         """Close database connection"""
@@ -355,15 +387,19 @@ class Database:
 
     def get_total_articles(self):
         """Get the total number of articles in the database."""
+        connection = None
         try:
-            cursor = self.connection_pool.get_connection().cursor()
+            connection = self.get_connection()
+            cursor = connection.cursor()
             cursor.execute("SELECT COUNT(*) FROM articles WHERE NOT is_deleted")
             count = cursor.fetchone()[0]
-            cursor.close()
             return count
-        except Exception as e:
+        except Error as e:
             logger.error(f"Error getting total articles count: {e}")
             return 0
+        finally:
+            if connection:
+                connection.close()
 
 # Create a global instance
 db = Database() 
