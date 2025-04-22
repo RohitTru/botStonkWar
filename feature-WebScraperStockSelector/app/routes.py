@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from app.utils.logging import setup_logger
 from app.database import Database
 from decimal import Decimal
+import pandas as pd
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
@@ -177,4 +178,32 @@ def get_scraper_state():
         return jsonify({'running': False, 'paused': False})
     except Exception as e:
         logger.error(f"Error getting scraper state: {str(e)}", exc_info=True)
-        return jsonify({'running': False, 'paused': False}), 500 
+        return jsonify({'running': False, 'paused': False}), 500
+
+def get_recent_articles(limit=10, offset=0):
+    """Get recent articles with pagination."""
+    try:
+        df = pd.read_csv('data/articles.csv')
+        # Convert date strings to datetime objects
+        df['scraped_date'] = pd.to_datetime(df['scraped_date'])
+        df['published_date'] = pd.to_datetime(df['published_date'])
+        
+        # Filter out deleted articles and sort by scraped_date
+        df = df[df['deleted'].fillna(False) == False]
+        df = df.sort_values('scraped_date', ascending=False)
+        
+        # Apply pagination
+        total = len(df)
+        df = df.iloc[offset:offset + limit]
+        
+        # Convert dates back to ISO format strings
+        df['scraped_date'] = df['scraped_date'].dt.strftime('%Y-%m-%dT%H:%M:%S%z')
+        df['published_date'] = df['published_date'].dt.strftime('%Y-%m-%dT%H:%M:%S%z')
+        
+        return {
+            'articles': df.to_dict('records'),
+            'total': total
+        }
+    except Exception as e:
+        logger.error(f"Error getting recent articles: {str(e)}")
+        return {'articles': [], 'total': 0} 
