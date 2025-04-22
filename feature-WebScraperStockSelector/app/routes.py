@@ -35,8 +35,9 @@ def status():
         page = int(request.args.get('page', 1))
         per_page = int(request.args.get('per_page', 10))
         
-        # Get scraper status
+        # Get scraper status and state
         scraper_status = "Running" if current_app.scraper_manager and current_app.scraper_manager.running else "Error"
+        scraper_paused = current_app.scraper_manager.paused if current_app.scraper_manager else False
         
         # Check database connection
         db_connected = db.check_connection()
@@ -76,6 +77,7 @@ def status():
         
         response_data = {
             'status': scraper_status,
+            'paused': scraper_paused,
             'db_connected': db_connected,
             'articles_count': total_count,
             'recent_articles': articles,
@@ -99,6 +101,7 @@ def status():
         logger.error(f"Error in status route: {str(e)}", exc_info=True)
         return jsonify({
             'status': 'Error',
+            'paused': False,
             'db_connected': False,
             'articles_count': 0,
             'recent_articles': [],
