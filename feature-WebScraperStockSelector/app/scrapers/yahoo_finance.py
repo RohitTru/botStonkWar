@@ -128,6 +128,11 @@ class YahooFinanceScraper:
         try:
             logger.info("Starting feed scraping cycle...")
             for feed_url in self.rss_feeds:
+                # Check pause state before processing each feed
+                if self.paused:
+                    logger.info("Scraper paused during feed processing")
+                    return
+                    
                 try:
                     logger.info(f"Fetching RSS feed: {feed_url}")
                     feed = feedparser.parse(feed_url)
@@ -149,6 +154,11 @@ class YahooFinanceScraper:
                     logger.info(f"Processing {len(feed.entries)} articles from feed: {feed_url}")
                     
                     for entry in feed.entries:
+                        # Check pause state before processing each article
+                        if self.paused:
+                            logger.info("Scraper paused during article processing")
+                            return
+                            
                         try:
                             # Debug entry data
                             logger.info(f"Processing entry - Title: {entry.get('title', 'No title')}")
@@ -260,7 +270,6 @@ class YahooFinanceScraper:
                 while self.paused:
                     logger.info("Scraper is paused")
                     time.sleep(5)
-                    continue
                 
                 logger.info("Waiting for next scrape cycle...")
                 time.sleep(60)  # Wait 60 seconds between cycles
