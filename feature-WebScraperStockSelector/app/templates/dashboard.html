@@ -193,27 +193,39 @@
         }
         
         function toggleScraper() {
-            const btn = document.getElementById('pauseResumeBtn');
-            const action = btn.textContent.toLowerCase().includes('pause') ? 'pause' : 'resume';
+            const button = document.getElementById('pauseResumeBtn');
+            const isCurrentlyPaused = button.textContent.includes('Resume');
             
-            fetch('/api/scraper/control', {
+            fetch('/api/toggle_scraper', {
                 method: 'POST',
                 headers: {
-                    'Content-Type': 'application/json',
+                    'Content-Type': 'application/json'
                 },
-                body: JSON.stringify({ action: action })
+                body: JSON.stringify({
+                    action: isCurrentlyPaused ? 'resume' : 'pause'
+                })
             })
             .then(response => response.json())
             .then(data => {
-                if (data.status === 'success') {
-                    updateDashboard();
+                if (data.success) {
+                    // Update button state immediately
+                    button.textContent = isCurrentlyPaused ? 'Pause Scraper' : 'Resume Scraper';
+                    button.className = isCurrentlyPaused ? 'btn btn-warning' : 'btn btn-success';
+                    
+                    // Show success message
+                    const message = isCurrentlyPaused ? 'Scraper resumed successfully' : 'Scraper paused successfully';
+                    showMessage(message, 'success');
+                    
+                    // Update status immediately
+                    document.getElementById('scraper-status').textContent = isCurrentlyPaused ? 'Running' : 'Paused';
+                    document.getElementById('scraper-status').className = isCurrentlyPaused ? 'text-success' : 'text-warning';
                 } else {
-                    alert('Error: ' + data.message);
+                    showMessage('Failed to toggle scraper: ' + data.error, 'error');
                 }
             })
             .catch(error => {
                 console.error('Error:', error);
-                alert('Error controlling scraper');
+                showMessage('Error toggling scraper: ' + error.message, 'error');
             });
         }
         

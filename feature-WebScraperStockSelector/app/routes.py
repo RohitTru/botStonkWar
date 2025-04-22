@@ -3,6 +3,7 @@ from datetime import datetime, timedelta
 from app.utils.logging import setup_logger
 from app.database import Database
 from decimal import Decimal
+from scraper_manager import ScraperManager
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
@@ -12,6 +13,16 @@ logger = setup_logger()
 
 # Initialize database
 db = Database()
+
+# Initialize the scraper manager
+scraper_manager = ScraperManager()
+
+# Add the Yahoo Finance scraper
+from scrapers.yahoo_finance import YahooFinanceScraper
+scraper_manager.add_scraper('yahoo_finance', YahooFinanceScraper())
+
+# Start the scraper manager
+scraper_manager.run()
 
 # Custom JSON encoder to handle Decimal objects
 class CustomJSONEncoder(json.JSONEncoder):
@@ -31,96 +42,44 @@ def health():
 
 @main_bp.route('/api/status')
 def status():
+    """Get the current status of the scraper."""
     try:
-        page = int(request.args.get('page', 1))
-        per_page = int(request.args.get('per_page', 10))
+        # Get scraper status
+        scraper_status = scraper_manager.get_scraper_status('yahoo_finance')
         
-        # Get scraper status and state
-        scraper_status = "Running" if current_app.scraper_manager and current_app.scraper_manager.running else "Error"
-        scraper_paused = current_app.scraper_manager.paused if current_app.scraper_manager else False
-        
-        # Check database connection
+        # Get database connection status
         db_connected = db.check_connection()
         
-        # Get recent articles with pagination
-        articles, total_count = db.get_recent_articles(limit=per_page, offset=(page-1)*per_page)
+        # Get article count
+        articles_count = db.get_article_count()
         
-        # Calculate pagination info
-        total_pages = (total_count + per_page - 1) // per_page
-        has_next = page < total_pages
-        has_prev = page > 1
-        
-        # Format dates for JSON serialization
-        for article in articles:
-            if article.get('published_date'):
-                article['published_date'] = article['published_date'].isoformat()
-            if article.get('scraped_date'):
-                article['scraped_date'] = article['scraped_date'].isoformat()
+        # Get recent articles
+        recent_articles = db.get_recent_articles(
+            limit=request.args.get('per_page', 10, type=int),
+            offset=(request.args.get('page', 1, type=int) - 1) * request.args.get('per_page', 10, type=int)
+        )
         
         # Get scraping logs
-        logs = db.get_scraping_logs(limit=50)  # Get last 50 logs
+        scraping_logs = db.get_scraping_logs(limit=50)
         
-        # Format dates in logs and ensure all fields are present
-        formatted_logs = []
-        for log in logs:
-            formatted_log = {
-                'timestamp': log['timestamp'].isoformat() if log.get('timestamp') else None,
-                'status': log.get('status', 'UNKNOWN'),
-                'source_type': log.get('source_type', ''),
-                'url': log.get('url', ''),
-                'error_message': log.get('error_message', '')
-            }
-            formatted_logs.append(formatted_log)
+        # Get scraping stats
+        scraping_stats = db.get_scraping_stats()
         
-        # Calculate scraping statistics for the last hour
-        stats = db.get_scraping_stats(hours=1)
-        
-        response_data = {
-            'status': scraper_status,
-            'paused': scraper_paused,
-            'db_connected': db_connected,
-            'articles_count': total_count,
-            'recent_articles': articles,
-            'scraping_logs': formatted_logs,
-            'scraping_stats': stats,
-            'pagination': {
-                'page': page,
-                'per_page': per_page,
-                'total_pages': total_pages,
-                'total_items': total_count,
-                'has_next': has_next,
-                'has_prev': has_prev
-            }
-        }
-        
-        return current_app.response_class(
-            json.dumps(response_data, cls=CustomJSONEncoder),
-            mimetype='application/json'
-        )
-    except Exception as e:
-        logger.error(f"Error in status route: {str(e)}", exc_info=True)
         return jsonify({
-            'status': 'Error',
-            'paused': False,
-            'db_connected': False,
-            'articles_count': 0,
-            'recent_articles': [],
-            'scraping_logs': [],
-            'scraping_stats': {
-                'total_attempts': 0,
-                'successful': 0,
-                'failed': 0,
-                'success_rate': 0
-            },
+            'status': scraper_status,
+            'paused': scraper_status == 'Paused',
+            'db_connected': db_connected,
+            'articles_count': articles_count,
+            'recent_articles': recent_articles,
+            'scraping_logs': scraping_logs,
+            'scraping_stats': scraping_stats,
             'pagination': {
-                'page': 1,
-                'per_page': per_page,
-                'total_pages': 0,
-                'total_items': 0,
-                'has_next': False,
-                'has_prev': False
+                'has_next': len(recent_articles) == request.args.get('per_page', 10, type=int)
             }
-        }), 500
+        })
+    except Exception as e:
+        logger.error(f"Error getting status: {str(e)}")
+        return jsonify({'error': str(e)}), 500
 
 @main_bp.route('/api/article/<path:article_url>')
 def get_article(article_url):
@@ -150,34 +109,25 @@ def delete_article(article_url):
         logger.error(f"Error deleting article: {str(e)}", exc_info=True)
         return jsonify({'error': str(e)}), 500
 
-@main_bp.route('/api/scraper/control', methods=['POST'])
-def control_scraper():
-    """Control the scraper state (pause/resume)"""
+@main_bp.route('/api/toggle_scraper', methods=['POST'])
+def toggle_scraper():
+    """Toggle the scraper between paused and running states."""
     try:
-        action = request.json.get('action')
+        data = request.get_json()
+        action = data.get('action', '').lower()
+        
         if action == 'pause':
-            if current_app.scraper_manager:
-                current_app.scraper_manager.pause()
-                return jsonify({'status': 'success', 'message': 'Scraper paused'})
+            success = scraper_manager.pause_scraper('yahoo_finance')
         elif action == 'resume':
-            if current_app.scraper_manager:
-                current_app.scraper_manager.resume()
-                return jsonify({'status': 'success', 'message': 'Scraper resumed'})
-        return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
+            success = scraper_manager.resume_scraper('yahoo_finance')
+        else:
+            return jsonify({'success': False, 'error': 'Invalid action'}), 400
+            
+        if success:
+            return jsonify({'success': True})
+        else:
+            return jsonify({'success': False, 'error': 'Failed to toggle scraper'}), 500
+            
     except Exception as e:
-        logger.error(f"Error controlling scraper: {str(e)}", exc_info=True)
-        return jsonify({'status': 'error', 'message': str(e)}), 500
-
-@main_bp.route('/api/scraper/state')
-def get_scraper_state():
-    """Get the current state of the scraper"""
-    try:
-        if current_app.scraper_manager:
-            return jsonify({
-                'running': current_app.scraper_manager.running,
-                'paused': current_app.scraper_manager.paused if hasattr(current_app.scraper_manager, 'paused') else False
-            })
-        return jsonify({'running': False, 'paused': False})
-    except Exception as e:
-        logger.error(f"Error getting scraper state: {str(e)}", exc_info=True)
-        return jsonify({'running': False, 'paused': False}), 500 
+        logger.error(f"Error toggling scraper: {str(e)}")
+        return jsonify({'success': False, 'error': str(e)}), 500 
