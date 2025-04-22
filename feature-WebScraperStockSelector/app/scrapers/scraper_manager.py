@@ -10,7 +10,14 @@ class ScraperManager:
         self.yahoo_finance_scraper = None
         self.scraper_thread = None
         self.running = False
+        self.app = None
         logger.info("Scraper manager initialized")
+
+    def init_app(self, app):
+        """Initialize the scraper with Flask app context."""
+        self.app = app
+        logger.info("Scraper manager initialized with Flask app")
+        return self
 
     def start(self):
         """Start the scraping process."""
