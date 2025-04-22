@@ -1,10 +1,11 @@
 import mysql.connector
 from mysql.connector import Error, pooling
 import os
-from datetime import datetime
+from datetime import datetime, timezone
 import json
 from app.utils.logging import setup_logger
 from dotenv import load_dotenv
+import pytz
 
 load_dotenv()
 
@@ -230,7 +231,7 @@ class Database:
             cursor.execute("SELECT COUNT(*) as count FROM articles WHERE NOT is_deleted")
             total_count = cursor.fetchone()['count']
 
-            # Format articles for display
+            # Format articles for display and convert timestamps to UTC
             for article in articles:
                 article['symbols'] = json.loads(article['symbols']) if article['symbols'] else []
                 article['symbols'] = ', '.join(article['symbols'])
@@ -238,6 +239,12 @@ class Database:
                     article['content_preview'] = article['content'][:200] + '...' if len(article['content']) > 200 else article['content']
                 else:
                     article['content_preview'] = ''
+                
+                # Convert timestamps to UTC
+                if article.get('published_date'):
+                    article['published_date'] = article['published_date'].replace(tzinfo=timezone.utc)
+                if article.get('scraped_date'):
+                    article['scraped_date'] = article['scraped_date'].replace(tzinfo=timezone.utc)
 
             return articles, total_count
         except Error as e:
@@ -291,6 +298,14 @@ class Database:
             """
             cursor.execute(query, (limit,))
             logs = cursor.fetchall()
+            
+            # Convert timestamps to UTC
+            for log in logs:
+                if log.get('timestamp'):
+                    log['timestamp'] = log['timestamp'].replace(tzinfo=timezone.utc)
+                if log.get('created_at'):
+                    log['created_at'] = log['created_at'].replace(tzinfo=timezone.utc)
+            
             return logs
         except Error as e:
             logger.error(f"Error getting scraping logs: {e}")
@@ -306,15 +321,29 @@ class Database:
             connection = self.get_connection()
             cursor = connection.cursor(dictionary=True)
             
+            # Get stats based on unique URLs to avoid counting retries
             query = """
                 SELECT 
-                    COUNT(*) as total_attempts,
-                    SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
-                    SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed
-                FROM scraping_logs 
-                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+                    COUNT(DISTINCT url) as total_attempts,
+                    SUM(CASE WHEN status = 'SUCCESS' AND url IN (
+                        SELECT url FROM scraping_logs l2 
+                        WHERE l2.status = 'SUCCESS' 
+                        AND l2.timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+                        GROUP BY url
+                    ) THEN 1 ELSE 0 END) as successful,
+                    SUM(CASE WHEN status = 'FAILED' AND url NOT IN (
+                        SELECT url FROM scraping_logs l2 
+                        WHERE l2.status = 'SUCCESS' 
+                        AND l2.timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+                        GROUP BY url
+                    ) THEN 1 ELSE 0 END) as failed
+                FROM (
+                    SELECT DISTINCT url, status
+                    FROM scraping_logs
+                    WHERE timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+                ) as unique_logs
             """
-            cursor.execute(query, (hours,))
+            cursor.execute(query, (hours, hours, hours))
             stats = cursor.fetchone()
             
             total = stats['total_attempts'] or 0
@@ -325,7 +354,7 @@ class Database:
                 'total_attempts': total,
                 'successful': successful,
                 'failed': failed,
-                'success_rate': (successful / total * 100) if total > 0 else 0
+                'success_rate': round((successful / total * 100) if total > 0 else 0, 1)
             }
         except Error as e:
             logger.error(f"Error getting scraping stats: {e}")

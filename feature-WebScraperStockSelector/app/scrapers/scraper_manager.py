@@ -10,6 +10,7 @@ class ScraperManager:
         self.yahoo_finance_scraper = None
         self.scraper_thread = None
         self.running = False
+        self.paused = False
         self.app = None
         logger.info("Scraper manager initialized")
 
@@ -29,8 +30,9 @@ class ScraperManager:
             self.yahoo_finance_scraper = YahooFinanceScraper()
             self.scraper_thread = threading.Thread(target=self.yahoo_finance_scraper.run)
             self.scraper_thread.daemon = True
-            self.scraper_thread.start()
             self.running = True
+            self.paused = False
+            self.scraper_thread.start()
             logger.info("Scraper started successfully")
             return True
         except Exception as e:
@@ -45,6 +47,7 @@ class ScraperManager:
 
         try:
             self.running = False
+            self.paused = False
             if self.yahoo_finance_scraper:
                 self.yahoo_finance_scraper = None
             if self.scraper_thread:
@@ -55,9 +58,48 @@ class ScraperManager:
             logger.error(f"Error stopping scraper: {e}")
             return False
 
+    def pause(self):
+        """Pause the scraping process."""
+        if not self.running:
+            logger.warning("Scraper is not running")
+            return False
+        if self.paused:
+            logger.warning("Scraper is already paused")
+            return False
+
+        try:
+            self.paused = True
+            if self.yahoo_finance_scraper:
+                self.yahoo_finance_scraper.paused = True
+            logger.info("Scraper paused successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error pausing scraper: {e}")
+            return False
+
+    def resume(self):
+        """Resume the scraping process."""
+        if not self.running:
+            logger.warning("Scraper is not running")
+            return False
+        if not self.paused:
+            logger.warning("Scraper is not paused")
+            return False
+
+        try:
+            self.paused = False
+            if self.yahoo_finance_scraper:
+                self.yahoo_finance_scraper.paused = False
+            logger.info("Scraper resumed successfully")
+            return True
+        except Exception as e:
+            logger.error(f"Error resuming scraper: {e}")
+            return False
+
     def get_status(self):
         """Get the current status of the scraper."""
         return {
             'running': self.running,
+            'paused': self.paused,
             'active_scrapers': ['yahoo_finance'] if self.running else []
         } 

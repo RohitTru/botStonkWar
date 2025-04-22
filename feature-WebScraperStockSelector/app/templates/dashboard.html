@@ -54,6 +54,9 @@
                         <p class="card-text">
                             <small class="text-muted">Database: <span id="db-status" class="badge bg-secondary">Checking...</span></small>
                         </p>
+                        <button id="pauseResumeBtn" class="btn btn-warning" onclick="toggleScraper()" style="display: none;">
+                            Pause Scraper
+                        </button>
                     </div>
                 </div>
             </div>
@@ -173,6 +176,47 @@
             }
         }
         
+        function updateScraperControls(status, isPaused) {
+            const btn = document.getElementById('pauseResumeBtn');
+            if (status === 'Running') {
+                btn.style.display = 'block';
+                if (isPaused) {
+                    btn.textContent = 'Resume Scraper';
+                    btn.className = 'btn btn-success';
+                } else {
+                    btn.textContent = 'Pause Scraper';
+                    btn.className = 'btn btn-warning';
+                }
+            } else {
+                btn.style.display = 'none';
+            }
+        }
+        
+        function toggleScraper() {
+            const btn = document.getElementById('pauseResumeBtn');
+            const action = btn.textContent.toLowerCase().includes('pause') ? 'pause' : 'resume';
+            
+            fetch('/api/scraper/control', {
+                method: 'POST',
+                headers: {
+                    'Content-Type': 'application/json',
+                },
+                body: JSON.stringify({ action: action })
+            })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === 'success') {
+                    updateDashboard();
+                } else {
+                    alert('Error: ' + data.message);
+                }
+            })
+            .catch(error => {
+                console.error('Error:', error);
+                alert('Error controlling scraper');
+            });
+        }
+        
         function updateDashboard() {
             if (isLoading) return;
             isLoading = true;
@@ -186,6 +230,9 @@
                     const scraperStatusEl = document.getElementById('scraper-status');
                     scraperStatusEl.textContent = data.status;
                     scraperStatusEl.className = data.status === 'Running' ? 'text-success' : 'text-danger';
+                    
+                    // Update pause/resume button
+                    updateScraperControls(data.status, data.paused);
                     
                     // Update database status
                     updateDatabaseStatus(data.db_connected);
@@ -251,10 +298,10 @@
                 })
                 .catch(error => {
                     console.error('Error updating dashboard:', error);
-                    // Show error state
                     document.getElementById('scraper-status').textContent = 'Error';
                     document.getElementById('scraper-status').className = 'text-danger';
                     updateDatabaseStatus(false);
+                    updateScraperControls('Error', false);
                     isLoading = false;
                     document.getElementById('loading-spinner').style.display = 'none';
                 });

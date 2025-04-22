@@ -145,4 +145,36 @@ def delete_article(article_url):
         return jsonify({'error': 'Failed to delete article'}), 400
     except Exception as e:
         logger.error(f"Error deleting article: {str(e)}", exc_info=True)
-        return jsonify({'error': str(e)}), 500 
+        return jsonify({'error': str(e)}), 500
+
+@main_bp.route('/api/scraper/control', methods=['POST'])
+def control_scraper():
+    """Control the scraper state (pause/resume)"""
+    try:
+        action = request.json.get('action')
+        if action == 'pause':
+            if current_app.scraper_manager:
+                current_app.scraper_manager.pause()
+                return jsonify({'status': 'success', 'message': 'Scraper paused'})
+        elif action == 'resume':
+            if current_app.scraper_manager:
+                current_app.scraper_manager.resume()
+                return jsonify({'status': 'success', 'message': 'Scraper resumed'})
+        return jsonify({'status': 'error', 'message': 'Invalid action'}), 400
+    except Exception as e:
+        logger.error(f"Error controlling scraper: {str(e)}", exc_info=True)
+        return jsonify({'status': 'error', 'message': str(e)}), 500
+
+@main_bp.route('/api/scraper/state')
+def get_scraper_state():
+    """Get the current state of the scraper"""
+    try:
+        if current_app.scraper_manager:
+            return jsonify({
+                'running': current_app.scraper_manager.running,
+                'paused': current_app.scraper_manager.paused if hasattr(current_app.scraper_manager, 'paused') else False
+            })
+        return jsonify({'running': False, 'paused': False})
+    except Exception as e:
+        logger.error(f"Error getting scraper state: {str(e)}", exc_info=True)
+        return jsonify({'running': False, 'paused': False}), 500 

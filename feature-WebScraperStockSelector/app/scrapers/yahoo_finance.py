@@ -2,19 +2,21 @@ import feedparser
 import requests
 from bs4 import BeautifulSoup
 import json
-from datetime import datetime
+from datetime import datetime, timezone
 import time
 import random
 import sys
 import traceback
 from app.utils.logging import setup_logger
 from app.database import Database
+import pytz
 
 logger = setup_logger()
 
 class YahooFinanceScraper:
     def __init__(self):
         self.db = Database()
+        self.paused = False
         # Updated RSS feed URLs
         self.rss_feeds = [
             "https://finance.yahoo.com/news/rssindex",
@@ -54,13 +56,13 @@ class YahooFinanceScraper:
             time.sleep(random.uniform(1, 3))
             
             logger.info(f"Attempting to scrape article: {url}")
-            response = requests.get(url, headers=self.headers)
-            response.raise_for_status()
+        response = requests.get(url, headers=self.headers)
+        response.raise_for_status()
             
             logger.info(f"Article response status: {response.status_code}")
-            
-            soup = BeautifulSoup(response.text, 'html.parser')
-            
+        
+        soup = BeautifulSoup(response.text, 'html.parser')
+        
             # Extract article content
             content_div = soup.find('div', {'class': 'caas-body'})
             if not content_div:
@@ -120,7 +122,7 @@ class YahooFinanceScraper:
             logger.error(f"Error scraping article {url}: {str(e)}")
             logger.error(traceback.format_exc())
             return None
-
+    
     def scrape_feed(self):
         """Scrape articles from Yahoo Finance RSS feeds."""
         try:
@@ -187,7 +189,7 @@ class YahooFinanceScraper:
 
             # Log start of scraping
             log_data = {
-                'timestamp': datetime.now(),
+                'timestamp': datetime.now(timezone.utc),
                 'status': 'STARTED',
                 'source_type': 'yahoo_finance',
                 'url': url
@@ -199,6 +201,12 @@ class YahooFinanceScraper:
             if not article_data:
                 raise Exception("Failed to scrape article content")
             
+            # Convert published date to UTC
+            if hasattr(entry, 'published_parsed'):
+                published_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
+            else:
+                published_date = datetime.now(timezone.utc)
+            
             # Prepare article data
             article = {
                 'title': entry.get('title', ''),
@@ -206,14 +214,14 @@ class YahooFinanceScraper:
                 'content': article_data['content'],
                 'symbols': article_data['symbols'],
                 'source': 'yahoo_finance',
-                'published_date': datetime(*entry.published_parsed[:6]) if hasattr(entry, 'published_parsed') else datetime.now(),
-                'scraped_date': datetime.now()
+                'published_date': published_date,
+                'scraped_date': datetime.now(timezone.utc)
             }
             
             # Save to database
             if self.db.add_article(article):
                 log_data = {
-                    'timestamp': datetime.now(),
+                    'timestamp': datetime.now(timezone.utc),
                     'status': 'SUCCESS',
                     'source_type': 'yahoo_finance',
                     'url': url
@@ -222,10 +230,10 @@ class YahooFinanceScraper:
                 logger.info(f"Successfully saved article: {url}")
             else:
                 raise Exception("Failed to save article to database")
-                
+            
         except Exception as e:
             log_data = {
-                'timestamp': datetime.now(),
+                'timestamp': datetime.now(timezone.utc),
                 'status': 'FAILED',
                 'source_type': 'yahoo_finance',
                 'url': url,
@@ -249,9 +257,17 @@ class YahooFinanceScraper:
         while True:
             try:
                 logger.info("Waiting for next scrape cycle...")
-                time.sleep(60)
-                logger.info("Starting new scrape cycle...")
-                self.scrape_feed()
+                # Check pause state every 5 seconds
+                for _ in range(12):  # 60 seconds / 5 seconds = 12 iterations
+                    if self.paused:
+                        logger.info("Scraper is paused")
+                        time.sleep(5)
+                        continue
+                    time.sleep(5)
+                
+                if not self.paused:
+                    logger.info("Starting new scrape cycle...")
+                    self.scrape_feed()
             except Exception as e:
                 logger.error(f"Error in scraper run loop: {str(e)}")
                 logger.error(traceback.format_exc())
