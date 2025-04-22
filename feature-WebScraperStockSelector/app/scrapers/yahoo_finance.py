@@ -56,13 +56,13 @@ class YahooFinanceScraper:
             time.sleep(random.uniform(1, 3))
             
             logger.info(f"Attempting to scrape article: {url}")
-        response = requests.get(url, headers=self.headers)
-        response.raise_for_status()
+            response = requests.get(url, headers=self.headers)
+            response.raise_for_status()
             
             logger.info(f"Article response status: {response.status_code}")
-        
-        soup = BeautifulSoup(response.text, 'html.parser')
-        
+            
+            soup = BeautifulSoup(response.text, 'html.parser')
+            
             # Extract article content
             content_div = soup.find('div', {'class': 'caas-body'})
             if not content_div:
@@ -75,7 +75,7 @@ class YahooFinanceScraper:
                 if not content_div:
                     logger.error(f"No content found with any selector for article: {url}")
                     return None
-                
+            
             content = content_div.get_text(strip=True)
             
             # Extract stock symbols - try multiple methods
