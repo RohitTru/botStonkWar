@@ -83,8 +83,8 @@ def status():
         # Get scraping logs
         scraping_logs = db.get_scraping_logs(limit=50)
         
-        # Get scraping stats
-        scraping_stats = db.get_scraping_stats(hours=1)
+        # Get scraping stats from ScraperManager
+        scraping_stats = scraper_manager.get_scraper_metrics(hours=1)['total']
         
         return jsonify({
             'status': scraper_status,

@@ -308,7 +308,7 @@ class Database:
                     SELECT 
                         COUNT(*) as total_attempts,
                         SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
-                        SUM(CASE WHEN status = 'ERROR' THEN 1 ELSE 0 END) as failed
+                        SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed
                     FROM scraping_logs
                     WHERE timestamp >= NOW() - INTERVAL %s HOUR
                     """

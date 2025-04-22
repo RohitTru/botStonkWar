@@ -18,6 +18,7 @@ class YahooFinanceScraper:
         self.db = Database()
         self.consecutive_failures = 0
         self.max_consecutive_failures = 5  # Threshold for logging warning
+        self.scraper_manager = None  # Will be set by ScraperManager
         # Updated RSS feed URLs
         self.rss_feeds = [
             "https://finance.yahoo.com/news/rssindex",
@@ -27,6 +28,10 @@ class YahooFinanceScraper:
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
         }
+
+    def set_manager(self, manager):
+        """Set the scraper manager instance."""
+        self.scraper_manager = manager
 
     def scrape_feed(self):
         """Scrape articles from Yahoo Finance RSS feeds."""
@@ -139,6 +144,9 @@ class YahooFinanceScraper:
                     'url': url
                 }
                 self.db.add_scraping_log(log_data)
+                # Update metrics for successful scrape
+                if self.scraper_manager:
+                    self.scraper_manager.update_scraper_metrics('yahoo_finance', 'SUCCESS')
                 logger.info(f"Successfully saved article: {url}")
             else:
                 raise Exception("Failed to save article to database")
@@ -152,6 +160,9 @@ class YahooFinanceScraper:
                 'error_message': str(e)
             }
             self.db.add_scraping_log(log_data)
+            # Update metrics for failed scrape
+            if self.scraper_manager:
+                self.scraper_manager.update_scraper_metrics('yahoo_finance', 'FAILED')
             logger.error(f"Error processing article {url}: {str(e)}")
             logger.error(traceback.format_exc())
 
