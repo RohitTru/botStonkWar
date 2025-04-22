@@ -59,14 +59,13 @@ class YahooFinanceScraper:
             response.raise_for_status()
             
             logger.info(f"Article response status: {response.status_code}")
-            logger.info(f"Article response content (first 500 chars): {response.text[:500]}")
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
             # Extract article content
             content_div = soup.find('div', {'class': 'caas-body'})
             if not content_div:
-                logger.warning(f"No content found for article: {url}")
+                logger.warning(f"No content found with caas-body for article: {url}")
                 # Try alternative content selectors
                 content_div = soup.find('div', {'class': 'canvas-body'}) or \
                             soup.find('div', {'class': 'article-body'}) or \
@@ -74,27 +73,48 @@ class YahooFinanceScraper:
                 
                 if not content_div:
                     logger.error(f"No content found with any selector for article: {url}")
-                    logger.error(f"Page structure: {soup.prettify()[:1000]}")
                     return None
                 
             content = content_div.get_text(strip=True)
             
-            # Extract stock symbols
-            symbols = []
-            symbol_tags = soup.find_all('a', {'class': 'caas-link'})
-            for tag in symbol_tags:
-                href = tag.get('href', '')
-                if '/quote/' in href:
-                    symbol = href.split('/quote/')[1].split('?')[0]
-                    symbols.append(symbol)
+            # Extract stock symbols - try multiple methods
+            symbols = set()
             
+            # Method 1: Look for quote links
+            quote_links = soup.find_all('a', href=lambda x: x and '/quote/' in x)
+            for link in quote_links:
+                href = link.get('href', '')
+                if '/quote/' in href:
+                    symbol = href.split('/quote/')[1].split('?')[0].split('/')[0]
+                    if symbol and len(symbol) < 10:  # Basic validation
+                        symbols.add(symbol)
+            
+            # Method 2: Look for symbol spans
+            symbol_spans = soup.find_all('span', {'class': ['Fw(b)', 'ticker']})
+            for span in symbol_spans:
+                symbol = span.get_text(strip=True)
+                if symbol and len(symbol) < 10:
+                    symbols.add(symbol)
+            
+            # Method 3: Look for common stock symbol patterns in content
+            if content:
+                # Look for patterns like (TICKER) or $TICKER
+                import re
+                pattern = r'[\(\s]([A-Z]{1,5})[\)\s]|\$([A-Z]{1,5})'
+                matches = re.finditer(pattern, content)
+                for match in matches:
+                    symbol = match.group(1) or match.group(2)
+                    if symbol and len(symbol) < 6:
+                        symbols.add(symbol)
+            
+            symbols = list(symbols)
             logger.info(f"Successfully scraped article: {url}")
             logger.info(f"Content length: {len(content)}")
             logger.info(f"Found symbols: {symbols}")
             
             return {
                 'content': content,
-                'symbols': list(set(symbols))  # Remove duplicates
+                'symbols': symbols
             }
             
         except Exception as e:
