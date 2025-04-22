@@ -67,18 +67,22 @@ class Database:
 
     def check_connection(self):
         """Check if we can get a working connection from the pool"""
+        connection = None
         try:
             connection = self.get_connection()
             cursor = connection.cursor()
             cursor.execute("SELECT 1")
-            cursor.fetchone()
-            return True
-        except Error as e:
+            result = cursor.fetchone()
+            return result is not None and result[0] == 1
+        except Exception as e:
             logger.error(f"Database connection check failed: {e}")
             return False
         finally:
-            if 'connection' in locals() and connection:
-                connection.close()
+            if connection:
+                try:
+                    connection.close()
+                except Exception:
+                    pass
 
     def create_tables(self):
         """Create necessary tables if they don't exist"""

@@ -158,13 +158,6 @@ class YahooFinanceScraper:
                                 logger.error("Entry has no URL, skipping")
                                 continue
                             
-                            # Skip if already seen
-                            if url in self.seen_urls:
-                                logger.debug(f"Skipping already seen article: {url}")
-                                continue
-                            
-                            self.seen_urls.add(url)
-                            
                             # Process the article
                             self._process_article(entry)
                             

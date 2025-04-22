@@ -1,7 +1,8 @@
-from flask import Blueprint, jsonify, render_template, current_app, request
+from flask import Blueprint, jsonify, render_template, current_app, request, json
 from datetime import datetime, timedelta
 from app.utils.logging import setup_logger
 from app.database import Database
+from decimal import Decimal
 
 # Create blueprint
 main_bp = Blueprint('main', __name__)
@@ -11,6 +12,13 @@ logger = setup_logger()
 
 # Initialize database
 db = Database()
+
+# Custom JSON encoder to handle Decimal objects
+class CustomJSONEncoder(json.JSONEncoder):
+    def default(self, obj):
+        if isinstance(obj, Decimal):
+            return float(obj)
+        return super().default(obj)
 
 @main_bp.route('/')
 def index():
@@ -66,7 +74,7 @@ def status():
         # Calculate scraping statistics for the last hour
         stats = db.get_scraping_stats(hours=1)
         
-        return jsonify({
+        response_data = {
             'status': scraper_status,
             'db_connected': db_connected,
             'articles_count': total_count,
@@ -81,7 +89,12 @@ def status():
                 'has_next': has_next,
                 'has_prev': has_prev
             }
-        })
+        }
+        
+        return current_app.response_class(
+            json.dumps(response_data, cls=CustomJSONEncoder),
+            mimetype='application/json'
+        )
     except Exception as e:
         logger.error(f"Error in status route: {str(e)}", exc_info=True)
         return jsonify({

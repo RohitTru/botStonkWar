@@ -3,6 +3,7 @@ import os
 import logging
 from dotenv import load_dotenv
 from config import config
+from app.routes import CustomJSONEncoder
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -26,6 +27,9 @@ def create_app(config_name='default'):
     
     # Initialize Flask app
     app = Flask(__name__)
+    
+    # Set custom JSON encoder
+    app.json_encoder = CustomJSONEncoder
     
     # Load environment variables
     logger.debug("Loading environment variables...")
