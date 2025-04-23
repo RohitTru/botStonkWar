@@ -19,11 +19,92 @@ class YahooFinanceScraper:
         self.consecutive_failures = 0
         self.max_consecutive_failures = 5  # Threshold for logging warning
         self.scraper_manager = None  # Will be set by ScraperManager
-        # Updated RSS feed URLs
+        # Comprehensive Yahoo Finance RSS feeds
         self.rss_feeds = [
+            # Main feeds
             "https://finance.yahoo.com/news/rssindex",
-            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC",
-            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^DJI"
+            
+            # Market indices
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^GSPC",  # S&P 500
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^DJI",   # Dow Jones
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^IXIC",  # NASDAQ
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^RUT",   # Russell 2000
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^VIX",   # Volatility Index
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=^TNX",   # 10-Year Treasury Yield
+            
+            # Category feeds
+            "https://finance.yahoo.com/rss/topstories",      # Top Stories
+            "https://finance.yahoo.com/rss/stocks",          # Stocks
+            "https://finance.yahoo.com/rss/bonds",           # Bonds
+            "https://finance.yahoo.com/rss/industry-news",   # Industry News
+            "https://finance.yahoo.com/rss/earnings",        # Earnings News
+            "https://finance.yahoo.com/rss/mergers",         # Merger News
+            "https://finance.yahoo.com/rss/personal-finance", # Personal Finance
+            "https://finance.yahoo.com/rss/options",         # Options News
+            "https://finance.yahoo.com/rss/dividends",       # Dividend News
+            "https://finance.yahoo.com/rss/ipo",             # IPO News
+            "https://finance.yahoo.com/rss/commodities",     # Commodities
+            "https://finance.yahoo.com/rss/currencies",      # Forex News
+            "https://finance.yahoo.com/rss/crypto",          # Cryptocurrency
+            
+            # Sector feeds
+            "https://finance.yahoo.com/rss/sector-technology",
+            "https://finance.yahoo.com/rss/sector-financial",
+            "https://finance.yahoo.com/rss/sector-healthcare",
+            "https://finance.yahoo.com/rss/sector-energy",
+            "https://finance.yahoo.com/rss/sector-consumer-cyclical",
+            "https://finance.yahoo.com/rss/sector-consumer-defensive",
+            "https://finance.yahoo.com/rss/sector-industrial",
+            "https://finance.yahoo.com/rss/sector-basic-materials",
+            "https://finance.yahoo.com/rss/sector-real-estate",
+            "https://finance.yahoo.com/rss/sector-utilities",
+            "https://finance.yahoo.com/rss/sector-communication-services",
+            
+            # Popular stock feeds (Top companies by market cap and high-interest stocks)
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AAPL",   # Apple
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=MSFT",   # Microsoft
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=GOOGL",  # Google
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=AMZN",   # Amazon
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=META",   # Meta
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=NVDA",   # NVIDIA
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=TSLA",   # Tesla
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=BRK-B",  # Berkshire Hathaway
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=JPM",    # JPMorgan Chase
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=V",      # Visa
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=JNJ",    # Johnson & Johnson
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=WMT",    # Walmart
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=PG",     # Procter & Gamble
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=MA",     # Mastercard
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=HD",     # Home Depot
+            
+            # ETF feeds (Major ETFs that indicate market trends)
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=SPY",    # S&P 500 ETF
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=QQQ",    # Nasdaq ETF
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=IWM",    # Russell 2000 ETF
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=DIA",    # Dow Jones ETF
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=GLD",    # Gold ETF
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=XLF",    # Financial Sector ETF
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=XLK",    # Technology Sector ETF
+            
+            # Market indicators
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=CL=F",   # Crude Oil Futures
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=GC=F",   # Gold Futures
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=SI=F",   # Silver Futures
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=EURUSD=X", # EUR/USD
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=USDJPY=X", # USD/JPY
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=BTC-USD",  # Bitcoin
+            "https://feeds.finance.yahoo.com/rss/2.0/headline?s=ETH-USD",  # Ethereum
+            
+            # Market movers and analysis
+            "https://finance.yahoo.com/rss/marketmovers",
+            "https://finance.yahoo.com/rss/gainers",
+            "https://finance.yahoo.com/rss/losers",
+            "https://finance.yahoo.com/rss/mostactives",
+            "https://finance.yahoo.com/rss/undervalued",
+            "https://finance.yahoo.com/rss/growth",
+            "https://finance.yahoo.com/rss/value",
+            "https://finance.yahoo.com/rss/analysts",        # Analyst Coverage
+            "https://finance.yahoo.com/rss/research"         # Market Research
         ]
         self.headers = {
             'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/91.0.4472.124 Safari/537.36'
