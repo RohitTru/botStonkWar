@@ -211,36 +211,47 @@ class Database:
             if connection:
                 connection.close()
 
-    def get_recent_articles(self, limit=10, offset=0):
-        """Get recent articles with pagination."""
+    def get_recent_articles(self, limit=10, offset=0, sort_by='published_date', sort_order='DESC'):
+        """Get recent articles with pagination and sorting."""
         try:
-            with self.connection_pool.get_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    query = """
-                    SELECT id, title, link, content, source, published_date, scraped_date, symbols
-                    FROM articles
-                    WHERE NOT is_deleted
-                    ORDER BY published_date DESC
-                    LIMIT %s OFFSET %s
-                    """
-                    cursor.execute(query, (limit, offset))
-                    articles = cursor.fetchall()
-                    
-                    # Convert datetime objects to ISO format strings
-                    for article in articles:
-                        if article.get('published_date'):
-                            article['published_date'] = article['published_date'].isoformat()
-                        if article.get('scraped_date'):
-                            article['scraped_date'] = article['scraped_date'].isoformat()
-                        # Parse JSON symbols
-                        if article.get('symbols'):
-                            article['symbols'] = json.loads(article['symbols'])
-                        else:
-                            article['symbols'] = []
-                        # Add URL field for frontend compatibility
-                        article['url'] = article['link']
-                    
-                    return articles
+            valid_sort_fields = ['published_date', 'scraped_date']
+            valid_sort_orders = ['ASC', 'DESC']
+            
+            # Validate sort parameters
+            if sort_by not in valid_sort_fields:
+                sort_by = 'published_date'
+            if sort_order.upper() not in valid_sort_orders:
+                sort_order = 'DESC'
+            
+            query = """
+                SELECT id, title, link, content, source, published_date, scraped_date, symbols
+                FROM articles
+                WHERE NOT is_deleted
+                ORDER BY {} {}
+                LIMIT %s OFFSET %s
+            """.format(sort_by, sort_order)
+            
+            articles = self.execute_query(query, (limit, offset))
+            
+            if not articles:
+                return []
+            
+            # Process articles
+            for article in articles:
+                if article.get('published_date'):
+                    article['published_date'] = article['published_date'].isoformat()
+                if article.get('scraped_date'):
+                    article['scraped_date'] = article['scraped_date'].isoformat()
+                # Parse JSON symbols
+                if article.get('symbols'):
+                    article['symbols'] = json.loads(article['symbols'])
+                else:
+                    article['symbols'] = []
+                # Add URL field for frontend compatibility
+                article['url'] = article['link']
+            
+            return articles
+            
         except Exception as e:
             logger.error(f"Error getting recent articles: {str(e)}")
             return []

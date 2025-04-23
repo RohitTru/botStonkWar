@@ -104,7 +104,17 @@
             <div class="col-md-8">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="mb-0">Recent Articles</h5>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <h5 class="mb-0">Recent Articles</h5>
+                            <div class="btn-group">
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setSorting('published_date')">
+                                    Sort by Publish Date
+                                </button>
+                                <button type="button" class="btn btn-sm btn-outline-secondary" onclick="setSorting('scraped_date')">
+                                    Sort by Scrape Date
+                                </button>
+                            </div>
+                        </div>
                     </div>
                     <div class="card-body">
                         <div id="articles-container"></div>
@@ -159,6 +169,8 @@
         let hasMoreArticles = true;
         const articlesPerPage = 10;
         let autoRefreshInterval;
+        let currentSortBy = 'published_date';
+        let currentSortOrder = 'DESC';
         
         function formatDateTime(isoString) {
             const date = new Date(isoString);
@@ -220,13 +232,37 @@
             });
         }
         
+        function setSorting(sortBy) {
+            if (currentSortBy === sortBy) {
+                // Toggle sort order
+                currentSortOrder = currentSortOrder === 'DESC' ? 'ASC' : 'DESC';
+            } else {
+                currentSortBy = sortBy;
+                currentSortOrder = 'DESC';
+            }
+            
+            // Reset to first page and reload
+            currentPage = 1;
+            document.getElementById('articles-container').innerHTML = '';
+            updateDashboard();
+            
+            // Update button states
+            document.querySelectorAll('.btn-group .btn').forEach(btn => {
+                if (btn.textContent.toLowerCase().includes(sortBy)) {
+                    btn.classList.add('active');
+                } else {
+                    btn.classList.remove('active');
+                }
+            });
+        }
+        
         function updateDashboard() {
             if (isLoading) return;
             isLoading = true;
             
             document.getElementById('loading-spinner').style.display = 'block';
             
-            fetch(`/api/status?page=${currentPage}&per_page=${articlesPerPage}`)
+            fetch(`/api/status?page=${currentPage}&per_page=${articlesPerPage}&sort_by=${currentSortBy}&sort_order=${currentSortOrder}`)
                 .then(response => response.json())
                 .then(data => {
                     // Update scraper status with color coding
@@ -265,7 +301,7 @@
                                 Source: ${article.source}<br>
                                 Published: ${formatDateTime(article.published_date)}<br>
                                 Scraped: ${formatDateTime(article.scraped_date)}<br>
-                                ${article.symbols ? `Symbols: ${article.symbols}` : ''}
+                                Symbols: ${Array.isArray(article.symbols) && article.symbols.length > 0 ? article.symbols.join(', ') : 'None'}
                             </p>
                             <p class="mb-0">${article.content_preview}</p>
                         `;

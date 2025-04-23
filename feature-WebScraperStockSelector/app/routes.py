@@ -75,9 +75,14 @@ def status():
         # Get recent articles
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
+        sort_by = request.args.get('sort_by', 'published_date')
+        sort_order = request.args.get('sort_order', 'DESC')
+        
         recent_articles = db.get_recent_articles(
             limit=per_page,
-            offset=(page - 1) * per_page
+            offset=(page - 1) * per_page,
+            sort_by=sort_by,
+            sort_order=sort_order
         )
         
         # Get scraping logs
