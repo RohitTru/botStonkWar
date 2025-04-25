@@ -193,68 +193,44 @@ class YahooFinanceScraper:
             # Reset failure counter on successful scrape
             self.consecutive_failures = 0
             
-            # Only log STARTED if we successfully got the article content
+            # Parse published date
+            published_date = None
+            if 'published' in entry:
+                try:
+                    published_date = datetime.strptime(entry.get('published'), '%Y-%m-%dT%H:%M:%SZ')
+                except ValueError:
+                    try:
+                        published_date = datetime.strptime(entry.get('published'), '%a, %d %b %Y %H:%M:%S %z')
+                    except ValueError:
+                        logger.warning(f"Could not parse published date: {entry.get('published')}")
+                        published_date = datetime.now(timezone.utc)
+
+            # Prepare article data for database
+            article_data.update({
+                'title': entry.get('title', ''),
+                'link': url,
+                'source': 'yahoo_finance',
+                'published_date': published_date,
+                'scraped_date': datetime.now(timezone.utc)
+            })
+
+            # Add to database
+            if not self.db.add_article(article_data):
+                raise Exception("Failed to save article to database")
+
+            # Log success
             log_data = {
                 'timestamp': datetime.now(timezone.utc),
-                'status': 'STARTED',
+                'status': 'SUCCESS',
                 'source_type': 'yahoo_finance',
                 'url': url
             }
             self.db.add_scraping_log(log_data)
             
-            # Convert published date to UTC
-            if hasattr(entry, 'published_parsed'):
-                published_date = datetime(*entry.published_parsed[:6], tzinfo=timezone.utc)
-            else:
-                published_date = datetime.now(timezone.utc)
-            
-            # Create validation context
-            validation_context = {
-                'title': article_data['title'],
-                'content': article_data['content']
-            }
-            
-            # Validate symbols
-            raw_symbols = article_data['symbols']
-            validation_results = self.ticker_validator.validate_tickers(raw_symbols, validation_context)
-            
-            # Separate valid and invalid symbols
-            validated_symbols = [
-                symbol for symbol, result in validation_results.items()
-                if result['is_valid']
-            ]
-            
-            # Prepare article data
-            article = {
-                'title': article_data['title'],
-                'link': url,
-                'content': article_data['content'],
-                'source': 'yahoo_finance',
-                'published_date': published_date,
-                'scraped_date': datetime.now(timezone.utc),
-                'raw_symbols': raw_symbols,
-                'validated_symbols': validated_symbols,
-                'validation_metadata': validation_results
-            }
-            
-            # Save to database
-            if self.db.add_article(article):
-                log_data = {
-                    'timestamp': datetime.now(timezone.utc),
-                    'status': 'SUCCESS',
-                    'source_type': 'yahoo_finance',
-                    'url': url
-                }
-                self.db.add_scraping_log(log_data)
-                # Update metrics for successful scrape
-                if self.scraper_manager:
-                    self.scraper_manager.update_scraper_metrics('yahoo_finance', 'SUCCESS')
-                logger.info(f"Successfully saved article: {url}")
-                logger.info(f"Found {len(raw_symbols)} raw symbols, {len(validated_symbols)} validated")
-            else:
-                raise Exception("Failed to save article to database")
-            
         except Exception as e:
+            logger.error(f"Error processing article {url}: {str(e)}")
+            
+            # Log failure
             log_data = {
                 'timestamp': datetime.now(timezone.utc),
                 'status': 'FAILED',
@@ -263,93 +239,104 @@ class YahooFinanceScraper:
                 'error_message': str(e)
             }
             self.db.add_scraping_log(log_data)
-            # Update metrics for failed scrape
-            if self.scraper_manager:
-                self.scraper_manager.update_scraper_metrics('yahoo_finance', 'FAILED')
-            logger.error(f"Error processing article {url}: {str(e)}")
-            logger.error(traceback.format_exc())
+            
+            # Don't raise the exception - let the scraper continue with other articles
+            return False
+        
+        return True
 
     def scrape_article(self, url):
-        """Scrape a single article from Yahoo Finance."""
+        """Scrape article content and extract stock symbols."""
         try:
-            # Add random delay to avoid rate limiting
-            time.sleep(random.uniform(1, 3))
-            
             logger.info(f"Attempting to scrape article: {url}")
-            response = requests.get(url, headers=self.headers)
-            response.raise_for_status()
             
+            # Make request with headers
+            response = requests.get(url, headers=self.headers, timeout=10)
             logger.info(f"Article response status: {response.status_code}")
             
+            # Check response
+            response.raise_for_status()
+            
+            # Parse HTML
             soup = BeautifulSoup(response.text, 'html.parser')
             
-            # Extract article title
-            title = soup.find('h1')
-            if not title:
-                logger.warning(f"No title found for article: {url}")
-                title_text = "Untitled Article"
-            else:
-                title_text = title.get_text(strip=True)
+            # Extract title
+            title = None
+            h1_tag = soup.find('h1')
+            if h1_tag:
+                title = h1_tag.get_text().strip()
             
-            # Extract article content
-            content_div = soup.find('div', {'class': 'caas-body'})
-            if not content_div:
-                logger.warning(f"No content found with caas-body for article: {url}")
-                # Try alternative content selectors
-                content_div = soup.find('div', {'class': 'canvas-body'}) or \
-                            soup.find('div', {'class': 'article-body'}) or \
-                            soup.find('article')
-                
-                if not content_div:
-                    logger.error(f"No content found with any selector for article: {url}")
-                    return None
+            # Try different content selectors
+            content = None
+            content_selectors = [
+                'div[class*="caas-body"]',  # Yahoo Finance
+                'div[class*="article-body"]',  # Generic
+                'div[class*="content"]',  # Generic
+                'article',  # Very generic
+            ]
             
-            content = content_div.get_text(strip=True)
+            for selector in content_selectors:
+                content_div = soup.select_one(selector)
+                if content_div:
+                    content = content_div.get_text().strip()
+                    break
             
-            # Extract stock symbols - try multiple methods
+            if not content:
+                logger.warning(f"No content found with any selector for article: {url}")
+                return None
+            
+            # Extract stock symbols using multiple methods
             symbols = set()
             
-            # Method 1: Look for quote links
+            # Method 1: Extract from quote links
             quote_links = soup.find_all('a', href=lambda x: x and '/quote/' in x)
             for link in quote_links:
-                href = link.get('href', '')
-                if '/quote/' in href:
-                    symbol = href.split('/quote/')[1].split('?')[0].split('/')[0]
-                    if symbol and len(symbol) < 10:  # Basic validation
-                        symbols.add(symbol)
-            
-            # Method 2: Look for symbol spans
-            symbol_spans = soup.find_all('span', {'class': ['Fw(b)', 'ticker']})
-            for span in symbol_spans:
-                symbol = span.get_text(strip=True)
-                if symbol and len(symbol) < 10:
+                symbol = link.get_text().strip().upper()
+                if symbol and len(symbol) <= 5:  # Basic symbol validation
                     symbols.add(symbol)
             
-            # Method 3: Look for common stock symbol patterns in content
-            if content:
-                # Look for patterns like (TICKER) or $TICKER
-                import re
-                pattern = r'[\(\s]([A-Z]{1,5})[\)\s]|\$([A-Z]{1,5})'
+            # Method 2: Extract from spans with symbol class
+            symbol_spans = soup.find_all('span', class_=lambda x: x and 'symbol' in x.lower())
+            for span in symbol_spans:
+                symbol = span.get_text().strip().upper()
+                if symbol and len(symbol) <= 5:
+                    symbols.add(symbol)
+            
+            # Method 3: Use regex to find common stock symbol formats
+            import re
+            # Match patterns like (AAPL), $AAPL, NYSE:AAPL, NASDAQ:AAPL
+            symbol_patterns = [
+                r'\(([A-Z]{1,5})\)',  # (AAPL)
+                r'\$([A-Z]{1,5})\b',  # $AAPL
+                r'(?:NYSE|NASDAQ):\s*([A-Z]{1,5})\b',  # NYSE:AAPL or NASDAQ:AAPL
+                r'\b[A-Z]{1,5}\b'  # AAPL (basic symbol format)
+            ]
+            
+            for pattern in symbol_patterns:
                 matches = re.finditer(pattern, content)
                 for match in matches:
-                    symbol = match.group(1) or match.group(2)
-                    if symbol and len(symbol) < 6:
+                    symbol = match.group(1) if len(match.groups()) > 0 else match.group(0)
+                    if symbol and len(symbol) <= 5:
                         symbols.add(symbol)
             
-            symbols = list(symbols)
+            # Convert symbols to list and sort
+            symbols_list = sorted(list(symbols))
+            
             logger.info(f"Successfully scraped article: {url}")
             logger.info(f"Content length: {len(content)}")
-            logger.info(f"Found symbols: {symbols}")
+            logger.info(f"Found symbols: {symbols_list}")
             
             return {
-                'title': title_text,
+                'title': title or 'Untitled Article',
                 'content': content,
-                'symbols': symbols
+                'symbols': symbols_list
             }
             
+        except requests.exceptions.HTTPError as e:
+            logger.error(f"Error scraping article {url}: {str(e)}")
+            return None
         except Exception as e:
             logger.error(f"Error scraping article {url}: {str(e)}")
-            logger.error(traceback.format_exc())
             return None
 
     def run(self):

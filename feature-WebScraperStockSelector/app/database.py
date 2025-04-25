@@ -252,14 +252,30 @@ class Database:
             
             # Process articles
             for article in articles:
+                # Handle datetime fields
                 if article.get('published_date'):
                     article['published_date'] = article['published_date'].isoformat()
                 if article.get('scraped_date'):
                     article['scraped_date'] = article['scraped_date'].isoformat()
+                
+                # Parse JSON fields safely
+                try:
+                    article['symbols'] = json.loads(article.get('symbols') or '[]')
+                except (TypeError, json.JSONDecodeError):
+                    article['symbols'] = []
                     
-                # Parse JSON fields
-                article['symbols'] = json.loads(article.get('symbols', '[]'))
-                article['validated_symbols'] = json.loads(article.get('validated_symbols', '[]'))
+                try:
+                    article['validated_symbols'] = json.loads(article.get('validated_symbols') or '[]')
+                except (TypeError, json.JSONDecodeError):
+                    article['validated_symbols'] = []
+                
+                # Add content preview
+                content = article.get('content', '')
+                if content:
+                    # Create a preview of first 200 characters
+                    article['content_preview'] = content[:200] + '...' if len(content) > 200 else content
+                else:
+                    article['content_preview'] = 'No content available'
                 
                 # Add URL field for frontend compatibility
                 article['url'] = article['link']
