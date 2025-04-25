@@ -10,6 +10,9 @@ class Database:
     def __init__(self):
         """Initialize database connection pool"""
         try:
+            db_name = os.getenv('MYSQL_DATABASE', 'botstonkwar_scraping_db')
+            logging.info(f"Connecting to database: {db_name}")
+            
             self.pool = mysql.connector.pooling.MySQLConnectionPool(
                 pool_name="sentiment_pool",
                 pool_size=10,
@@ -18,11 +21,49 @@ class Database:
                 port=3306,
                 user=os.getenv('MYSQL_USER', 'root'),
                 password=os.getenv('MYSQL_PASSWORD', ''),
-                database=os.getenv('MYSQL_DATABASE', 'botstonkwar_scraping_db')
+                database=db_name
             )
             logging.info("Database connection pool initialized successfully")
+            
+            # Verify database connection and tables
+            self._verify_database()
         except Exception as e:
             logging.error(f"Error initializing database pool: {str(e)}")
+            raise
+
+    def _verify_database(self):
+        """Verify database connection and required tables"""
+        try:
+            # Check if we can connect to the database
+            with self.get_connection() as conn:
+                cursor = conn.cursor()
+                
+                # Check if articles table exists
+                cursor.execute("""
+                    SELECT COUNT(*) as count 
+                    FROM information_schema.tables 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = 'articles'
+                """)
+                articles_exist = cursor.fetchone()[0]
+                logging.info(f"Articles table exists: {articles_exist}")
+                
+                # Check if sentiment_analysis table exists
+                cursor.execute("""
+                    SELECT COUNT(*) as count 
+                    FROM information_schema.tables 
+                    WHERE table_schema = DATABASE() 
+                    AND table_name = 'sentiment_analysis'
+                """)
+                sentiment_exists = cursor.fetchone()[0]
+                logging.info(f"Sentiment analysis table exists: {sentiment_exists}")
+                
+                if not articles_exist or not sentiment_exists:
+                    logging.error(f"Required tables missing in database {os.getenv('MYSQL_DATABASE')}")
+                    raise Exception("Required tables missing in database")
+                
+        except Exception as e:
+            logging.error(f"Database verification failed: {str(e)}")
             raise
 
     def get_connection(self):
