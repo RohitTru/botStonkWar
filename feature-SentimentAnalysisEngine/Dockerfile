@@ -1,20 +1,27 @@
-FROM python:3.11-slim
+FROM python:3.9-slim
 
-# Set the working directory inside the container
 WORKDIR /app
 
-# Copy the current directory contents into the container at /app
-COPY . .
+# Install system dependencies
+RUN apt-get update && \
+    apt-get install -y --no-install-recommends \
+    build-essential \
+    && rm -rf /var/lib/apt/lists/*
 
-# Create and activate the virtual environment
-RUN python3 -m venv venv && \
-    . venv/bin/activate && \
-    # Upgrade pip and install dependencies from the requirements file
-    pip install --upgrade pip && \
-    pip install -r requirements.txt
+# Copy requirements first to leverage Docker cache
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
 
-# Expose the port (use the value from the .env if available)
-EXPOSE ${APP_PORT}
+# Copy application code
+COPY app/ ./app/
 
-# Set the entrypoint to activate the virtual environment and run the app
-CMD ["/bin/bash", "-c", "source venv/bin/activate && python app.py"]
+# Set environment variables
+ENV FLASK_APP=app
+ENV FLASK_ENV=production
+ENV PYTHONUNBUFFERED=1
+
+# Expose port
+EXPOSE 5000
+
+# Run the application
+CMD ["python", "-m", "flask", "run", "--host=0.0.0.0"]

@@ -1,0 +1,682 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sentiment Analysis Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <style>
+        body {
+            background-color: #f8f9fa;
+        }
+        .navbar {
+            margin-bottom: 2rem;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+        .stats-card {
+            background-color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            transition: transform 0.2s;
+        }
+        .stats-card:hover {
+            transform: translateY(-5px);
+        }
+        .stats-card h3 {
+            color: #6c757d;
+            font-size: 1.1rem;
+            margin-bottom: 1rem;
+            font-weight: 500;
+        }
+        .stats-card h2 {
+            font-size: 2.5rem;
+            font-weight: 600;
+            margin: 0;
+        }
+        .sentiment-table {
+            background-color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .table {
+            margin-bottom: 0;
+        }
+        .table th {
+            border-top: none;
+            color: #6c757d;
+            font-weight: 500;
+            padding: 1rem;
+            white-space: nowrap;
+        }
+        .table td {
+            padding: 1rem;
+            vertical-align: middle;
+        }
+        .article-row {
+            cursor: pointer;
+            transition: background-color 0.2s;
+        }
+        .article-row:hover {
+            background-color: #f8f9fa;
+        }
+        .bullish { 
+            color: #28a745;
+            font-weight: 500;
+        }
+        .bearish { 
+            color: #dc3545;
+            font-weight: 500;
+        }
+        .neutral { 
+            color: #6c757d;
+            font-weight: 500;
+        }
+        .search-container {
+            background-color: white;
+            border-radius: 15px;
+            padding: 1.5rem;
+            margin-bottom: 2rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+        }
+        .search-container .input-group {
+            max-width: 500px;
+            margin: 0 auto;
+        }
+        .btn-primary {
+            background-color: #0d6efd;
+            border: none;
+            padding: 0.5rem 1.5rem;
+            font-weight: 500;
+        }
+        .btn-primary:hover {
+            background-color: #0b5ed7;
+        }
+        .empty-state {
+            text-align: center;
+            padding: 2rem;
+            color: #6c757d;
+        }
+        .confidence-bar {
+            width: 100%;
+            height: 6px;
+            background-color: #e9ecef;
+            border-radius: 3px;
+            overflow: hidden;
+        }
+        .confidence-bar-fill {
+            height: 100%;
+            border-radius: 3px;
+            transition: width 0.3s ease;
+        }
+        .confidence-bar-fill.bullish {
+            background-color: #28a745;
+        }
+        .confidence-bar-fill.bearish {
+            background-color: #dc3545;
+        }
+        .stock-symbol {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.1rem;
+            background-color: #e9ecef;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            color: #495057;
+        }
+        
+        .symbols-container {
+            position: relative;
+            display: inline-block;
+        }
+        
+        .symbols-preview {
+            display: inline-flex;
+            flex-wrap: wrap;
+            gap: 0.25rem;
+            max-width: 300px;
+        }
+        
+        .symbols-more {
+            display: inline-block;
+            padding: 0.25rem 0.5rem;
+            margin: 0.1rem;
+            background-color: #0d6efd;
+            color: white;
+            border-radius: 4px;
+            font-size: 0.875rem;
+            cursor: pointer;
+        }
+        
+        .symbols-tooltip {
+            display: none;
+            position: absolute;
+            left: 0;
+            top: 100%;
+            background-color: white;
+            border-radius: 8px;
+            padding: 1rem;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+            z-index: 1000;
+            min-width: 200px;
+            max-width: 400px;
+            margin-top: 0.5rem;
+        }
+        
+        .symbols-container:hover .symbols-tooltip {
+            display: block;
+        }
+        
+        .symbols-tooltip .stock-symbol {
+            margin: 0.25rem;
+        }
+        
+        .timestamp {
+            font-size: 0.875rem;
+            color: #6c757d;
+        }
+        .modal-stocks-container {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 0.5rem;
+            margin-bottom: 1.5rem;
+        }
+        
+        .modal-stocks-container .stock-symbol {
+            background-color: #e9ecef;
+            color: #495057;
+            padding: 0.35rem 0.75rem;
+            border-radius: 6px;
+            font-size: 0.9rem;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+        
+        .modal-stocks-container .stock-symbol:hover {
+            background-color: #dee2e6;
+        }
+    </style>
+</head>
+<body>
+    <nav class="navbar navbar-dark bg-dark">
+        <div class="container">
+            <span class="navbar-brand mb-0 h1">Sentiment Analysis Dashboard</span>
+        </div>
+    </nav>
+
+    <div class="container">
+        <!-- Analyzer Control Card -->
+        <div class="row mb-4">
+            <div class="col-12">
+                <div class="card">
+                    <div class="card-body">
+                        <h5 class="card-title">Sentiment Analyzer Control</h5>
+                        <div class="d-flex align-items-center gap-3">
+                            <button id="pauseButton" class="btn btn-warning" onclick="toggleAnalyzer()">
+                                <i class="fas fa-pause"></i> Pause Analyzer
+                            </button>
+                            <div class="ms-3">
+                                Status: <span id="statusText" class="fw-bold text-success">Running</span>
+                            </div>
+                            <div class="ms-3">
+                                <span class="fw-bold">Pending Articles:</span>
+                                <span id="pendingCount" class="badge bg-primary ms-2">0</span>
+                            </div>
+                            <div class="ms-3">
+                                Last Update: <span id="lastUpdate" class="text-muted">-</span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Stats Cards -->
+        <div class="row">
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <h3>Articles Analyzed</h3>
+                    <h2 id="total-articles">-</h2>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <h3>Bullish Predictions</h3>
+                    <h2 id="bullish-count" class="bullish">-</h2>
+                </div>
+            </div>
+            <div class="col-md-4">
+                <div class="stats-card">
+                    <h3>Bearish Predictions</h3>
+                    <h2 id="bearish-count" class="bearish">-</h2>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Analyses Table -->
+        <div class="sentiment-table">
+            <div class="d-flex justify-content-between align-items-center mb-4">
+                <h3 class="mb-0">Recent Sentiment Analyses</h3>
+                <div class="d-flex align-items-center">
+                    <label class="me-2">Sort by:</label>
+                    <select id="sort-select" class="form-select" style="width: auto;" onchange="changeSortOrder()">
+                        <option value="analyzed">Analysis Time</option>
+                        <option value="published">Publication Time</option>
+                    </select>
+                </div>
+            </div>
+            <div class="table-responsive">
+                <table class="table">
+                    <thead>
+                        <tr>
+                            <th>Title</th>
+                            <th>Stocks</th>
+                            <th>Sentiment</th>
+                            <th>Score</th>
+                            <th>Confidence</th>
+                            <th>Published</th>
+                            <th>Analyzed</th>
+                        </tr>
+                    </thead>
+                    <tbody id="analyses-table">
+                        <!-- Data will be populated here -->
+                    </tbody>
+                </table>
+                <div id="empty-state" class="empty-state" style="display: none;">
+                    <p>No sentiment analyses available at the moment.</p>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Article Detail Modal -->
+    <div class="modal fade" id="articleModal" tabindex="-1">
+        <div class="modal-dialog modal-lg">
+            <div class="modal-content">
+                <div class="modal-header">
+                    <h5 class="modal-title">Article Details</h5>
+                    <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                </div>
+                <div class="modal-body">
+                    <div class="mb-4">
+                        <h4 id="modal-title"></h4>
+                        <div class="d-flex flex-wrap gap-2 mb-3" id="modal-stocks"></div>
+                        <div class="row mb-3">
+                            <div class="col-md-6">
+                                <strong>Sentiment:</strong> <span id="modal-sentiment"></span>
+                            </div>
+                            <div class="col-md-6">
+                                <strong>Score:</strong> <span id="modal-score"></span>
+                            </div>
+                        </div>
+                        <div class="mb-3">
+                            <strong>Confidence:</strong>
+                            <div class="d-flex align-items-center gap-2">
+                                <div class="confidence-bar">
+                                    <div id="modal-confidence-bar" class="confidence-bar-fill"></div>
+                                </div>
+                                <span id="modal-confidence"></span>
+                            </div>
+                        </div>
+                        <div class="row mb-3">
+                            <div class="col-md-4">
+                                <strong>Published:</strong><br>
+                                <span id="modal-published" class="timestamp"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Scraped:</strong><br>
+                                <span id="modal-scraped" class="timestamp"></span>
+                            </div>
+                            <div class="col-md-4">
+                                <strong>Analyzed:</strong><br>
+                                <span id="modal-analyzed" class="timestamp"></span>
+                            </div>
+                        </div>
+                    </div>
+                    <div>
+                        <h5>Article Content</h5>
+                        <div id="modal-content" class="mt-2"></div>
+                    </div>
+                </div>
+                <div class="modal-footer">
+                    <a id="modal-link" href="#" target="_blank" class="btn btn-primary">Read Original Article</a>
+                    <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Close</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        let modal;
+        document.addEventListener('DOMContentLoaded', function() {
+            modal = new bootstrap.Modal(document.getElementById('articleModal'));
+        });
+
+        function formatDate(dateString) {
+            return new Date(dateString).toLocaleString();
+        }
+
+        function createSymbolsPreview(stocks) {
+            if (!stocks || stocks.length === 0) return 'N/A';
+            
+            const container = document.createElement('div');
+            container.className = 'symbols-container';
+            
+            const preview = document.createElement('div');
+            preview.className = 'symbols-preview';
+            
+            // Show first 3 symbols
+            const visibleSymbols = stocks.slice(0, 3);
+            visibleSymbols.forEach(symbol => {
+                const span = document.createElement('span');
+                span.className = 'stock-symbol';
+                span.textContent = symbol;
+                preview.appendChild(span);
+            });
+            
+            // Add "more" indicator if there are additional symbols
+            if (stocks.length > 3) {
+                const more = document.createElement('span');
+                more.className = 'symbols-more';
+                more.textContent = `+${stocks.length - 3}`;
+                preview.appendChild(more);
+            }
+            
+            container.appendChild(preview);
+            
+            // Create tooltip with all symbols
+            if (stocks.length > 3) {
+                const tooltip = document.createElement('div');
+                tooltip.className = 'symbols-tooltip';
+                stocks.forEach(symbol => {
+                    const span = document.createElement('span');
+                    span.className = 'stock-symbol';
+                    span.textContent = symbol;
+                    tooltip.appendChild(span);
+                });
+                container.appendChild(tooltip);
+            }
+            
+            return container.outerHTML;
+        }
+
+        function showArticleDetails(article) {
+            document.getElementById('modal-title').textContent = article.title;
+            
+            // Format stocks - show all symbols directly
+            const stocksContainer = document.getElementById('modal-stocks');
+            stocksContainer.className = 'modal-stocks-container';
+            stocksContainer.innerHTML = '';
+            const stocks = JSON.parse(article.symbols || '[]');
+            stocks.forEach(symbol => {
+                const span = document.createElement('span');
+                span.className = 'stock-symbol';
+                span.textContent = symbol;
+                stocksContainer.appendChild(span);
+            });
+
+            // Set sentiment details
+            const sentimentClass = article.prediction === 'bullish' ? 'bullish' : 'bearish';
+            document.getElementById('modal-sentiment').textContent = article.prediction.toUpperCase();
+            document.getElementById('modal-sentiment').className = sentimentClass;
+            document.getElementById('modal-score').textContent = article.sentiment_score.toFixed(3);
+            
+            // Set confidence bar
+            const confidenceBar = document.getElementById('modal-confidence-bar');
+            confidenceBar.style.width = `${article.confidence_score * 100}%`;
+            confidenceBar.className = `confidence-bar-fill ${sentimentClass}`;
+            document.getElementById('modal-confidence').textContent = `${(article.confidence_score * 100).toFixed(1)}%`;
+
+            // Set timestamps
+            document.getElementById('modal-published').textContent = formatDate(article.published_date);
+            document.getElementById('modal-scraped').textContent = formatDate(article.scraped_date);
+            document.getElementById('modal-analyzed').textContent = formatDate(article.analysis_timestamp);
+
+            // Set content and link
+            document.getElementById('modal-content').textContent = article.content || 'Content not available';
+            document.getElementById('modal-link').href = article.link || '#';
+
+            modal.show();
+        }
+
+        let isAnalyzerPaused = false;
+
+        async function toggleAnalyzer() {
+            const button = document.getElementById('pauseButton');
+            const statusText = document.getElementById('statusText');
+            const endpoint = isAnalyzerPaused ? '/api/analyzer/resume' : '/api/analyzer/pause';
+
+            try {
+                const response = await fetch(endpoint, { method: 'POST' });
+                const data = await response.json();
+
+                if (data.status === 'success') {
+                    isAnalyzerPaused = !isAnalyzerPaused;
+                    
+                    // Update button
+                    button.className = isAnalyzerPaused ? 'btn btn-success' : 'btn btn-warning';
+                    button.innerHTML = isAnalyzerPaused ? 
+                        '<i class="fas fa-play"></i> Resume Analyzer' : 
+                        '<i class="fas fa-pause"></i> Pause Analyzer';
+                    
+                    // Update status text
+                    statusText.textContent = isAnalyzerPaused ? 'Paused' : 'Running';
+                    statusText.className = isAnalyzerPaused ? 'fw-bold text-warning' : 'fw-bold text-success';
+                }
+            } catch (error) {
+                console.error('Error toggling analyzer:', error);
+            }
+        }
+
+        // Function to update dashboard stats
+        async function updateDashboardStats() {
+            try {
+                const response = await fetch('/api/dashboard_stats');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    document.getElementById('total-articles').textContent = data.data.total_articles || '0';
+                    document.getElementById('bullish-count').textContent = data.data.bullish_count || '0';
+                    document.getElementById('bearish-count').textContent = data.data.bearish_count || '0';
+                }
+            } catch (error) {
+                console.error('Error updating dashboard stats:', error);
+            }
+        }
+
+        // Function to update analyzer status and metrics
+        async function updateAnalyzerStatus() {
+            try {
+                const response = await fetch('/api/analyzer/status');
+                const data = await response.json();
+                
+                if (data.status === 'success') {
+                    const { is_paused, pending_count, last_processed } = data.data;
+                    
+                    // Update pause state if it changed externally
+                    if (is_paused !== isAnalyzerPaused) {
+                        isAnalyzerPaused = is_paused;
+                        const button = document.getElementById('pauseButton');
+                        button.className = isAnalyzerPaused ? 'btn btn-success' : 'btn btn-warning';
+                        button.innerHTML = isAnalyzerPaused ? 
+                            '<i class="fas fa-play"></i> Resume Analyzer' : 
+                            '<i class="fas fa-pause"></i> Pause Analyzer';
+                    }
+                    
+                    // Update metrics
+                    document.getElementById('pendingCount').textContent = pending_count;
+                    document.getElementById('statusText').textContent = is_paused ? 'Paused' : 'Running';
+                    document.getElementById('statusText').className = is_paused ? 
+                        'fw-bold text-warning' : 'fw-bold text-success';
+                    
+                    // Update last processed time if available
+                    if (last_processed) {
+                        const lastUpdateTime = new Date(last_processed);
+                        const now = new Date();
+                        const diffMinutes = Math.floor((now - lastUpdateTime) / 60000);
+                        
+                        let lastUpdateText;
+                        if (diffMinutes < 1) {
+                            lastUpdateText = 'Just now';
+                        } else if (diffMinutes < 60) {
+                            lastUpdateText = `${diffMinutes} minute${diffMinutes === 1 ? '' : 's'} ago`;
+                        } else {
+                            const diffHours = Math.floor(diffMinutes / 60);
+                            lastUpdateText = `${diffHours} hour${diffHours === 1 ? '' : 's'} ago`;
+                        }
+                        
+                        document.getElementById('lastUpdate').textContent = lastUpdateText;
+                    } else {
+                        document.getElementById('lastUpdate').textContent = 'No recent updates';
+                    }
+                }
+            } catch (error) {
+                console.error('Error updating status:', error);
+            }
+        }
+
+        let page = 1;
+        const analysesPerPage = 20;
+        let isLoading = false;
+        let hasMoreAnalyses = true;
+        let loadedArticleIds = new Set();
+        let currentSortField = 'analyzed';  // Default sort field
+
+        // Function to load more analyses
+        async function loadMoreAnalyses() {
+            if (isLoading || !hasMoreAnalyses) return;
+            
+            isLoading = true;
+            try {
+                const response = await fetch(`/api/recent_analyses?page=${page}&limit=${analysesPerPage}&sort=${currentSortField}`);
+                const data = await response.json();
+                
+                if (data.status === 'success' && data.data.length > 0) {
+                    appendAnalyses(data.data, false);  // false means append at bottom
+                    page++;
+                } else {
+                    hasMoreAnalyses = false;
+                }
+            } catch (error) {
+                console.error('Error loading more analyses:', error);
+            } finally {
+                isLoading = false;
+            }
+        }
+
+        // Function to check for new analyses
+        async function checkNewAnalyses() {
+            try {
+                const response = await fetch(`/api/recent_analyses?page=1&limit=${analysesPerPage}&sort=${currentSortField}`);
+                const data = await response.json();
+                if (data.status === 'success' && data.data.length > 0) {
+                    appendAnalyses(data.data, true);  // true means insert at top
+                }
+            } catch (error) {
+                console.error('Error checking for new analyses:', error);
+            }
+        }
+
+        // Function to append new analyses to the table
+        function appendAnalyses(analyses, insertAtTop = true) {
+            const tbody = document.getElementById('analyses-table');
+            const emptyState = document.getElementById('empty-state');
+            
+            if (!analyses || analyses.length === 0) {
+                if (tbody.children.length === 0) {
+                    emptyState.style.display = 'block';
+                }
+                return;
+            }
+            
+            emptyState.style.display = 'none';
+            
+            analyses.forEach(analysis => {
+                // Check if this analysis is already in the table
+                if (!loadedArticleIds.has(analysis.article_id)) {
+                    loadedArticleIds.add(analysis.article_id);
+                    
+                    const row = document.createElement('tr');
+                    row.setAttribute('data-article-id', analysis.article_id);
+                    row.className = 'article-row';
+                    row.onclick = () => showArticleDetails(analysis);
+                    
+                    const sentimentClass = analysis.prediction === 'bullish' ? 'bullish' : 'bearish';
+                    const stocks = JSON.parse(analysis.symbols || '[]');
+                    const stocksHtml = createSymbolsPreview(stocks);
+                    
+                    row.innerHTML = `
+                        <td>${analysis.title}</td>
+                        <td>${stocksHtml}</td>
+                        <td class="${sentimentClass}">${analysis.prediction.toUpperCase()}</td>
+                        <td>
+                            <div class="progress">
+                                <div class="progress-bar ${sentimentClass}" 
+                                     role="progressbar" 
+                                     style="width: ${Math.abs(analysis.sentiment_score * 100)}%">
+                                    ${Math.abs(analysis.sentiment_score).toFixed(2)}
+                                </div>
+                            </div>
+                        </td>
+                        <td>${(analysis.confidence_score * 100).toFixed(1)}%</td>
+                        <td>${new Date(analysis.published_date).toLocaleString()}</td>
+                        <td>${new Date(analysis.analysis_timestamp).toLocaleString()}</td>
+                    `;
+                    
+                    if (insertAtTop) {
+                        tbody.insertBefore(row, tbody.firstChild);
+                    } else {
+                        tbody.appendChild(row);
+                    }
+                }
+            });
+        }
+
+        // Infinite scroll handler
+        function handleScroll() {
+            if (isLoading || !hasMoreAnalyses) return;
+            
+            const scrollPosition = window.innerHeight + window.scrollY;
+            const scrollThreshold = document.documentElement.scrollHeight - 200;
+            
+            if (scrollPosition >= scrollThreshold) {
+                loadMoreAnalyses();
+            }
+        }
+
+        // Initialize everything
+        document.addEventListener('DOMContentLoaded', function() {
+            // Initial loads
+            updateDashboardStats();
+            updateAnalyzerStatus();
+            loadMoreAnalyses();
+
+            // Set up infinite scroll
+            window.addEventListener('scroll', handleScroll);
+
+            // Set up periodic updates
+            setInterval(updateDashboardStats, 2000);  // Update stats every 2 seconds
+            setInterval(updateAnalyzerStatus, 2000);  // Update analyzer status every 2 seconds
+            setInterval(checkNewAnalyses, 2000);  // Check for new analyses every 2 seconds
+        });
+
+        async function changeSortOrder() {
+            const sortSelect = document.getElementById('sort-select');
+            currentSortField = sortSelect.value;
+            
+            // Reset the table
+            const tbody = document.getElementById('analyses-table');
+            tbody.innerHTML = '';
+            loadedArticleIds.clear();
+            page = 1;
+            hasMoreAnalyses = true;
+            
+            // Load articles with new sort
+            await loadMoreAnalyses();
+        }
+    </script>
+</body>
+</html> 
