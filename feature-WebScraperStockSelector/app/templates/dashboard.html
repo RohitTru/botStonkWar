@@ -396,20 +396,15 @@
         }
         
         function formatSymbols(article) {
-            if (!article.raw_symbols || article.raw_symbols.length === 0) {
+            if (!article.symbols || article.symbols.length === 0) {
                 return 'None';
             }
 
             const validatedSet = new Set(article.validated_symbols || []);
-            const metadata = article.validation_metadata || {};
             
-            return article.raw_symbols.map(symbol => {
-                const validationResult = metadata[symbol];
+            return article.symbols.map(symbol => {
                 if (validatedSet.has(symbol)) {
                     return `<span class="ticker-symbol valid" data-tooltip="Valid Symbol">${symbol}</span>`;
-                } else if (validationResult && !validationResult.is_valid) {
-                    const reason = validationResult.message || 'Invalid Symbol';
-                    return `<span class="ticker-symbol invalid" data-tooltip="${reason}">${symbol}</span>`;
                 } else {
                     return `<span class="ticker-symbol unvalidated" data-tooltip="Not Validated">${symbol}</span>`;
                 }

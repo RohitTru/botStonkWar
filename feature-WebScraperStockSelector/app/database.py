@@ -102,7 +102,7 @@ class Database:
                     source VARCHAR(100),
                     published_date DATETIME,
                     scraped_date DATETIME,
-                    raw_symbols JSON,
+                    symbols JSON,
                     validated_symbols JSON,
                     validation_metadata JSON,
                     is_deleted BOOLEAN DEFAULT FALSE,
@@ -182,30 +182,25 @@ class Database:
             query = """
                 INSERT INTO articles (
                     title, link, content, source, published_date, 
-                    scraped_date, raw_symbols, validated_symbols, validation_metadata
+                    scraped_date, symbols, validated_symbols
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
                     content = VALUES(content),
                     source = VALUES(source),
                     published_date = VALUES(published_date),
                     scraped_date = VALUES(scraped_date),
-                    raw_symbols = VALUES(raw_symbols),
-                    validated_symbols = VALUES(validated_symbols),
-                    validation_metadata = VALUES(validation_metadata)
+                    symbols = VALUES(symbols),
+                    validated_symbols = VALUES(validated_symbols)
             """
 
-            # Store raw symbols as they were scraped
-            raw_symbols_json = json.dumps(article_data.get('symbols', []))
+            # Store symbols as JSON
+            symbols_json = json.dumps(article_data.get('symbols', []))
             
-            # Get validated symbols and metadata if available
+            # Get validated symbols if available
             validated_symbols = article_data.get('validated_symbols', [])
-            validation_metadata = article_data.get('validation_metadata', {})
-            
-            # Convert to JSON
             validated_symbols_json = json.dumps(validated_symbols)
-            validation_metadata_json = json.dumps(validation_metadata)
 
             values = (
                 article_data.get('title', ''),
@@ -214,9 +209,8 @@ class Database:
                 article_data.get('source', ''),
                 article_data.get('published_date'),
                 article_data.get('scraped_date', datetime.now()),
-                raw_symbols_json,
-                validated_symbols_json,
-                validation_metadata_json
+                symbols_json,
+                validated_symbols_json
             )
 
             cursor.execute(query, values)
@@ -244,7 +238,7 @@ class Database:
             
             query = """
                 SELECT id, title, link, content, source, published_date, scraped_date,
-                       raw_symbols, validated_symbols, validation_metadata
+                       symbols, validated_symbols
                 FROM articles
                 WHERE NOT is_deleted
                 ORDER BY {} {}
@@ -264,9 +258,8 @@ class Database:
                     article['scraped_date'] = article['scraped_date'].isoformat()
                     
                 # Parse JSON fields
-                article['raw_symbols'] = json.loads(article.get('raw_symbols', '[]'))
+                article['symbols'] = json.loads(article.get('symbols', '[]'))
                 article['validated_symbols'] = json.loads(article.get('validated_symbols', '[]'))
-                article['validation_metadata'] = json.loads(article.get('validation_metadata', '{}'))
                 
                 # Add URL field for frontend compatibility
                 article['url'] = article['link']
