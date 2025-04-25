@@ -406,7 +406,7 @@
                 if (validatedSet.has(symbol)) {
                     return `<span class="ticker-symbol valid" data-tooltip="Valid Symbol">${symbol}</span>`;
                 } else {
-                    return `<span class="ticker-symbol unvalidated" data-tooltip="Not Validated">${symbol}</span>`;
+                    return `<span class="ticker-symbol invalid" data-tooltip="Invalid Symbol">${symbol}</span>`;
                 }
             }).join(' ');
         }

@@ -205,13 +205,39 @@ class YahooFinanceScraper:
                         logger.warning(f"Could not parse published date: {entry.get('published')}")
                         published_date = datetime.now(timezone.utc)
 
+            # Get all scraped symbols
+            raw_symbols = article_data.get('symbols', [])
+            
+            # Validate symbols
+            validated_symbols = []
+            if raw_symbols:
+                # Create validation context
+                validation_context = {
+                    'title': article_data['title'],
+                    'content': article_data['content']
+                }
+                
+                # Validate each symbol
+                for symbol in raw_symbols:
+                    try:
+                        # Basic validation first
+                        if len(symbol) <= 5 and symbol.isalpha():
+                            # Check if symbol exists in our database
+                            if self.ticker_validator.validate_ticker(symbol):
+                                validated_symbols.append(symbol)
+                    except Exception as e:
+                        logger.warning(f"Error validating symbol {symbol}: {str(e)}")
+                        continue
+
             # Prepare article data for database
             article_data.update({
                 'title': entry.get('title', ''),
                 'link': url,
                 'source': 'yahoo_finance',
                 'published_date': published_date,
-                'scraped_date': datetime.now(timezone.utc)
+                'scraped_date': datetime.now(timezone.utc),
+                'symbols': raw_symbols,  # Store all found symbols
+                'validated_symbols': validated_symbols  # Store only validated symbols
             })
 
             # Add to database
@@ -227,6 +253,9 @@ class YahooFinanceScraper:
             }
             self.db.add_scraping_log(log_data)
             
+            logger.info(f"Successfully processed article: {url}")
+            logger.info(f"Found {len(raw_symbols)} symbols, {len(validated_symbols)} validated")
+            
         except Exception as e:
             logger.error(f"Error processing article {url}: {str(e)}")
             
@@ -240,7 +269,6 @@ class YahooFinanceScraper:
             }
             self.db.add_scraping_log(log_data)
             
-            # Don't raise the exception - let the scraper continue with other articles
             return False
         
         return True
