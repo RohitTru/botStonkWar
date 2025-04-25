@@ -192,40 +192,32 @@ class Database:
 
     def initialize_tables(self):
         """Initialize necessary database tables"""
-        # Create analyzer state table
-        self.execute_query("""
-            CREATE TABLE IF NOT EXISTS analyzer_state (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                is_paused BOOLEAN DEFAULT FALSE,
-                updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-            )
-        """)
-        
-        # Create sentiment analyses table
-        self.execute_query("""
-            CREATE TABLE IF NOT EXISTS sentiment_analyses (
-                id INT PRIMARY KEY AUTO_INCREMENT,
-                article_id INT NOT NULL,
-                sentiment_score DECIMAL(5,4),
-                confidence_score DECIMAL(5,4),
-                prediction VARCHAR(10),
-                analyzed_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                FOREIGN KEY (article_id) REFERENCES articles(id),
-                UNIQUE KEY unique_article (article_id)
-            )
-        """)
-        
-        # Insert initial analyzer state if table is empty
-        self.execute_query("""
-            INSERT INTO analyzer_state (is_paused)
-            SELECT FALSE FROM DUAL
-            WHERE NOT EXISTS (SELECT 1 FROM analyzer_state)
-        """)
+        try:
+            # Create analyzer state table if it doesn't exist
+            self.execute_query("""
+                CREATE TABLE IF NOT EXISTS analyzer_state (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    is_paused BOOLEAN DEFAULT FALSE,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                )
+            """)
+            
+            # Insert initial analyzer state if table is empty
+            self.execute_query("""
+                INSERT INTO analyzer_state (is_paused)
+                SELECT FALSE FROM DUAL
+                WHERE NOT EXISTS (SELECT 1 FROM analyzer_state)
+            """)
+            
+            logging.info("Database tables initialized successfully")
+        except Exception as e:
+            logging.error(f"Error initializing database tables: {str(e)}")
+            raise
 
     def store_sentiment_analysis(self, article_id: int, sentiment_result: dict) -> None:
         """Store sentiment analysis results in the database"""
         query = """
-            INSERT INTO sentiment_analyses 
+            INSERT INTO sentiment_analysis 
             (article_id, sentiment_score, confidence_score, prediction, 
              chunks_analyzed, metadata, analysis_timestamp)
             VALUES (%s, %s, %s, %s, %s, %s, NOW())
