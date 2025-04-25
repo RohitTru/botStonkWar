@@ -1,4 +1,4 @@
-from flask import Flask
+from flask import Flask, jsonify, request, render_template
 import logging
 from routes import routes
 from flask_apscheduler import APScheduler
@@ -42,5 +42,15 @@ def create_app():
 
 app = create_app()
 
+@app.route('/health')
+def health_check():
+    try:
+        # Check database connection
+        db = Database()
+        db.get_connection()
+        return jsonify({"status": "healthy", "message": "Service is running"}), 200
+    except Exception as e:
+        return jsonify({"status": "unhealthy", "message": str(e)}), 500
+
 if __name__ == "__main__":
-    app.run(host='0.0.0.0', port=5001, debug=True) 
+    app.run(host='0.0.0.0', port=5006, debug=True) 

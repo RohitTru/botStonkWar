@@ -4,6 +4,7 @@ import logging
 from datetime import datetime
 from typing import List, Dict, Optional, Union
 import json
+import os
 
 class Database:
     def __init__(self):
@@ -13,11 +14,11 @@ class Database:
                 pool_name="sentiment_pool",
                 pool_size=10,
                 pool_reset_session=True,
-                host="127.0.0.1",
+                host=os.getenv('MYSQL_HOST', 'mysql'),
                 port=3306,
-                user="botstonkwar_user",
-                password="botstonkwar_password",
-                database="botstonkwar_scraping_db"
+                user=os.getenv('MYSQL_USER', 'root'),
+                password=os.getenv('MYSQL_PASSWORD', ''),
+                database=os.getenv('MYSQL_DATABASE', 'botstonkwar_scraping_db')
             )
             logging.info("Database connection pool initialized successfully")
         except Exception as e:
@@ -224,7 +225,7 @@ class Database:
     def store_sentiment_analysis(self, article_id: int, sentiment_result: dict) -> None:
         """Store sentiment analysis results in the database"""
         query = """
-            INSERT INTO sentiment_analysis 
+            INSERT INTO sentiment_analyses 
             (article_id, sentiment_score, confidence_score, prediction, 
              chunks_analyzed, metadata, analysis_timestamp)
             VALUES (%s, %s, %s, %s, %s, %s, NOW())
