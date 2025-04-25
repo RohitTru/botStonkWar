@@ -10,6 +10,7 @@ import traceback
 from app.utils.logging import setup_logger
 from app.database import Database
 import pytz
+from app.utils.ticker_validator import TickerValidator
 
 logger = setup_logger()
 
@@ -19,6 +20,8 @@ class YahooFinanceScraper:
         self.consecutive_failures = 0
         self.max_consecutive_failures = 5  # Threshold for logging warning
         self.scraper_manager = None  # Will be set by ScraperManager
+        self.ticker_validator = TickerValidator(self.db)  # Initialize validator
+        
         # Comprehensive Yahoo Finance RSS feeds
         self.rss_feeds = [
             # Main feeds
@@ -205,15 +208,33 @@ class YahooFinanceScraper:
             else:
                 published_date = datetime.now(timezone.utc)
             
+            # Create validation context
+            validation_context = {
+                'title': article_data['title'],
+                'content': article_data['content']
+            }
+            
+            # Validate symbols
+            raw_symbols = article_data['symbols']
+            validation_results = self.ticker_validator.validate_tickers(raw_symbols, validation_context)
+            
+            # Separate valid and invalid symbols
+            validated_symbols = [
+                symbol for symbol, result in validation_results.items()
+                if result['is_valid']
+            ]
+            
             # Prepare article data
             article = {
-                'title': entry.get('title', ''),
+                'title': article_data['title'],
                 'link': url,
                 'content': article_data['content'],
-                'symbols': article_data['symbols'],
                 'source': 'yahoo_finance',
                 'published_date': published_date,
-                'scraped_date': datetime.now(timezone.utc)
+                'scraped_date': datetime.now(timezone.utc),
+                'raw_symbols': raw_symbols,
+                'validated_symbols': validated_symbols,
+                'validation_metadata': validation_results
             }
             
             # Save to database
@@ -229,6 +250,7 @@ class YahooFinanceScraper:
                 if self.scraper_manager:
                     self.scraper_manager.update_scraper_metrics('yahoo_finance', 'SUCCESS')
                 logger.info(f"Successfully saved article: {url}")
+                logger.info(f"Found {len(raw_symbols)} raw symbols, {len(validated_symbols)} validated")
             else:
                 raise Exception("Failed to save article to database")
             
