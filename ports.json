@@ -13,14 +13,15 @@
     "botStonkWar/main": 7000,
     "botStonkWar/feature-test1": 5001,
     "botStonkWar/feature-test2": 5011,
-    "botStonkWar/feature-WebApp": 5000,
-    "botStonkWar/feature-StockBot": 5002,
-    "botStonkWar/feature-WebScraperStockSelector": 5004,
-    "botStonkWar/feature-WebScraperSelectedStock": 5005,
-    "botStonkWar/feature-SentimentAnalysisEngine": 5007,
+    "botStonkWar/feature-WebApp": 5002,
+    "botStonkWar/feature-StockBot": 5000,
+    "botStonkWar/feature-WebScraperStockSelector": 5005,
+    "botStonkWar/feature-WebScraperSelectedStock": 5006,
+    "botStonkWar/feature-SentimentAnalysisEngine": 5012,
     "botStonkWar/feature-NumericalAnalyticalEngine": 5008,
     "botStonkWar/feature-TradeLogistics": 5009,
     "botStonkWar/feature-AppPerformance": 5010,
-    "botStonkWar/feature-VotingEngine": 5003
+    "botStonkWar/feature-VotingEngine": 5003,
+    "botStonkWar/feature-tradingBot": 5004
   }
 }
