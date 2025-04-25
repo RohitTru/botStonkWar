@@ -10,7 +10,7 @@ import traceback
 from app.utils.logging import setup_logger
 from app.database import Database
 import pytz
-from app.utils.ticker_validator import TickerValidator
+from app.ticker_validator import TickerValidator
 
 logger = setup_logger()
 
