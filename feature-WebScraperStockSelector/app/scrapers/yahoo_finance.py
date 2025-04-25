@@ -283,6 +283,14 @@ class YahooFinanceScraper:
             
             soup = BeautifulSoup(response.text, 'html.parser')
             
+            # Extract article title
+            title = soup.find('h1')
+            if not title:
+                logger.warning(f"No title found for article: {url}")
+                title_text = "Untitled Article"
+            else:
+                title_text = title.get_text(strip=True)
+            
             # Extract article content
             content_div = soup.find('div', {'class': 'caas-body'})
             if not content_div:
@@ -334,6 +342,7 @@ class YahooFinanceScraper:
             logger.info(f"Found symbols: {symbols}")
             
             return {
+                'title': title_text,
                 'content': content,
                 'symbols': symbols
             }
