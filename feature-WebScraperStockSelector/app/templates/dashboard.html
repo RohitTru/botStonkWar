@@ -301,7 +301,7 @@
                                 Source: ${article.source}<br>
                                 Published: ${formatDateTime(article.published_date)}<br>
                                 Scraped: ${formatDateTime(article.scraped_date)}<br>
-                                Symbols: ${Array.isArray(article.symbols) && article.symbols.length > 0 ? article.symbols.join(', ') : 'None'}
+                                Symbols: ${formatSymbols(article)}
                             </p>
                             <p class="mb-0">${article.content_preview}</p>
                         `;
@@ -346,6 +346,22 @@
                 });
         }
         
+        function formatSymbols(article) {
+            if (!article.raw_symbols || article.raw_symbols.length === 0) {
+                return 'None';
+            }
+
+            const validatedSet = new Set(article.validated_symbols || []);
+            
+            return article.raw_symbols.map(symbol => {
+                if (validatedSet.has(symbol)) {
+                    return `<span class="badge bg-success" title="Validated">${symbol}</span>`;
+                } else {
+                    return `<span class="badge bg-secondary" title="Unvalidated">${symbol}</span>`;
+                }
+            }).join(' ');
+        }
+        
         function showArticle(url) {
             currentArticleUrl = url;
             fetch(`/api/article/${encodeURIComponent(url)}`)
@@ -357,7 +373,7 @@
                             Source: ${article.source}<br>
                             Published: ${formatDateTime(article.published_date)}<br>
                             ${article.scraped_date ? `Scraped: ${formatDateTime(article.scraped_date)}<br>` : ''}
-                            Symbols: ${Array.isArray(article.symbols) ? article.symbols.join(', ') : article.symbols}
+                            Symbols: ${formatSymbols(article)}
                         </p>
                         <div style="white-space: pre-wrap;">${article.content}</div>
                     `;
