@@ -10,8 +10,13 @@ class Database:
     def __init__(self):
         """Initialize database connection pool"""
         try:
-            db_name = os.getenv('MYSQL_DATABASE', 'botstonkwar_scraping_db')
-            logging.info(f"Connecting to database: {db_name}")
+            # Try to get database name from environment, fallback to hardcoded value
+            db_name = os.getenv('MYSQL_DATABASE')
+            if not db_name or db_name == 'botstonkwar-db':
+                db_name = 'botstonkwar_scraping_db'
+                logging.warning(f"Using hardcoded database name: {db_name}")
+            else:
+                logging.info(f"Using database from environment: {db_name}")
             
             self.pool = mysql.connector.pooling.MySQLConnectionPool(
                 pool_name="sentiment_pool",
@@ -38,6 +43,11 @@ class Database:
             with self.get_connection() as conn:
                 cursor = conn.cursor()
                 
+                # Get current database name
+                cursor.execute("SELECT DATABASE()")
+                current_db = cursor.fetchone()[0]
+                logging.info(f"Connected to database: {current_db}")
+                
                 # Check if articles table exists
                 cursor.execute("""
                     SELECT COUNT(*) as count 
@@ -59,8 +69,10 @@ class Database:
                 logging.info(f"Sentiment analysis table exists: {sentiment_exists}")
                 
                 if not articles_exist or not sentiment_exists:
-                    logging.error(f"Required tables missing in database {os.getenv('MYSQL_DATABASE')}")
-                    raise Exception("Required tables missing in database")
+                    error_msg = f"Required tables missing in database {current_db}. "
+                    error_msg += "Please ensure you are connected to the correct database (botstonkwar_scraping_db)"
+                    logging.error(error_msg)
+                    raise Exception(error_msg)
                 
         except Exception as e:
             logging.error(f"Database verification failed: {str(e)}")
