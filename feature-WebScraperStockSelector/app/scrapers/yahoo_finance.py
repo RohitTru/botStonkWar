@@ -11,6 +11,7 @@ from app.utils.logging import setup_logger
 from app.database import Database
 import pytz
 from app.ticker_validator import TickerValidator
+from config import Config
 
 logger = setup_logger()
 
@@ -193,86 +194,53 @@ class YahooFinanceScraper:
                 self.consecutive_failures += 1
                 if self.consecutive_failures >= self.max_consecutive_failures:
                     logger.warning(f"High number of consecutive failures ({self.consecutive_failures}), but continuing...")
-                raise Exception("Failed to scrape article content")
+                return
             
-            # Reset failure counter on successful scrape
-            self.consecutive_failures = 0
-            
-            # Parse published date
-            published_date = None
-            if 'published' in entry:
-                try:
-                    published_date = datetime.strptime(entry.get('published'), '%Y-%m-%dT%H:%M:%SZ')
-                except ValueError:
-                    try:
-                        published_date = datetime.strptime(entry.get('published'), '%a, %d %b %Y %H:%M:%S %z')
-                    except ValueError:
-                        logger.warning(f"Could not parse published date: {entry.get('published')}")
-                        published_date = datetime.now(timezone.utc)
-
-            # Get all scraped symbols
-            raw_symbols = article_data.get('symbols', [])
-            
-            # Validate symbols
-            validated_symbols = []
-            if raw_symbols:
-                # Create validation context
-                validation_context = {
-                    'title': article_data['title'],
-                    'content': article_data['content']
-                }
-                
-                # Validate each symbol
-                for symbol in raw_symbols:
-                    try:
-                        # Basic validation first
-                        if len(symbol) <= 5 and symbol.isalpha():
-                            # Check if symbol exists in our database
-                            if self.ticker_validator.validate_ticker(symbol):
-                                validated_symbols.append(symbol)
-                    except Exception as e:
-                        logger.warning(f"Error validating symbol {symbol}: {str(e)}")
-                        continue
-
-            # Prepare article data for database
+            # Add missing fields to article data
             article_data.update({
-                'title': entry.get('title', ''),
                 'link': url,
-                'source': 'yahoo_finance',
-                'published_date': published_date,
-                'scraped_date': datetime.now(timezone.utc),
-                'symbols': raw_symbols,  # Store all found symbols
-                'validated_symbols': validated_symbols  # Store only validated symbols
+                'source': 'Yahoo Finance',
+                'published_date': datetime.strptime(
+                    entry.get('published', datetime.now(timezone.utc).strftime('%Y-%m-%d %H:%M:%S')),
+                    '%a, %d %b %Y %H:%M:%S %z'
+                ) if entry.get('published') else datetime.now(timezone.utc),
+                'scraped_date': datetime.now(timezone.utc)
             })
-
-            # Add to database
-            if not self.db.add_article(article_data):
-                raise Exception("Failed to save article to database")
-
-            # Log success
-            self.db.add_scraping_log(
-                status='SUCCESS',
-                source_type='yahoo_finance',
-                url=url
-            )
             
-            logger.info(f"Successfully processed article: {url}")
-            logger.info(f"Found {len(raw_symbols)} symbols, {len(validated_symbols)} validated")
+            # Store the article
+            try:
+                article_id = self.db.add_article(article_data)
+                logger.info(f"Successfully stored article {url} with ID {article_id}")
+                
+                # Log successful scrape
+                self.db.add_scraping_log(
+                    status='SUCCESS',
+                    source_type='yahoo_finance',
+                    url=url
+                )
+                
+                # Reset failure counter on successful scrape
+                self.consecutive_failures = 0
+                
+            except Exception as e:
+                logger.error(f"Failed to store article {url}: {str(e)}")
+                self.db.add_scraping_log(
+                    status='FAILED',
+                    source_type='yahoo_finance',
+                    url=url,
+                    error_message=f"Storage error: {str(e)}"
+                )
+                raise
             
         except Exception as e:
             logger.error(f"Error processing article {url}: {str(e)}")
-            
-            # Log failure
+            logger.error(traceback.format_exc())
             self.db.add_scraping_log(
-                status='FAILED',
+                status='ERROR',
                 source_type='yahoo_finance',
                 url=url,
                 error_message=str(e)
             )
-            
-            return False
-        
-        return True
 
     def scrape_article(self, url):
         """Scrape article content and extract stock symbols."""
@@ -409,19 +377,43 @@ class YahooFinanceScraper:
         """Run the scraper continuously."""
         logger.info("Starting Yahoo Finance scraper...")
         
+        # Get scraping interval from config
+        scrape_interval = Config.SCRAPE_INTERVAL
+        
         # Run immediately on startup
         logger.info("Starting initial scrape...")
-        self.scrape_feed()
+        try:
+            self.scrape_feed()
+        except Exception as e:
+            logger.error(f"Initial scrape failed: {str(e)}")
+            logger.error(traceback.format_exc())
         
         while True:
             try:
-                logger.info("Waiting for next scrape cycle...")
-                time.sleep(60)  # Wait 60 seconds between cycles
+                logger.info(f"Waiting {scrape_interval} seconds for next scrape cycle...")
+                time.sleep(scrape_interval)
                 
-                # Double check pause state before starting new cycle
-                self.scrape_feed()
-                    
+                # Check if scraper is paused
+                if self.scraper_manager and self.scraper_manager.is_paused('yahoo_finance'):
+                    logger.info("Scraper is paused, skipping cycle")
+                    continue
+                
+                # Run scrape cycle with retry logic
+                max_retries = 3
+                retry_delay = 60  # 1 minute
+                
+                for attempt in range(max_retries):
+                    try:
+                        self.scrape_feed()
+                        break  # Success, exit retry loop
+                    except Exception as e:
+                        logger.error(f"Scrape cycle failed (attempt {attempt + 1}/{max_retries}): {str(e)}")
+                        logger.error(traceback.format_exc())
+                        
+                        if attempt < max_retries - 1:  # Don't sleep on last attempt
+                            time.sleep(retry_delay * (attempt + 1))  # Exponential backoff
+                        
             except Exception as e:
                 logger.error(f"Error in scraper run loop: {str(e)}")
                 logger.error(traceback.format_exc())
-                time.sleep(10)  # Wait 10 seconds on error before retrying 
+                time.sleep(60)  # Wait 1 minute on error before retrying 

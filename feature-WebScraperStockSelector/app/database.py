@@ -6,23 +6,45 @@ import json
 from app.utils.logging import setup_logger
 from dotenv import load_dotenv
 import pytz
+import time
+from functools import wraps
 
 load_dotenv()
 
 logger = setup_logger()
 
+def retry_on_error(max_retries=3, delay=1):
+    def decorator(func):
+        @wraps(func)
+        def wrapper(*args, **kwargs):
+            retries = 0
+            while retries < max_retries:
+                try:
+                    return func(*args, **kwargs)
+                except Error as e:
+                    retries += 1
+                    if retries == max_retries:
+                        logger.error(f"Max retries ({max_retries}) reached for {func.__name__}: {e}")
+                        raise
+                    logger.warning(f"Retry {retries}/{max_retries} for {func.__name__} due to: {e}")
+                    time.sleep(delay * retries)  # Exponential backoff
+            return None
+        return wrapper
+    return decorator
+
 class Database:
     def __init__(self):
         """Initialize database connection pool"""
+        from config import Config
         self.pool_config = {
             'pool_name': 'mypool',
-            'pool_size': 5,
-            'host': os.getenv('MYSQL_HOST', 'localhost'),
-            'user': os.getenv('MYSQL_USER', 'root'),
-            'password': os.getenv('MYSQL_PASSWORD', ''),
-            'database': os.getenv('MYSQL_DB', 'stock_scraper'),
-            'port': int(os.getenv('MYSQL_PORT', 3306)),
-            'pool_reset_session': True
+            'pool_size': Config.DB_POOL_SIZE,
+            'pool_reset_session': True,
+            'host': Config.MYSQL_HOST,
+            'user': Config.MYSQL_USER,
+            'password': Config.MYSQL_PASSWORD,
+            'database': Config.MYSQL_DB,
+            'port': Config.MYSQL_PORT,
         }
         try:
             self.connection_pool = mysql.connector.pooling.MySQLConnectionPool(**self.pool_config)
@@ -32,8 +54,9 @@ class Database:
             logger.error(f"Error creating connection pool: {e}")
             raise
 
+    @retry_on_error()
     def get_connection(self):
-        """Get a connection from the pool"""
+        """Get a connection from the pool with retry logic"""
         try:
             connection = self.connection_pool.get_connection()
             return connection
@@ -103,10 +126,14 @@ class Database:
                     published_date DATETIME,
                     scraped_date DATETIME,
                     symbols JSON,
-                    validated_symbols JSON,
-                    validation_metadata JSON,
                     is_deleted BOOLEAN DEFAULT FALSE,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    is_analyzed BOOLEAN DEFAULT FALSE,
+                    analyzed_at DATETIME DEFAULT NULL,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_scraped_date (scraped_date),
+                    INDEX idx_published_date (published_date),
+                    INDEX idx_is_deleted (is_deleted),
+                    INDEX idx_is_analyzed (is_analyzed)
                 )
             """)
 
@@ -119,21 +146,31 @@ class Database:
                     source_type VARCHAR(100),
                     url VARCHAR(500),
                     error_message TEXT,
-                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_timestamp (timestamp),
+                    INDEX idx_status (status)
                 )
             """)
 
-            # Scraper metrics table
+            # Ticker symbols table
             cursor.execute("""
-                CREATE TABLE IF NOT EXISTS scraper_metrics (
-                    id INT AUTO_INCREMENT PRIMARY KEY,
-                    scraper_name VARCHAR(100) NOT NULL,
-                    timestamp DATETIME NOT NULL,
-                    total_attempts INT DEFAULT 0,
-                    successful INT DEFAULT 0,
-                    failed INT DEFAULT 0,
+                CREATE TABLE IF NOT EXISTS ticker_symbols (
+                    symbol VARCHAR(10) PRIMARY KEY,
+                    exchange VARCHAR(50),
+                    company_name VARCHAR(255),
+                    is_active BOOLEAN DEFAULT TRUE,
+                    last_verified TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
                     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                    INDEX idx_scraper_timestamp (scraper_name, timestamp)
+                    INDEX idx_ticker_symbols_active (is_active)
+                )
+            """)
+
+            # Analyzer state table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS analyzer_state (
+                    id INT PRIMARY KEY AUTO_INCREMENT,
+                    is_paused BOOLEAN DEFAULT FALSE,
+                    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
                 )
             """)
 
@@ -186,8 +223,9 @@ class Database:
             if connection:
                 connection.close()
 
+    @retry_on_error()
     def add_article(self, article_data):
-        """Add a new article to the database"""
+        """Add a new article to the database with retry logic"""
         connection = None
         try:
             connection = self.get_connection()
@@ -196,44 +234,44 @@ class Database:
             query = """
                 INSERT INTO articles (
                     title, link, content, source, published_date, 
-                    scraped_date, symbols, validated_symbols
+                    scraped_date, symbols, is_analyzed, analyzed_at
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
                 ON DUPLICATE KEY UPDATE
                     title = VALUES(title),
                     content = VALUES(content),
                     source = VALUES(source),
                     published_date = VALUES(published_date),
                     scraped_date = VALUES(scraped_date),
-                    symbols = VALUES(symbols),
-                    validated_symbols = VALUES(validated_symbols)
+                    symbols = VALUES(symbols)
             """
-
-            # Store symbols as JSON
-            symbols_json = json.dumps(article_data.get('symbols', []))
             
-            # Get validated symbols if available
-            validated_symbols = article_data.get('validated_symbols', [])
-            validated_symbols_json = json.dumps(validated_symbols)
-
-            values = (
-                article_data.get('title', ''),
-                article_data.get('link', ''),
-                article_data.get('content', ''),
-                article_data.get('source', ''),
+            params = (
+                article_data.get('title'),
+                article_data.get('link'),
+                article_data.get('content'),
+                article_data.get('source'),
                 article_data.get('published_date'),
-                article_data.get('scraped_date', datetime.now()),
-                symbols_json,
-                validated_symbols_json
+                datetime.now(timezone.utc),
+                json.dumps(article_data.get('symbols', [])),
+                False,  # is_analyzed
+                None   # analyzed_at
             )
-
-            cursor.execute(query, values)
+            
+            cursor.execute(query, params)
             connection.commit()
-            cursor.close()
-            return True
+            article_id = cursor.lastrowid
+            
+            # Log successful article addition
+            logger.info(f"Successfully added/updated article: {article_data.get('title')} (ID: {article_id})")
+            
+            return article_id
+            
         except Error as e:
+            if connection:
+                connection.rollback()
             logger.error(f"Error adding article: {e}")
-            return False
+            raise
         finally:
             if connection:
                 connection.close()
