@@ -58,14 +58,16 @@ def status():
                     'total_attempts': 0,
                     'successful': 0,
                     'failed': 0,
-                    'success_rate': 0
+                    'duplicates': 0,
+                    'success_rate': 0,
+                    'failure_rate': 0
                 },
                 'pagination': {
                     'has_next': False
                 }
             }), 500
         
-        # Get article count - use a direct count query for real-time accuracy
+        # Get article count
         articles_count = db.get_article_count()
         
         # Get recent articles with pagination
@@ -81,11 +83,11 @@ def status():
             sort_order=sort_order
         )
         
-        # Get scraping logs - limit to most recent for performance
+        # Get scraping logs
         scraping_logs = db.get_scraping_logs(limit=50)
         
-        # Get scraping stats from ScraperManager
-        scraping_stats = scraper_manager.get_scraper_metrics(hours=1)['total']
+        # Get scraping stats for the last hour
+        scraping_stats = db.get_scraping_stats(hours=1)
         
         # Calculate if there are more articles
         has_next = len(recent_articles) == per_page
@@ -117,7 +119,9 @@ def status():
                 'total_attempts': 0,
                 'successful': 0,
                 'failed': 0,
-                'success_rate': 0
+                'duplicates': 0,
+                'success_rate': 0,
+                'failure_rate': 0
             },
             'pagination': {
                 'has_next': False,

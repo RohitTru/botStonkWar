@@ -391,7 +391,8 @@ class Database:
                     SELECT 
                         COUNT(*) as total_attempts,
                         SUM(CASE WHEN status = 'SUCCESS' THEN 1 ELSE 0 END) as successful,
-                        SUM(CASE WHEN status = 'FAILED' THEN 1 ELSE 0 END) as failed
+                        SUM(CASE WHEN status = 'ERROR' THEN 1 ELSE 0 END) as failed,
+                        SUM(CASE WHEN status = 'DUPLICATE' THEN 1 ELSE 0 END) as duplicates
                     FROM scraping_logs
                     WHERE timestamp >= NOW() - INTERVAL %s HOUR
                     """
@@ -402,18 +403,23 @@ class Database:
                         total = stats['total_attempts'] or 0
                         successful = stats['successful'] or 0
                         failed = stats['failed'] or 0
+                        duplicates = stats['duplicates'] or 0
                         
                         return {
                             'total_attempts': total,
                             'successful': successful,
                             'failed': failed,
-                            'success_rate': round((successful / total * 100) if total > 0 else 0, 2)
+                            'duplicates': duplicates,
+                            'success_rate': round((successful / total * 100) if total > 0 else 0, 2),
+                            'failure_rate': round((failed / total * 100) if total > 0 else 0, 2)
                         }
                     return {
                         'total_attempts': 0,
                         'successful': 0,
                         'failed': 0,
-                        'success_rate': 0
+                        'duplicates': 0,
+                        'success_rate': 0,
+                        'failure_rate': 0
                     }
         except Exception as e:
             logger.error(f"Error getting scraping stats: {str(e)}")
@@ -421,7 +427,9 @@ class Database:
                 'total_attempts': 0,
                 'successful': 0,
                 'failed': 0,
-                'success_rate': 0
+                'duplicates': 0,
+                'success_rate': 0,
+                'failure_rate': 0
             }
 
     def mark_article_deleted(self, article_url):

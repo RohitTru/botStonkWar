@@ -221,6 +221,11 @@ class ScraperManager:
                 if not self.active:
                     break
 
+                # Check if scraper is paused
+                if self._get_pause_state(scraper_name):
+                    logger.info(f"Scraper {scraper_name} is paused, skipping...")
+                    continue
+
                 try:
                     # Get articles to scrape
                     articles = scraper.get_articles_to_scrape()
