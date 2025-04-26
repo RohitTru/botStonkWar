@@ -114,62 +114,46 @@
         .sort-btn[data-order="desc"] .sort-arrow::after {
             content: "↓";
         }
+        /* Add animation for counter updates */
+        #articles-count {
+            transition: color 0.3s ease;
+        }
+        #articles-count.text-success {
+            color: #28a745;
+        }
     </style>
 </head>
 <body>
     <div class="container-fluid py-4">
         <h1 class="mb-4">Stock Scraper Dashboard</h1>
         
-        <div class="row mt-4">
-            <!-- Scraper Status Card -->
+        <div class="row mb-4">
+            <!-- Database Status Card -->
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Scraper Status</h5>
-                        <p class="card-text" id="scraper-status">Loading...</p>
-                        <p class="card-text">
-                            <small class="text-muted">Database: <span id="db-status" class="badge bg-secondary">Checking...</span></small>
-                        </p>
-                        <button id="pauseResumeBtn" class="btn btn-warning" onclick="toggleScraper()" style="display: none;">
-                            Pause Scraper
-                        </button>
+                        <h5 class="card-title">Database Status</h5>
+                        <span id="db-status" class="badge bg-secondary">Checking...</span>
                     </div>
                 </div>
             </div>
             
-            <!-- Articles Found Card -->
+            <!-- Articles Counter Card -->
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
                         <h5 class="card-title">Articles Found</h5>
-                        <p class="card-text" id="articles-count">0</p>
+                        <div id="articles-count" class="h2">0</div>
                     </div>
                 </div>
             </div>
             
-            <!-- Last Hour Statistics Card -->
+            <!-- Scraper Control Card -->
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Last Hour Statistics</h5>
-                        <div class="row text-center">
-                            <div class="col">
-                                <h2 id="total-attempts">0</h2>
-                                <p>Attempts</p>
-                            </div>
-                            <div class="col">
-                                <h2 id="successful-attempts" class="text-success">0</h2>
-                                <p>Successful</p>
-                            </div>
-                            <div class="col">
-                                <h2 id="failed-attempts" class="text-danger">0</h2>
-                                <p>Failed</p>
-                            </div>
-                            <div class="col">
-                                <h2 id="success-rate">0%</h2>
-                                <p>Success Rate</p>
-                            </div>
-                        </div>
+                        <h5 class="card-title">Scraper Control</h5>
+                        <button id="pauseResumeBtn" class="btn btn-warning">Loading...</button>
                     </div>
                 </div>
             </div>
@@ -438,6 +422,29 @@
                 });
         }
 
+        function updateArticlesCount(count) {
+            const countElement = document.getElementById('articles-count');
+            // Animate the counter
+            const currentCount = parseInt(countElement.textContent);
+            if (currentCount !== count) {
+                countElement.textContent = count;
+                countElement.classList.add('text-success');
+                setTimeout(() => {
+                    countElement.classList.remove('text-success');
+                }, 1000);
+            }
+        }
+
+        function updateDashboard() {
+            if (isLoading) return;
+            isLoading = true;
+            
+            // Update each component independently
+            updateArticlesList();
+            updateMetricsAndStatus();
+            updateScrapingLogs();
+        }
+        
         function updateMetricsAndStatus() {
             fetch('/api/status')
                 .then(response => response.json())
@@ -454,7 +461,7 @@
                     updateDatabaseStatus(data.db_connected);
                     
                     // Update articles count
-                    document.getElementById('articles-count').textContent = data.articles_count;
+                    updateArticlesCount(data.articles_count);
                     
                     // Update scraping stats
                     document.getElementById('total-attempts').textContent = data.scraping_stats.total_attempts || 0;
@@ -491,16 +498,6 @@
                 });
         }
 
-        function updateDashboard() {
-            if (isLoading) return;
-            isLoading = true;
-            
-            // Update each component independently
-            updateArticlesList();
-            updateMetricsAndStatus();
-            updateScrapingLogs();
-        }
-        
         function deleteArticle() {
             if (!currentArticleUrl) return;
             

@@ -65,10 +65,10 @@ def status():
                 }
             }), 500
         
-        # Get article count
+        # Get article count - use a direct count query for real-time accuracy
         articles_count = db.get_article_count()
         
-        # Get recent articles
+        # Get recent articles with pagination
         page = request.args.get('page', 1, type=int)
         per_page = request.args.get('per_page', 10, type=int)
         sort_by = request.args.get('sort_by', 'published_date')
@@ -81,22 +81,25 @@ def status():
             sort_order=sort_order
         )
         
-        # Get scraping logs
+        # Get scraping logs - limit to most recent for performance
         scraping_logs = db.get_scraping_logs(limit=50)
         
         # Get scraping stats from ScraperManager
         scraping_stats = scraper_manager.get_scraper_metrics(hours=1)['total']
         
+        # Calculate if there are more articles
+        has_next = len(recent_articles) == per_page
+        
         return jsonify({
-            'status': scraper_status,
-            'paused': scraper_status == 'Paused',
+            'status': 'OK',
             'db_connected': True,
+            'scraper_status': scraper_status,
             'articles_count': articles_count,
             'recent_articles': recent_articles,
             'scraping_logs': scraping_logs,
             'scraping_stats': scraping_stats,
             'pagination': {
-                'has_next': len(recent_articles) == per_page,
+                'has_next': has_next,
                 'page': page,
                 'per_page': per_page
             }

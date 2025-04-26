@@ -491,11 +491,17 @@ class Database:
                 connection.close()
 
     def get_article_count(self):
-        """Get the total number of articles in the database."""
+        """Get the total number of non-deleted articles in the database."""
         try:
             with self.connection_pool.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
-                    cursor.execute("SELECT COUNT(*) as count FROM articles WHERE NOT is_deleted")
+                    # Use COUNT(*) for better performance with an index
+                    cursor.execute("""
+                        SELECT COUNT(*) as count 
+                        FROM articles 
+                        WHERE NOT is_deleted
+                        /* Use index: idx_is_deleted */
+                    """)
                     result = cursor.fetchone()
                     return result['count'] if result else 0
         except Exception as e:
