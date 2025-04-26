@@ -305,6 +305,63 @@
             });
         }
         
+        let articleCache = new Map(); // Cache for article data
+
+        function showArticle(url, articleData = null) {
+            currentArticleUrl = url;
+            
+            // If we have the article data passed in, use it directly
+            if (articleData) {
+                displayArticleModal(articleData);
+                return;
+            }
+
+            // If we have it in cache, use that
+            if (articleCache.has(url)) {
+                displayArticleModal(articleCache.get(url));
+                return;
+            }
+
+            // Otherwise fetch it
+            fetch(`/api/article/${encodeURIComponent(url)}`)
+                .then(response => response.json())
+                .then(article => {
+                    articleCache.set(url, article);
+                    displayArticleModal(article);
+                });
+        }
+
+        function displayArticleModal(article) {
+            document.getElementById('articleModalTitle').textContent = article.title;
+            document.getElementById('articleModalBody').innerHTML = `
+                <p class="text-muted">
+                    Source: ${article.source}<br>
+                    Published: ${formatDateTime(article.published_date)}<br>
+                    ${article.scraped_date ? `Scraped: ${formatDateTime(article.scraped_date)}<br>` : ''}
+                    Symbols: ${formatSymbols(article)}
+                </p>
+                <div style="white-space: pre-wrap;">${article.content}</div>
+            `;
+            document.getElementById('articleModalLink').href = article.link;
+            articleModal.show();
+        }
+
+        function formatSymbols(article) {
+            if (!article.symbols || article.symbols.length === 0) {
+                return 'None';
+            }
+
+            const validatedSet = new Set(article.validated_symbols || []);
+            
+            return article.symbols.map(symbol => {
+                if (validatedSet.has(symbol)) {
+                    return `<span class="ticker-symbol valid" data-tooltip="Valid Symbol">${symbol}</span>`;
+                } else {
+                    return `<span class="ticker-symbol invalid" data-tooltip="Invalid Symbol">${symbol}</span>`;
+                }
+            }).join(' ');
+        }
+        
         function updateDashboard() {
             if (isLoading) return;
             isLoading = true;
@@ -329,21 +386,25 @@
                     document.getElementById('articles-count').textContent = data.articles_count;
                     
                     // Update scraping stats
-                    document.getElementById('total-attempts').textContent = data.scraping_stats.total_attempts;
-                    document.getElementById('successful-attempts').textContent = data.scraping_stats.successful;
-                    document.getElementById('failed-attempts').textContent = data.scraping_stats.failed;
-                    document.getElementById('success-rate').textContent = `${Math.round(data.scraping_stats.success_rate)}%`;
+                    document.getElementById('total-attempts').textContent = data.scraping_stats.total_attempts || 0;
+                    document.getElementById('successful-attempts').textContent = data.scraping_stats.successful || 0;
+                    document.getElementById('failed-attempts').textContent = data.scraping_stats.failed || 0;
+                    document.getElementById('success-rate').textContent = `${Math.round(data.scraping_stats.success_rate || 0)}%`;
                     
                     // Update articles list
                     const articlesContainer = document.getElementById('articles-container');
                     if (currentPage === 1) {
                         articlesContainer.innerHTML = '';
+                        articleCache.clear(); // Clear cache when refreshing first page
                     }
                     
                     data.recent_articles.forEach(article => {
+                        // Cache the article data
+                        articleCache.set(article.link, article);
+                        
                         const articleElement = document.createElement('div');
                         articleElement.className = 'article-preview mb-4 p-3 border rounded';
-                        articleElement.onclick = () => showArticle(article.link);
+                        articleElement.onclick = () => showArticle(article.link, article);
                         articleElement.innerHTML = `
                             <h5 class="mb-2">${article.title}</h5>
                             <p class="text-muted mb-2">
@@ -352,7 +413,7 @@
                                 Scraped: ${formatDateTime(article.scraped_date)}<br>
                                 Symbols: ${formatSymbols(article)}
                             </p>
-                            <p class="mb-0">${article.content_preview}</p>
+                            <p class="mb-0">${article.content_preview || ''}</p>
                         `;
                         articlesContainer.appendChild(articleElement);
                     });
@@ -392,42 +453,6 @@
                     updateScraperControls('Error', false);
                     isLoading = false;
                     document.getElementById('loading-spinner').style.display = 'none';
-                });
-        }
-        
-        function formatSymbols(article) {
-            if (!article.symbols || article.symbols.length === 0) {
-                return 'None';
-            }
-
-            const validatedSet = new Set(article.validated_symbols || []);
-            
-            return article.symbols.map(symbol => {
-                if (validatedSet.has(symbol)) {
-                    return `<span class="ticker-symbol valid" data-tooltip="Valid Symbol">${symbol}</span>`;
-                } else {
-                    return `<span class="ticker-symbol invalid" data-tooltip="Invalid Symbol">${symbol}</span>`;
-                }
-            }).join(' ');
-        }
-        
-        function showArticle(url) {
-            currentArticleUrl = url;
-            fetch(`/api/article/${encodeURIComponent(url)}`)
-                .then(response => response.json())
-                .then(article => {
-                    document.getElementById('articleModalTitle').textContent = article.title;
-                    document.getElementById('articleModalBody').innerHTML = `
-                        <p class="text-muted">
-                            Source: ${article.source}<br>
-                            Published: ${formatDateTime(article.published_date)}<br>
-                            ${article.scraped_date ? `Scraped: ${formatDateTime(article.scraped_date)}<br>` : ''}
-                            Symbols: ${formatSymbols(article)}
-                        </p>
-                        <div style="white-space: pre-wrap;">${article.content}</div>
-                    `;
-                    document.getElementById('articleModalLink').href = article.link;
-                    articleModal.show();
                 });
         }
         
