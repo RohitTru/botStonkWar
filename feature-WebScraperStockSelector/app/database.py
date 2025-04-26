@@ -474,34 +474,18 @@ class Database:
         except Error as e:
             logger.error(f"Error closing database connection: {e}")
 
-    def get_total_articles(self):
-        """Get the total number of articles in the database."""
-        connection = None
-        try:
-            connection = self.get_connection()
-            cursor = connection.cursor()
-            cursor.execute("SELECT COUNT(*) FROM articles WHERE NOT is_deleted")
-            count = cursor.fetchone()[0]
-            return count
-        except Error as e:
-            logger.error(f"Error getting total articles count: {e}")
-            return 0
-        finally:
-            if connection:
-                connection.close()
-
     def get_article_count(self):
-        """Get the total number of non-deleted articles in the database."""
+        """
+        Get the total count of non-deleted articles in the database.
+        Uses an optimized query with an index on the deleted column for better performance.
+        
+        Returns:
+            int: The total number of non-deleted articles
+        """
         try:
             with self.connection_pool.get_connection() as connection:
                 with connection.cursor(dictionary=True) as cursor:
-                    # Use COUNT(*) for better performance with an index
-                    cursor.execute("""
-                        SELECT COUNT(*) as count 
-                        FROM articles 
-                        WHERE NOT is_deleted
-                        /* Use index: idx_is_deleted */
-                    """)
+                    cursor.execute("SELECT COUNT(*) as count FROM articles WHERE is_deleted = 0")
                     result = cursor.fetchone()
                     return result['count'] if result else 0
         except Exception as e:
