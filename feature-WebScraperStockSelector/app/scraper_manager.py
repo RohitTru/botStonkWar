@@ -5,6 +5,7 @@ from app.database import Database
 from app.utils.logging import setup_logger
 from app.scrapers.yahoo_finance import YahooFinanceScraper
 import logging
+from datetime import datetime, timezone
 
 logger = setup_logger()
 
@@ -26,6 +27,7 @@ class ScraperManager:
                 'total_attempts': 0,
                 'successful': 0,
                 'failed': 0,
+                'duplicates': 0,
                 'success_rate': 0
             },
             'by_scraper': {}
@@ -169,6 +171,7 @@ class ScraperManager:
                 'total_attempts': 0,
                 'successful': 0,
                 'failed': 0,
+                'duplicates': 0,
                 'success_rate': 0
             }
         
@@ -176,25 +179,36 @@ class ScraperManager:
         self.metrics['by_scraper'][scraper_name]['total_attempts'] += 1
         if status == 'SUCCESS':
             self.metrics['by_scraper'][scraper_name]['successful'] += 1
-        elif status in ['FAILED', 'ERROR']:
+        elif status == 'ERROR':
             self.metrics['by_scraper'][scraper_name]['failed'] += 1
+        elif status == 'DUPLICATE':
+            self.metrics['by_scraper'][scraper_name]['duplicates'] += 1
             
-        # Update success rate
+        # Update success rate (excluding duplicates from calculation)
         attempts = self.metrics['by_scraper'][scraper_name]['total_attempts']
         successful = self.metrics['by_scraper'][scraper_name]['successful']
-        self.metrics['by_scraper'][scraper_name]['success_rate'] = round((successful / attempts * 100) if attempts > 0 else 0, 2)
+        duplicates = self.metrics['by_scraper'][scraper_name]['duplicates']
+        actual_attempts = attempts - duplicates
+        self.metrics['by_scraper'][scraper_name]['success_rate'] = round((successful / actual_attempts * 100) if actual_attempts > 0 else 0, 2)
         
         # Update total metrics
+        if 'duplicates' not in self.metrics['total']:
+            self.metrics['total']['duplicates'] = 0
+            
         self.metrics['total']['total_attempts'] += 1
         if status == 'SUCCESS':
             self.metrics['total']['successful'] += 1
-        elif status in ['FAILED', 'ERROR']:
+        elif status == 'ERROR':
             self.metrics['total']['failed'] += 1
+        elif status == 'DUPLICATE':
+            self.metrics['total']['duplicates'] += 1
             
-        # Update total success rate
+        # Update total success rate (excluding duplicates)
         total_attempts = self.metrics['total']['total_attempts']
         total_successful = self.metrics['total']['successful']
-        self.metrics['total']['success_rate'] = round((total_successful / total_attempts * 100) if total_attempts > 0 else 0, 2)
+        total_duplicates = self.metrics['total']['duplicates']
+        actual_total_attempts = total_attempts - total_duplicates
+        self.metrics['total']['success_rate'] = round((total_successful / actual_total_attempts * 100) if actual_total_attempts > 0 else 0, 2)
 
     def get_scraper_metrics(self, hours=1):
         """Get current scraper metrics from memory."""
@@ -216,17 +230,36 @@ class ScraperManager:
                             # Scrape and save article
                             article_data = scraper.scrape_article(article['url'])
                             if article_data:
-                                self.db.add_article(article_data)
-                                self.update_scraper_metrics(scraper_name, 'SUCCESS')
-                                self.db.add_scraping_log(
-                                    status='SUCCESS',
-                                    source_type=scraper_name,
-                                    url=article['url']
-                                )
+                                # Add required fields to article data
+                                article_data.update({
+                                    'link': article['url'],
+                                    'source': scraper_name,
+                                    'published_date': datetime.now(timezone.utc),
+                                    'scraped_date': datetime.now(timezone.utc)
+                                })
+                                
+                                # Check if article exists before adding
+                                existing_article = self.db.get_article_by_url(article['url'])
+                                if existing_article:
+                                    self.update_scraper_metrics(scraper_name, 'DUPLICATE')
+                                    self.db.add_scraping_log(
+                                        status='DUPLICATE',
+                                        source_type=scraper_name,
+                                        url=article['url'],
+                                        error_message='Article already exists in database'
+                                    )
+                                else:
+                                    self.db.add_article(article_data)
+                                    self.update_scraper_metrics(scraper_name, 'SUCCESS')
+                                    self.db.add_scraping_log(
+                                        status='SUCCESS',
+                                        source_type=scraper_name,
+                                        url=article['url']
+                                    )
                             else:
-                                self.update_scraper_metrics(scraper_name, 'FAILED')
+                                self.update_scraper_metrics(scraper_name, 'ERROR')
                                 self.db.add_scraping_log(
-                                    status='FAILED',
+                                    status='ERROR',
                                     source_type=scraper_name,
                                     url=article['url'],
                                     error_message='No article data returned'

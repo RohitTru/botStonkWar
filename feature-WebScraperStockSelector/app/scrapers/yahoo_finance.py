@@ -184,8 +184,15 @@ class YahooFinanceScraper:
             # Check if article already exists in database
             existing_article = self.db.get_article_by_url(url)
             if existing_article:
-                logger.debug(f"Article already exists in database: {url}")
+                logger.info(f"Article already exists in database: {url}")
                 self.consecutive_failures = 0  # Reset on successful check
+                # Log duplicate as warning status
+                self.db.add_scraping_log(
+                    status='DUPLICATE',
+                    source_type='yahoo_finance',
+                    url=url,
+                    error_message='Article already exists in database'
+                )
                 return
 
             # Get article details first before logging start
@@ -194,6 +201,13 @@ class YahooFinanceScraper:
                 self.consecutive_failures += 1
                 if self.consecutive_failures >= self.max_consecutive_failures:
                     logger.warning(f"High number of consecutive failures ({self.consecutive_failures}), but continuing...")
+                # Log failed scrape as error
+                self.db.add_scraping_log(
+                    status='ERROR',
+                    source_type='yahoo_finance',
+                    url=url,
+                    error_message='Failed to scrape article content'
+                )
                 return
             
             # Add missing fields to article data
@@ -225,7 +239,7 @@ class YahooFinanceScraper:
             except Exception as e:
                 logger.error(f"Failed to store article {url}: {str(e)}")
                 self.db.add_scraping_log(
-                    status='FAILED',
+                    status='ERROR',
                     source_type='yahoo_finance',
                     url=url,
                     error_message=f"Storage error: {str(e)}"
@@ -326,7 +340,11 @@ class YahooFinanceScraper:
             return {
                 'title': title or 'Untitled Article',
                 'content': content,
-                'symbols': symbols_list
+                'symbols': symbols_list,
+                'link': url,  # Include the URL in the article data
+                'source': 'Yahoo Finance',
+                'published_date': datetime.now(timezone.utc),
+                'scraped_date': datetime.now(timezone.utc)
             }
             
         except requests.exceptions.HTTPError as e:
