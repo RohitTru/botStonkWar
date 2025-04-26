@@ -19,8 +19,19 @@ class ScraperManager:
         self.stop_event = threading.Event()
         self._running = False
         self._thread = None
+        
+        # In-memory metrics storage
+        self.metrics = {
+            'total': {
+                'total_attempts': 0,
+                'successful': 0,
+                'failed': 0,
+                'success_rate': 0
+            },
+            'by_scraper': {}
+        }
+        
         self._ensure_scraper_states_table()
-        self._ensure_scraper_metrics_table()
         
         # Initialize default scrapers
         self.init_default_scrapers()
@@ -52,29 +63,6 @@ class ScraperManager:
                     logger.info("Scraper states table verified/created")
         except Exception as e:
             logger.error(f"Error ensuring scraper states table: {str(e)}")
-            raise
-
-    def _ensure_scraper_metrics_table(self):
-        """Ensure scraper_metrics table exists."""
-        try:
-            with self.db.connection_pool.get_connection() as connection:
-                with connection.cursor() as cursor:
-                    cursor.execute("""
-                        CREATE TABLE IF NOT EXISTS scraper_metrics (
-                            id INT AUTO_INCREMENT PRIMARY KEY,
-                            scraper_name VARCHAR(100) NOT NULL,
-                            timestamp DATETIME NOT NULL,
-                            total_attempts INT DEFAULT 0,
-                            successful INT DEFAULT 0,
-                            failed INT DEFAULT 0,
-                            created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-                            INDEX idx_scraper_time (scraper_name, timestamp)
-                        )
-                    """)
-                    connection.commit()
-                    logger.info("Scraper metrics table verified/created")
-        except Exception as e:
-            logger.error(f"Error ensuring scraper metrics table: {str(e)}")
             raise
 
     def _get_pause_state(self, scraper_name):
@@ -174,112 +162,43 @@ class ScraperManager:
         return status
 
     def update_scraper_metrics(self, scraper_name, status):
-        """Update metrics for a specific scraper."""
-        try:
-            with self.db.connection_pool.get_connection() as connection:
-                with connection.cursor() as cursor:
-                    # Get or create current hour's metrics
-                    cursor.execute("""
-                        INSERT INTO scraper_metrics (scraper_name, timestamp, total_attempts, successful, failed)
-                        VALUES (
-                            %s, 
-                            DATE_FORMAT(NOW(), '%Y-%m-%d %H:00:00'),
-                            1,
-                            CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
-                            CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
-                        )
-                        ON DUPLICATE KEY UPDATE
-                            total_attempts = total_attempts + 1,
-                            successful = successful + CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
-                            failed = failed + CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
-                    """, (scraper_name, status, status, status, status))
-                    connection.commit()
-                    logger.debug(f"Updated metrics for {scraper_name}: {status}")
-        except Exception as e:
-            logger.error(f"Error updating scraper metrics: {str(e)}")
-            # Try alternative timestamp format if the first one fails
-            try:
-                with connection.cursor() as cursor:
-                    cursor.execute("""
-                        INSERT INTO scraper_metrics (scraper_name, timestamp, total_attempts, successful, failed)
-                        VALUES (
-                            %s, 
-                            NOW(),
-                            1,
-                            CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
-                            CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
-                        )
-                        ON DUPLICATE KEY UPDATE
-                            total_attempts = total_attempts + 1,
-                            successful = successful + CASE WHEN %s = 'SUCCESS' THEN 1 ELSE 0 END,
-                            failed = failed + CASE WHEN %s = 'FAILED' THEN 1 ELSE 0 END
-                    """, (scraper_name, status, status, status, status))
-                    connection.commit()
-                    logger.debug(f"Updated metrics for {scraper_name} using alternative timestamp: {status}")
-            except Exception as e2:
-                logger.error(f"Error updating scraper metrics with alternative timestamp: {str(e2)}")
+        """Update metrics for a specific scraper in memory."""
+        # Initialize scraper metrics if not exists
+        if scraper_name not in self.metrics['by_scraper']:
+            self.metrics['by_scraper'][scraper_name] = {
+                'total_attempts': 0,
+                'successful': 0,
+                'failed': 0,
+                'success_rate': 0
+            }
+        
+        # Update scraper-specific metrics
+        self.metrics['by_scraper'][scraper_name]['total_attempts'] += 1
+        if status == 'SUCCESS':
+            self.metrics['by_scraper'][scraper_name]['successful'] += 1
+        elif status in ['FAILED', 'ERROR']:
+            self.metrics['by_scraper'][scraper_name]['failed'] += 1
+            
+        # Update success rate
+        attempts = self.metrics['by_scraper'][scraper_name]['total_attempts']
+        successful = self.metrics['by_scraper'][scraper_name]['successful']
+        self.metrics['by_scraper'][scraper_name]['success_rate'] = round((successful / attempts * 100) if attempts > 0 else 0, 2)
+        
+        # Update total metrics
+        self.metrics['total']['total_attempts'] += 1
+        if status == 'SUCCESS':
+            self.metrics['total']['successful'] += 1
+        elif status in ['FAILED', 'ERROR']:
+            self.metrics['total']['failed'] += 1
+            
+        # Update total success rate
+        total_attempts = self.metrics['total']['total_attempts']
+        total_successful = self.metrics['total']['successful']
+        self.metrics['total']['success_rate'] = round((total_successful / total_attempts * 100) if total_attempts > 0 else 0, 2)
 
     def get_scraper_metrics(self, hours=1):
-        """Get aggregated metrics for all scrapers for the last X hours."""
-        try:
-            with self.db.connection_pool.get_connection() as connection:
-                with connection.cursor(dictionary=True) as cursor:
-                    query = """
-                    SELECT 
-                        scraper_name,
-                        SUM(total_attempts) as total_attempts,
-                        SUM(successful) as successful,
-                        SUM(failed) as failed
-                    FROM scraper_metrics
-                    WHERE timestamp >= NOW() - INTERVAL %s HOUR
-                    GROUP BY scraper_name
-                    """
-                    cursor.execute(query, (hours,))
-                    results = cursor.fetchall()
-                    
-                    # Aggregate metrics across all scrapers
-                    total_attempts = 0
-                    total_successful = 0
-                    total_failed = 0
-                    scraper_stats = {}
-                    
-                    for result in results:
-                        scraper_name = result['scraper_name']
-                        attempts = result['total_attempts'] or 0
-                        successful = result['successful'] or 0
-                        failed = result['failed'] or 0
-                        
-                        total_attempts += attempts
-                        total_successful += successful
-                        total_failed += failed
-                        
-                        scraper_stats[scraper_name] = {
-                            'total_attempts': attempts,
-                            'successful': successful,
-                            'failed': failed,
-                            'success_rate': round((successful / attempts * 100) if attempts > 0 else 0, 2)
-                        }
-                    
-                    return {
-                        'total': {
-                            'total_attempts': total_attempts,
-                            'successful': total_successful,
-                            'failed': total_failed,
-                            'success_rate': round((total_successful / total_attempts * 100) if total_attempts > 0 else 0, 2)
-                        },
-                        'by_scraper': scraper_stats
-                    }
-        except Exception as e:
-            logger.error(f"Error getting scraper metrics: {str(e)}")
-            return {
-                'total': {
-                    'total_attempts': 0,
-                    'successful': 0,
-                    'failed': 0,
-                    'success_rate': 0
-                },
-                'by_scraper': {}
-            }
+        """Get current scraper metrics from memory."""
+        return self.metrics
 
     def scrape_articles(self):
         """Run all scrapers and record metrics."""
@@ -288,29 +207,24 @@ class ScraperManager:
                 if not self.active:
                     break
 
-                total_attempts = 0
-                successful = 0
-                failed = 0
-
                 try:
                     # Get articles to scrape
                     articles = scraper.get_articles_to_scrape()
-                    total_attempts = len(articles)
-
+                    
                     for article in articles:
                         try:
                             # Scrape and save article
                             article_data = scraper.scrape_article(article['url'])
                             if article_data:
                                 self.db.add_article(article_data)
-                                successful += 1
+                                self.update_scraper_metrics(scraper_name, 'SUCCESS')
                                 self.db.add_scraping_log(
                                     status='SUCCESS',
                                     source_type=scraper_name,
                                     url=article['url']
                                 )
                             else:
-                                failed += 1
+                                self.update_scraper_metrics(scraper_name, 'FAILED')
                                 self.db.add_scraping_log(
                                     status='FAILED',
                                     source_type=scraper_name,
@@ -318,7 +232,7 @@ class ScraperManager:
                                     error_message='No article data returned'
                                 )
                         except Exception as e:
-                            failed += 1
+                            self.update_scraper_metrics(scraper_name, 'ERROR')
                             self.db.add_scraping_log(
                                 status='ERROR',
                                 source_type=scraper_name,
@@ -326,14 +240,6 @@ class ScraperManager:
                                 error_message=str(e)
                             )
                             self.logger.error(f"Error scraping article {article['url']}: {str(e)}")
-
-                    # Record metrics for this scraper run
-                    self.db.add_scraper_metrics(
-                        scraper_name=scraper_name,
-                        total_attempts=total_attempts,
-                        successful=successful,
-                        failed=failed
-                    )
 
                 except Exception as e:
                     self.logger.error(f"Error in scraper {scraper_name}: {str(e)}")
@@ -414,4 +320,22 @@ class ScraperManager:
 
     def get_all_statuses(self):
         """Get the status of all scrapers."""
-        return {name: self.get_scraper_status(name) for name in self.scrapers} 
+        return {name: self.get_scraper_status(name) for name in self.scrapers}
+
+    def init_app(self, app):
+        """Initialize the scraper manager with Flask app context."""
+        try:
+            # Store app reference
+            self.app = app
+            
+            # Ensure required tables exist
+            self._ensure_scraper_states_table()
+            
+            # Initialize default scrapers
+            self.init_default_scrapers()
+            
+            logger.info("Scraper manager initialized with app context")
+            return True
+        except Exception as e:
+            logger.error(f"Error initializing scraper manager with app: {str(e)}")
+            return False 

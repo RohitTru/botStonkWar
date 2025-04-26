@@ -250,13 +250,11 @@ class YahooFinanceScraper:
                 raise Exception("Failed to save article to database")
 
             # Log success
-            log_data = {
-                'timestamp': datetime.now(timezone.utc),
-                'status': 'SUCCESS',
-                'source_type': 'yahoo_finance',
-                'url': url
-            }
-            self.db.add_scraping_log(log_data)
+            self.db.add_scraping_log(
+                status='SUCCESS',
+                source_type='yahoo_finance',
+                url=url
+            )
             
             logger.info(f"Successfully processed article: {url}")
             logger.info(f"Found {len(raw_symbols)} symbols, {len(validated_symbols)} validated")
@@ -265,14 +263,12 @@ class YahooFinanceScraper:
             logger.error(f"Error processing article {url}: {str(e)}")
             
             # Log failure
-            log_data = {
-                'timestamp': datetime.now(timezone.utc),
-                'status': 'FAILED',
-                'source_type': 'yahoo_finance',
-                'url': url,
-                'error_message': str(e)
-            }
-            self.db.add_scraping_log(log_data)
+            self.db.add_scraping_log(
+                status='FAILED',
+                source_type='yahoo_finance',
+                url=url,
+                error_message=str(e)
+            )
             
             return False
         
@@ -371,6 +367,43 @@ class YahooFinanceScraper:
         except Exception as e:
             logger.error(f"Error scraping article {url}: {str(e)}")
             return None
+
+    def get_articles_to_scrape(self):
+        """Get a list of articles to scrape from RSS feeds."""
+        articles = []
+        try:
+            for feed_url in self.rss_feeds:
+                try:
+                    feed = feedparser.parse(feed_url)
+                    if hasattr(feed, 'bozo_exception'):
+                        logger.error(f"Feed parsing error: {str(feed.bozo_exception)}")
+                        continue
+                    
+                    if not feed.entries:
+                        continue
+                    
+                    for entry in feed.entries:
+                        url = entry.get('link')
+                        if not url:
+                            continue
+                            
+                        # Check if article already exists
+                        if not self.db.get_article_by_url(url):
+                            articles.append({
+                                'url': url,
+                                'title': entry.get('title', ''),
+                                'published': entry.get('published')
+                            })
+                            
+                except Exception as e:
+                    logger.error(f"Error processing feed {feed_url}: {str(e)}")
+                    continue
+                    
+            return articles
+            
+        except Exception as e:
+            logger.error(f"Error getting articles to scrape: {str(e)}")
+            return []
 
     def run(self):
         """Run the scraper continuously."""
