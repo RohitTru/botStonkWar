@@ -123,6 +123,20 @@ class Database:
                 )
             """)
 
+            # Scraper metrics table
+            cursor.execute("""
+                CREATE TABLE IF NOT EXISTS scraper_metrics (
+                    id INT AUTO_INCREMENT PRIMARY KEY,
+                    scraper_name VARCHAR(100) NOT NULL,
+                    timestamp DATETIME NOT NULL,
+                    total_attempts INT DEFAULT 0,
+                    successful INT DEFAULT 0,
+                    failed INT DEFAULT 0,
+                    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+                    INDEX idx_scraper_timestamp (scraper_name, timestamp)
+                )
+            """)
+
             connection.commit()
             cursor.close()
             logger.info("Database tables created successfully")
@@ -286,35 +300,25 @@ class Database:
             logger.error(f"Error getting recent articles: {str(e)}")
             return []
 
-    def add_scraping_log(self, log_data):
-        """Add a new scraping log entry"""
-        connection = None
+    def add_scraping_log(self, status, source_type=None, url=None, error_message=None):
+        """Add a scraping log entry."""
         try:
             connection = self.get_connection()
             cursor = connection.cursor()
-
-            query = """
+            cursor.execute(
+                """
                 INSERT INTO scraping_logs (timestamp, status, source_type, url, error_message)
-                VALUES (%s, %s, %s, %s, %s)
-            """
-            values = (
-                log_data.get('timestamp', datetime.now()),
-                log_data.get('status', 'UNKNOWN'),
-                log_data.get('source_type', ''),
-                log_data.get('url', ''),
-                log_data.get('error_message', '')
+                VALUES (NOW(), %s, %s, %s, %s)
+                """,
+                (status, source_type, url, error_message)
             )
-
-            cursor.execute(query, values)
             connection.commit()
             cursor.close()
-            return True
-        except Error as e:
-            logger.error(f"Error adding scraping log: {e}")
-            return False
-        finally:
-            if connection:
-                connection.close()
+            connection.close()
+            logger.info(f"Added scraping log: {status} for {source_type}")
+        except Exception as e:
+            logger.error(f"Error adding scraping log: {str(e)}")
+            raise
 
     def get_scraping_logs(self, limit=50):
         """Get recent scraping logs."""
@@ -459,6 +463,65 @@ class Database:
         except Exception as e:
             logger.error(f"Error getting article count: {str(e)}")
             return 0
+
+    def add_scraper_metrics(self, scraper_name, total_attempts, successful, failed):
+        """Add a scraper metrics entry."""
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor()
+            cursor.execute(
+                """
+                INSERT INTO scraper_metrics (scraper_name, timestamp, total_attempts, successful, failed)
+                VALUES (%s, NOW(), %s, %s, %s)
+                """,
+                (scraper_name, total_attempts, successful, failed)
+            )
+            connection.commit()
+            cursor.close()
+            connection.close()
+            logger.info(f"Added metrics for {scraper_name}: {successful}/{total_attempts} successful")
+        except Exception as e:
+            logger.error(f"Error adding scraper metrics: {str(e)}")
+            raise
+
+    def get_scraper_metrics(self, hours=24):
+        """Get aggregated scraper metrics for the specified time period."""
+        try:
+            connection = self.get_connection()
+            cursor = connection.cursor(dictionary=True)
+            cursor.execute(
+                """
+                SELECT 
+                    scraper_name,
+                    SUM(total_attempts) as total_attempts,
+                    SUM(successful) as successful,
+                    SUM(failed) as failed,
+                    MAX(timestamp) as last_run
+                FROM scraper_metrics
+                WHERE timestamp >= DATE_SUB(NOW(), INTERVAL %s HOUR)
+                GROUP BY scraper_name
+                """,
+                (hours,)
+            )
+            metrics = cursor.fetchall()
+            cursor.close()
+            connection.close()
+
+            # Format the metrics
+            formatted_metrics = []
+            for metric in metrics:
+                formatted_metrics.append({
+                    'scraper_name': metric['scraper_name'],
+                    'total_attempts': metric['total_attempts'],
+                    'successful': metric['successful'],
+                    'failed': metric['failed'],
+                    'success_rate': round((metric['successful'] / metric['total_attempts'] * 100), 2) if metric['total_attempts'] > 0 else 0,
+                    'last_run': metric['last_run'].strftime('%Y-%m-%d %H:%M:%S') if metric['last_run'] else None
+                })
+            return formatted_metrics
+        except Exception as e:
+            logger.error(f"Error getting scraper metrics: {str(e)}")
+            raise
 
 # Create a global instance
 db = Database() 

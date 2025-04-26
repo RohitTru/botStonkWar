@@ -3,13 +3,21 @@ import time
 import traceback
 from app.database import Database
 from app.utils.logging import setup_logger
+import logging
 
 logger = setup_logger()
 
 class ScraperManager:
-    def __init__(self):
-        self.scrapers = {}
-        self.db = Database()
+    def __init__(self, db):
+        self.db = db
+        self.logger = logging.getLogger(__name__)
+        self.active = False
+        self.scrapers = {
+            'yahoo_finance': YahooFinanceScraper(db)
+        }
+        self.scraping_interval = 300  # 5 minutes
+        self.scraping_thread = None
+        self.stop_event = threading.Event()
         self._running = False
         self._thread = None
         self._ensure_scraper_states_table()
@@ -260,6 +268,101 @@ class ScraperManager:
                 'by_scraper': {}
             }
 
+    def scrape_articles(self):
+        """Run all scrapers and record metrics."""
+        while not self.stop_event.is_set():
+            for scraper_name, scraper in self.scrapers.items():
+                if not self.active:
+                    break
+
+                total_attempts = 0
+                successful = 0
+                failed = 0
+
+                try:
+                    # Get articles to scrape
+                    articles = scraper.get_articles_to_scrape()
+                    total_attempts = len(articles)
+
+                    for article in articles:
+                        try:
+                            # Scrape and save article
+                            article_data = scraper.scrape_article(article['url'])
+                            if article_data:
+                                self.db.add_article(article_data)
+                                successful += 1
+                                self.db.add_scraping_log(
+                                    status='SUCCESS',
+                                    source_type=scraper_name,
+                                    url=article['url']
+                                )
+                            else:
+                                failed += 1
+                                self.db.add_scraping_log(
+                                    status='FAILED',
+                                    source_type=scraper_name,
+                                    url=article['url'],
+                                    error_message='No article data returned'
+                                )
+                        except Exception as e:
+                            failed += 1
+                            self.db.add_scraping_log(
+                                status='ERROR',
+                                source_type=scraper_name,
+                                url=article['url'],
+                                error_message=str(e)
+                            )
+                            self.logger.error(f"Error scraping article {article['url']}: {str(e)}")
+
+                    # Record metrics for this scraper run
+                    self.db.add_scraper_metrics(
+                        scraper_name=scraper_name,
+                        total_attempts=total_attempts,
+                        successful=successful,
+                        failed=failed
+                    )
+
+                except Exception as e:
+                    self.logger.error(f"Error in scraper {scraper_name}: {str(e)}")
+                    self.db.add_scraping_log(
+                        status='ERROR',
+                        source_type=scraper_name,
+                        error_message=f"Scraper error: {str(e)}"
+                    )
+
+            # Wait for the next interval
+            self.stop_event.wait(self.scraping_interval)
+
+    def start(self):
+        """Start the scraping process."""
+        if not self.active:
+            self.active = True
+            self.stop_event.clear()
+            self.scraping_thread = threading.Thread(target=self.scrape_articles)
+            self.scraping_thread.start()
+            self.logger.info("Scraper manager started")
+            return True
+        return False
+
+    def stop(self):
+        """Stop the scraping process."""
+        if self.active:
+            self.active = False
+            self.stop_event.set()
+            if self.scraping_thread:
+                self.scraping_thread.join()
+            self.logger.info("Scraper manager stopped")
+            return True
+        return False
+
+    def get_status(self):
+        """Get the current status of the scraper manager."""
+        return {
+            'active': self.active,
+            'metrics': self.db.get_scraper_metrics(),
+            'recent_logs': self.db.get_scraping_logs(limit=10)
+        }
+
     def _run_loop(self):
         """Main loop for running scrapers."""
         while self._running:
@@ -295,17 +398,6 @@ class ScraperManager:
         self._thread.daemon = True
         self._thread.start()
         logger.info("Scraper manager started")
-
-    def stop(self):
-        """Stop the scraper manager."""
-        if not self._running:
-            logger.warning("Scraper manager is not running")
-            return
-
-        self._running = False
-        if self._thread:
-            self._thread.join(timeout=5)
-        logger.info("Scraper manager stopped")
 
     def get_all_statuses(self):
         """Get the status of all scrapers."""
