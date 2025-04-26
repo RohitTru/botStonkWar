@@ -17,12 +17,8 @@ db = Database()
 # Initialize the scraper manager with the database instance
 scraper_manager = ScraperManager(db)
 
-# Add the Yahoo Finance scraper
-from app.scrapers.yahoo_finance import YahooFinanceScraper
-scraper_manager.add_scraper('yahoo_finance', YahooFinanceScraper(db))
-
 # Start the scraper manager
-scraper_manager.run()
+scraper_manager.start()
 
 # Custom JSON encoder to handle Decimal objects
 class CustomJSONEncoder(json.JSONEncoder):

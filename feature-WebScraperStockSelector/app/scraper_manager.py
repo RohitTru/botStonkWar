@@ -3,6 +3,7 @@ import time
 import traceback
 from app.database import Database
 from app.utils.logging import setup_logger
+from app.scrapers.yahoo_finance import YahooFinanceScraper
 import logging
 
 logger = setup_logger()
@@ -12,9 +13,7 @@ class ScraperManager:
         self.db = db
         self.logger = logging.getLogger(__name__)
         self.active = False
-        self.scrapers = {
-            'yahoo_finance': YahooFinanceScraper(db)
-        }
+        self.scrapers = {}  # Initialize empty dict, will add scrapers later
         self.scraping_interval = 300  # 5 minutes
         self.scraping_thread = None
         self.stop_event = threading.Event()
@@ -22,6 +21,20 @@ class ScraperManager:
         self._thread = None
         self._ensure_scraper_states_table()
         self._ensure_scraper_metrics_table()
+        
+        # Initialize default scrapers
+        self.init_default_scrapers()
+
+    def init_default_scrapers(self):
+        """Initialize default scrapers."""
+        try:
+            # Add Yahoo Finance scraper
+            yahoo_scraper = YahooFinanceScraper(self.db)
+            self.add_scraper('yahoo_finance', yahoo_scraper)
+            logger.info("Default scrapers initialized successfully")
+        except Exception as e:
+            logger.error(f"Error initializing default scrapers: {str(e)}")
+            raise
 
     def _ensure_scraper_states_table(self):
         """Ensure scraper_states table exists."""
