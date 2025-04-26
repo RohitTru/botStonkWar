@@ -4,6 +4,7 @@ import logging
 from dotenv import load_dotenv
 from config import config
 from app.routes import CustomJSONEncoder
+from app.database import Database
 
 # Configure logging
 logger = logging.getLogger(__name__)
@@ -13,7 +14,8 @@ def init_scraper_manager(app):
     try:
         logger.debug("Initializing scraper manager...")
         from app.scrapers.scraper_manager import ScraperManager
-        scraper_manager = ScraperManager()
+        db = Database()
+        scraper_manager = ScraperManager(db)
         scraper_manager.init_app(app)
         logger.debug("Scraper manager initialized successfully")
         return scraper_manager

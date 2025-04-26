@@ -1,6 +1,7 @@
 from flask import Flask
 from app.routes import main_bp
 from app.scrapers.scraper_manager import ScraperManager
+from app.database import Database
 from config import config
 import os
 from app.utils.logging import setup_logger
@@ -14,8 +15,11 @@ def create_app(config_name='production'):
     # Load configuration
     app.config.from_object(config[config_name])
     
-    # Initialize scraper manager
-    app.scraper_manager = ScraperManager()
+    # Initialize database
+    db = Database()
+    
+    # Initialize scraper manager with database instance
+    app.scraper_manager = ScraperManager(db)
     
     # Register blueprints
     app.register_blueprint(main_bp)
