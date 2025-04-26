@@ -290,10 +290,10 @@
                 currentSortOrder = 'DESC';
             }
             
-            // Reset to first page and reload
+            // Reset to first page and reload only articles
             currentPage = 1;
             document.getElementById('articles-container').innerHTML = '';
-            updateDashboard();
+            updateArticlesList();
             
             // Update button states
             document.querySelectorAll('.btn-group .btn').forEach(btn => {
@@ -362,37 +362,13 @@
             }).join(' ');
         }
         
-        function updateDashboard() {
-            if (isLoading) return;
-            isLoading = true;
-            
+        function updateArticlesList() {
+            const articlesContainer = document.getElementById('articles-container');
             document.getElementById('loading-spinner').style.display = 'block';
             
             fetch(`/api/status?page=${currentPage}&per_page=${articlesPerPage}&sort_by=${currentSortBy}&sort_order=${currentSortOrder}`)
                 .then(response => response.json())
                 .then(data => {
-                    // Update scraper status with color coding
-                    const scraperStatusEl = document.getElementById('scraper-status');
-                    scraperStatusEl.textContent = data.status;
-                    scraperStatusEl.className = data.status === 'Running' ? 'text-success' : 'text-danger';
-                    
-                    // Update pause/resume button
-                    updateScraperControls(data.status, data.paused);
-                    
-                    // Update database status
-                    updateDatabaseStatus(data.db_connected);
-                    
-                    // Update articles count
-                    document.getElementById('articles-count').textContent = data.articles_count;
-                    
-                    // Update scraping stats
-                    document.getElementById('total-attempts').textContent = data.scraping_stats.total_attempts || 0;
-                    document.getElementById('successful-attempts').textContent = data.scraping_stats.successful || 0;
-                    document.getElementById('failed-attempts').textContent = data.scraping_stats.failed || 0;
-                    document.getElementById('success-rate').textContent = `${Math.round(data.scraping_stats.success_rate || 0)}%`;
-                    
-                    // Update articles list
-                    const articlesContainer = document.getElementById('articles-container');
                     if (currentPage === 1) {
                         articlesContainer.innerHTML = '';
                         articleCache.clear(); // Clear cache when refreshing first page
@@ -418,6 +394,48 @@
                         articlesContainer.appendChild(articleElement);
                     });
                     
+                    // Update pagination info
+                    hasMoreArticles = data.pagination.has_next;
+                    document.getElementById('loading-spinner').style.display = 'none';
+                    isLoading = false;
+                })
+                .catch(error => {
+                    console.error('Error updating articles:', error);
+                    document.getElementById('loading-spinner').style.display = 'none';
+                    isLoading = false;
+                });
+        }
+
+        function updateMetricsAndStatus() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
+                    // Update scraper status with color coding
+                    const scraperStatusEl = document.getElementById('scraper-status');
+                    scraperStatusEl.textContent = data.status;
+                    scraperStatusEl.className = data.status === 'Running' ? 'text-success' : 'text-danger';
+                    
+                    // Update pause/resume button
+                    updateScraperControls(data.status, data.paused);
+                    
+                    // Update database status
+                    updateDatabaseStatus(data.db_connected);
+                    
+                    // Update articles count
+                    document.getElementById('articles-count').textContent = data.articles_count;
+                    
+                    // Update scraping stats
+                    document.getElementById('total-attempts').textContent = data.scraping_stats.total_attempts || 0;
+                    document.getElementById('successful-attempts').textContent = data.scraping_stats.successful || 0;
+                    document.getElementById('failed-attempts').textContent = data.scraping_stats.failed || 0;
+                    document.getElementById('success-rate').textContent = `${Math.round(data.scraping_stats.success_rate || 0)}%`;
+                });
+        }
+
+        function updateScrapingLogs() {
+            fetch('/api/status')
+                .then(response => response.json())
+                .then(data => {
                     // Update scraping logs with better formatting
                     const logsContainer = document.getElementById('scraping-logs');
                     if (data.scraping_logs && data.scraping_logs.length > 0) {
@@ -438,22 +456,17 @@
                         }).join('');
                         logsContainer.innerHTML = logsHtml;
                     }
-                    
-                    // Update pagination info
-                    hasMoreArticles = data.pagination.has_next;
-                    
-                    isLoading = false;
-                    document.getElementById('loading-spinner').style.display = 'none';
-                })
-                .catch(error => {
-                    console.error('Error updating dashboard:', error);
-                    document.getElementById('scraper-status').textContent = 'Error';
-                    document.getElementById('scraper-status').className = 'text-danger';
-                    updateDatabaseStatus(false);
-                    updateScraperControls('Error', false);
-                    isLoading = false;
-                    document.getElementById('loading-spinner').style.display = 'none';
                 });
+        }
+
+        function updateDashboard() {
+            if (isLoading) return;
+            isLoading = true;
+            
+            // Update each component independently
+            updateArticlesList();
+            updateMetricsAndStatus();
+            updateScrapingLogs();
         }
         
         function deleteArticle() {
