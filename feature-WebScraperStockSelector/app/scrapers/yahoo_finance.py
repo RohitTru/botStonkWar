@@ -15,8 +15,13 @@ from app.ticker_validator import TickerValidator
 logger = setup_logger()
 
 class YahooFinanceScraper:
-    def __init__(self):
-        self.db = Database()
+    def __init__(self, db=None):
+        """Initialize the Yahoo Finance scraper.
+        
+        Args:
+            db: Optional database instance. If not provided, creates a new one.
+        """
+        self.db = db if db is not None else Database()
         self.consecutive_failures = 0
         self.max_consecutive_failures = 5  # Threshold for logging warning
         self.scraper_manager = None  # Will be set by ScraperManager
