@@ -90,10 +90,12 @@
         .sort-btn {
             position: relative;
             padding-right: 25px;
+            min-width: 150px;
         }
         .sort-btn.active {
             background-color: #e9ecef;
             border-color: #ced4da;
+            color: #212529;
         }
         .sort-arrow {
             position: absolute;
@@ -101,6 +103,7 @@
             top: 50%;
             transform: translateY(-50%);
             opacity: 0.5;
+            font-size: 1.2em;
         }
         .sort-btn.active .sort-arrow {
             opacity: 1;
@@ -553,6 +556,14 @@
             
             // Add delete button handler
             document.getElementById('articleModalDelete').addEventListener('click', deleteArticle);
+            
+            // Add sort button handlers
+            document.querySelectorAll('.sort-btn').forEach(btn => {
+                btn.addEventListener('click', () => {
+                    const sortBy = btn.getAttribute('data-sort');
+                    setSorting(sortBy);
+                });
+            });
             
             updateDashboard();
             
