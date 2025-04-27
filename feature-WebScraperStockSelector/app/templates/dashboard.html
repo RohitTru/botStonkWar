@@ -570,18 +570,19 @@
             });
         }
         
-        // Infinite scroll handler
-        function handleScroll() {
+        // Add scroll event listener
+        window.addEventListener('scroll', () => {
             if (isLoading || !hasMoreArticles) return;
             
             const scrollPosition = window.innerHeight + window.scrollY;
             const documentHeight = document.documentElement.offsetHeight;
             
-            if (scrollPosition >= documentHeight - 1000) {
+            // Load more when user scrolls to bottom (with 100px threshold)
+            if (scrollPosition >= documentHeight - 100) {
                 currentPage++;
-                updateDashboard();
+                updateArticlesList();
             }
-        }
+        });
         
         document.addEventListener('DOMContentLoaded', () => {
             articleModal = new bootstrap.Modal(document.getElementById('articleModal'));
@@ -599,9 +600,6 @@
             
             // Initial update
             updateDashboard();
-            
-            // Add scroll event listener for infinite scrolling
-            window.addEventListener('scroll', handleScroll);
             
             // Start auto-refresh
             autoRefreshInterval = setInterval(updateDashboard, 5000);
