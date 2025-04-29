@@ -1,0 +1,71 @@
+/* Custom styles for the dashboard */
+.bg-success {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.bg-warning {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+.bg-danger {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.bg-info {
+    background-color: #e0f2fe;
+    color: #075985;
+}
+
+/* Strategy status badges */
+.status-active {
+    background-color: #d1fae5;
+    color: #065f46;
+}
+
+.status-paused {
+    background-color: #fee2e2;
+    color: #991b1b;
+}
+
+.status-pending {
+    background-color: #fef3c7;
+    color: #92400e;
+}
+
+/* Custom scrollbar */
+::-webkit-scrollbar {
+    width: 8px;
+    height: 8px;
+}
+
+::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+
+/* Hover effects */
+.hover-card {
+    transition: transform 0.2s ease-in-out;
+}
+
+.hover-card:hover {
+    transform: translateY(-2px);
+}
+
+/* Chart container */
+#performance-chart {
+    border-radius: 8px;
+    overflow: hidden;
+} 

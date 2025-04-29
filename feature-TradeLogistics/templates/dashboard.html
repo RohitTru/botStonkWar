@@ -1,0 +1,143 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trade Recommendation Engine</title>
+    <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+    <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+</head>
+<body class="bg-gray-100">
+    <div class="min-h-screen">
+        <nav class="bg-white shadow-lg">
+            <div class="max-w-7xl mx-auto px-4">
+                <div class="flex justify-between h-16">
+                    <div class="flex">
+                        <div class="flex-shrink-0 flex items-center">
+                            <h1 class="text-2xl font-bold text-gray-800">Trade Recommendation Engine Dashboard</h1>
+                        </div>
+                    </div>
+                    <div class="flex items-center">
+                        <span class="px-3 py-2 rounded-md text-sm font-medium text-gray-700">Last Updated: {{ last_update }}</span>
+                    </div>
+                </div>
+            </div>
+        </nav>
+
+        <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
+            <!-- System Status -->
+            <div class="bg-white shadow rounded-lg p-6 mb-6">
+                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
+                    <div class="p-4 bg-blue-50 rounded-lg">
+                        <h3 class="text-lg font-semibold text-blue-800">Active Strategies</h3>
+                        <p class="text-3xl font-bold text-blue-600">{{ active_strategies }}</p>
+                    </div>
+                    <div class="p-4 bg-green-50 rounded-lg">
+                        <h3 class="text-lg font-semibold text-green-800">Success Rate</h3>
+                        <p class="text-3xl font-bold text-green-600">{{ success_rate }}%</p>
+                    </div>
+                    <div class="p-4 bg-purple-50 rounded-lg">
+                        <h3 class="text-lg font-semibold text-purple-800">Users Following</h3>
+                        <p class="text-3xl font-bold text-purple-600">{{ users_following }}</p>
+                    </div>
+                    <div class="p-4 bg-yellow-50 rounded-lg">
+                        <h3 class="text-lg font-semibold text-yellow-800">Pending Signals</h3>
+                        <p class="text-3xl font-bold text-yellow-600">{{ pending_signals }}</p>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Active Strategies -->
+            <div class="bg-white shadow rounded-lg p-6 mb-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Active Trading Strategies</h2>
+                <div class="overflow-x-auto">
+                    <table class="min-w-full divide-y divide-gray-200">
+                        <thead class="bg-gray-50">
+                            <tr>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
+                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Signal</th>
+                            </tr>
+                        </thead>
+                        <tbody class="bg-white divide-y divide-gray-200">
+                            {% for strategy in strategies %}
+                            <tr>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <div class="text-sm font-medium text-gray-900">{{ strategy.name }}</div>
+                                    <div class="text-sm text-gray-500">{{ strategy.description }}</div>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap">
+                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ strategy.status_class }}">
+                                        {{ strategy.status }}
+                                    </span>
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ strategy.success_rate }}%
+                                </td>
+                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
+                                    {{ strategy.last_signal }}
+                                </td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+
+            <!-- Recent Recommendations -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Buy Signals</h2>
+                    <div class="space-y-4">
+                        {% for signal in buy_signals %}
+                        <div class="border-l-4 border-green-500 pl-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-lg font-semibold text-gray-900">{{ signal.symbol }}</p>
+                                    <p class="text-sm text-gray-600">{{ signal.strategy }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-medium text-gray-900">{{ signal.price }}</p>
+                                    <p class="text-xs text-gray-500">{{ signal.timestamp }}</p>
+                                </div>
+                            </div>
+                            <p class="mt-1 text-sm text-gray-600">{{ signal.reason }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+                <div class="bg-white shadow rounded-lg p-6">
+                    <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Sell Signals</h2>
+                    <div class="space-y-4">
+                        {% for signal in sell_signals %}
+                        <div class="border-l-4 border-red-500 pl-4">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <p class="text-lg font-semibold text-gray-900">{{ signal.symbol }}</p>
+                                    <p class="text-sm text-gray-600">{{ signal.strategy }}</p>
+                                </div>
+                                <div class="text-right">
+                                    <p class="text-sm font-medium text-gray-900">{{ signal.price }}</p>
+                                    <p class="text-xs text-gray-500">{{ signal.timestamp }}</p>
+                                </div>
+                            </div>
+                            <p class="mt-1 text-sm text-gray-600">{{ signal.reason }}</p>
+                        </div>
+                        {% endfor %}
+                    </div>
+                </div>
+            </div>
+
+            <!-- Performance Metrics -->
+            <div class="bg-white shadow rounded-lg p-6">
+                <h2 class="text-xl font-bold text-gray-800 mb-4">Strategy Performance</h2>
+                <div id="performance-chart" class="h-96"></div>
+            </div>
+        </main>
+    </div>
+
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+</body>
+</html> 
