@@ -197,7 +197,7 @@ class YahooFinanceScraper:
                 return
 
             # Get article details first before logging start
-            article_data = self.scrape_article(url)
+            article_data = self.scrape_article(url, entry)
             if not article_data:
                 self.consecutive_failures += 1
                 if self.consecutive_failures >= self.max_consecutive_failures:
@@ -257,49 +257,49 @@ class YahooFinanceScraper:
                 error_message=str(e)
             )
 
-    def scrape_article(self, url):
+    def scrape_article(self, url, entry=None):
         """Scrape article content and extract stock symbols."""
         try:
             logger.info(f"Attempting to scrape article: {url}")
-            
-            # Make request with headers
             response = requests.get(url, headers=self.headers, timeout=10)
             logger.info(f"Article response status: {response.status_code}")
-            
-            # Check response
             response.raise_for_status()
-            
-            # Parse HTML
             soup = BeautifulSoup(response.text, 'html.parser')
-            
-            # Extract title
+
+            # Improved title extraction
             title = None
             h1_tag = soup.find('h1')
-            if h1_tag:
-                title = h1_tag.get_text().strip()
-            
+            if h1_tag and h1_tag.get_text(strip=True):
+                title = h1_tag.get_text(strip=True)
+            # Fallback to RSS entry title if available
+            if not title and entry and 'title' in entry:
+                title = entry['title']
+            # Fallback to meta og:title
+            if not title:
+                meta_title = soup.find('meta', property='og:title')
+                if meta_title and meta_title.get('content'):
+                    title = meta_title['content']
+            title = title or 'Untitled Article'
+
             # Try different content selectors
             content = None
             content_selectors = [
-                'div[class*="caas-body"]',  # Yahoo Finance
-                'div[class*="article-body"]',  # Generic
-                'div[class*="content"]',  # Generic
-                'article',  # Very generic
+                'div[class*="caas-body"]',
+                'div[class*="article-body"]',
+                'div[class*="content"]',
+                'article',
             ]
-            
             for selector in content_selectors:
                 content_div = soup.select_one(selector)
                 if content_div:
                     content = content_div.get_text().strip()
                     break
-            
             if not content:
                 logger.warning(f"No content found with any selector for article: {url}")
                 return None
 
-            # Process article data
             article_data = {
-                'title': title or 'Untitled Article',
+                'title': title,
                 'content': content,
                 'link': url,
                 'source': 'Yahoo Finance',
@@ -307,20 +307,16 @@ class YahooFinanceScraper:
                 'scraped_date': datetime.now(timezone.utc)
             }
 
-            # Extract and validate symbols
+            # Extract and validate symbols using the new validator logic
             all_symbols, validated_symbols = self.ticker_validator.process_article_symbols(article_data)
-            
-            # Add symbols to article data
             article_data['symbols'] = all_symbols
             article_data['validated_symbols'] = validated_symbols
-            
+
             logger.info(f"Successfully scraped article: {url}")
             logger.info(f"Content length: {len(content)}")
             logger.info(f"Found symbols: {all_symbols}")
             logger.info(f"Validated symbols: {validated_symbols}")
-            
             return article_data
-            
         except requests.exceptions.HTTPError as e:
             logger.error(f"HTTP Error scraping article {url}: {str(e)}")
             return None

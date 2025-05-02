@@ -10,6 +10,7 @@ import yfinance as yf
 import json
 from app.utils.logging import setup_logger
 import time
+import os
 
 logger = setup_logger()
 
@@ -40,6 +41,14 @@ class TickerValidator:
         # Rate limiting parameters
         self.last_api_call = 0
         self.min_api_interval = 0.2  # Minimum 200ms between API calls
+        
+        # Load ticker data from JSON
+        tickers_path = os.path.join(os.path.dirname(__file__), 'company_tickers.json')
+        with open(tickers_path, 'r') as f:
+            tickers_data = json.load(f)
+        self.valid_tickers = {entry['ticker'] for entry in tickers_data.values()}
+        self.ticker_to_company = {entry['ticker']: entry['title'] for entry in tickers_data.values()}
+        self.company_to_ticker = {entry['title'].upper(): entry['ticker'] for entry in tickers_data.values()}
         
     def _rate_limit(self):
         """Implement rate limiting for API calls."""
@@ -172,26 +181,24 @@ class TickerValidator:
         Returns:
             List of potential symbols
         """
-        symbols = set()
+        return set(re.findall(r'\b[A-Z]{1,5}\b', text))
+
+    def extract_company_names(self, text: str) -> Set[str]:
+        """
+        Extract company names from text.
         
-        # Pattern for stock symbols
-        patterns = [
-            r'\$([A-Z]{1,5})\b',  # $AAPL
-            r'\(([A-Z]{1,5})\)',  # (AAPL)
-            r'(?:NYSE|NASDAQ|AMEX):\s*([A-Z]{1,5})\b',  # NYSE: AAPL
-            r'(?<=\s)([A-Z]{1,5})\s+(?:stock|shares)\b',  # AAPL stock
-            r'\b[A-Z]{1,5}\b(?=\s+(?:Inc\.?|Corp\.?|Co\.?|Ltd\.?))',  # AAPL Inc.
-        ]
-        
-        for pattern in patterns:
-            matches = re.finditer(pattern, text)
-            for match in matches:
-                symbol = match.group(1) if len(match.groups()) > 0 else match.group(0)
-                symbol = symbol.strip().upper()
-                if symbol and symbol not in self.common_words:
-                    symbols.add(symbol)
-        
-        return list(symbols)
+        Args:
+            text: Text to extract company names from
+            
+        Returns:
+            Set of company names
+        """
+        found = set()
+        upper_text = text.upper()
+        for name, ticker in self.company_to_ticker.items():
+            if name in upper_text:
+                found.add(ticker)
+        return found
 
     def process_article_symbols(self, article_data: Dict) -> Tuple[List[Dict], List[Dict]]:
         """
@@ -216,6 +223,9 @@ class TickerValidator:
             all_symbols.append(result)
             if result['validated']:
                 validated_symbols.append(result)
+        
+        # Add tickers found by company name
+        validated_symbols |= self.extract_company_names(text)
         
         return all_symbols, validated_symbols
 
