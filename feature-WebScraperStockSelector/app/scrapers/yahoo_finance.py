@@ -10,7 +10,7 @@ import traceback
 from app.utils.logging import setup_logger
 from app.database import Database
 import pytz
-from app.ticker_validator import TickerValidator
+from app.ticker_validator.validator import TickerValidator
 from config import Config
 import re
 
@@ -296,77 +296,37 @@ class YahooFinanceScraper:
             if not content:
                 logger.warning(f"No content found with any selector for article: {url}")
                 return None
-            
-            # Extract stock symbols using multiple methods
-            symbols = set()
-            
-            # Method 1: Extract from quote links (Most reliable method for Yahoo Finance)
-            quote_links = soup.find_all('a', href=lambda x: x and '/quote/' in x)
-            for link in quote_links:
-                href = link.get('href', '')
-                # Extract symbol from href which is usually in format /quote/AAPL
-                if '/quote/' in href:
-                    symbol = href.split('/quote/')[-1].split('?')[0].split('/')[0].strip().upper()
-                    if symbol and len(symbol) <= 10:  # Increased length to match DB schema
-                        symbols.add(symbol)
 
-            # Method 2: Look for specific Yahoo Finance symbol containers
-            symbol_containers = soup.find_all(['div', 'span'], class_=lambda x: x and any(c in str(x).lower() for c in ['symbol', 'ticker']))
-            for container in symbol_containers:
-                symbol = container.get_text().strip().upper()
-                # Remove common non-symbol text
-                symbol = re.sub(r'\(|\)', '', symbol)  # Remove parentheses
-                if symbol and len(symbol) <= 10:
-                    symbols.add(symbol)
-
-            # Method 3: Use more precise regex patterns for common Yahoo Finance formats
-            symbol_patterns = [
-                r'\(([A-Z]{1,10}(?:[-.][A-Z])?)\)',  # (AAPL) or (BRK-B)
-                r'\$([A-Z]{1,10}(?:[-.][A-Z])?)\b',  # $AAPL
-                r'(?:NYSE|NASDAQ|AMEX):\s*([A-Z]{1,10}(?:[-.][A-Z])?)\b',  # NYSE:AAPL
-                r'(?<=\s)([A-Z]{1,10}(?:[-.][A-Z])?)\s+(?:stock|shares|inc\.?|corp\.?|ltd\.?)\b'  # AAPL stock/shares
-            ]
-            
-            for pattern in symbol_patterns:
-                matches = re.finditer(pattern, content)
-                for match in matches:
-                    symbol = match.group(1) if len(match.groups()) > 0 else match.group(0)
-                    symbol = symbol.strip()
-                    if symbol and len(symbol) <= 10:
-                        symbols.add(symbol)
-
-            # Filter out common false positives
-            false_positives = {
-                'THE', 'AND', 'FOR', 'NEW', 'INC', 'LTD', 'LLC', 'CORP',
-                'CEO', 'CFO', 'CTO', 'COO', 'NYSE', 'IPO', 'ETF', 'USA',
-                'GDP', 'FBI', 'SEC', 'FED', 'USD', 'CEO', 'AI', 'US',
-                'Q1', 'Q2', 'Q3', 'Q4', 'YOY', 'QOQ', 'EST', 'PST',
-                'EDT', 'PDT', 'GMT'
-            }
-            symbols = {s for s in symbols if s not in false_positives}
-
-            # Convert symbols to list and sort
-            symbols_list = sorted(list(symbols))
-            
-            logger.info(f"Successfully scraped article: {url}")
-            logger.info(f"Content length: {len(content)}")
-            logger.info(f"Found symbols: {symbols_list}")
-            
-            return {
+            # Process article data
+            article_data = {
                 'title': title or 'Untitled Article',
                 'content': content,
-                'symbols': symbols_list,
-                'link': url,  # Include the URL in the article data
+                'link': url,
                 'source': 'Yahoo Finance',
                 'published_date': datetime.now(timezone.utc),
                 'scraped_date': datetime.now(timezone.utc)
             }
+
+            # Extract and validate symbols
+            all_symbols, validated_symbols = self.ticker_validator.process_article_symbols(article_data)
+            
+            # Add symbols to article data
+            article_data['symbols'] = all_symbols
+            article_data['validated_symbols'] = validated_symbols
+            
+            logger.info(f"Successfully scraped article: {url}")
+            logger.info(f"Content length: {len(content)}")
+            logger.info(f"Found symbols: {all_symbols}")
+            logger.info(f"Validated symbols: {validated_symbols}")
+            
+            return article_data
             
         except requests.exceptions.HTTPError as e:
-            logger.error(f"Error scraping article {url}: {str(e)}")
+            logger.error(f"HTTP Error scraping article {url}: {str(e)}")
             return None
         except Exception as e:
             logger.error(f"Error scraping article {url}: {str(e)}")
+            logger.error(traceback.format_exc())
             return None
 
     def get_articles_to_scrape(self):

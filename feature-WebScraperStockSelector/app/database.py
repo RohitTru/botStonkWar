@@ -225,56 +225,68 @@ class Database:
 
     @retry_on_error()
     def add_article(self, article_data):
-        """Add a new article to the database with retry logic"""
-        connection = None
+        """Add a new article to the database."""
         try:
-            connection = self.get_connection()
-            cursor = connection.cursor()
-
+            # Convert symbols list to proper format
+            symbols = article_data.get('symbols', [])
+            
+            # Convert the symbols to the correct format for storage
+            formatted_symbols = []
+            for symbol_data in symbols:
+                if isinstance(symbol_data, dict):
+                    # New format with classification
+                    formatted_symbols.append({
+                        'symbol': symbol_data['symbol'],
+                        'type': symbol_data['type'],
+                        'validated': False  # Default to false until validated
+                    })
+                else:
+                    # Handle old format (just in case)
+                    formatted_symbols.append({
+                        'symbol': symbol_data,
+                        'type': 'stock',
+                        'validated': False
+                    })
+            
+            # Create the query
             query = """
                 INSERT INTO articles (
-                    title, link, content, source, published_date, 
-                    scraped_date, symbols, is_analyzed, analyzed_at
+                    title, link, content, source,
+                    published_date, scraped_date, symbols,
+                    is_deleted, is_analyzed
+                ) VALUES (
+                    %s, %s, %s, %s, %s, %s, %s, %s, %s
                 )
-                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
-                ON DUPLICATE KEY UPDATE
-                    title = VALUES(title),
-                    content = VALUES(content),
-                    source = VALUES(source),
-                    published_date = VALUES(published_date),
-                    scraped_date = VALUES(scraped_date),
-                    symbols = VALUES(symbols)
             """
             
+            # Convert dates to UTC if they're not
+            published_date = article_data.get('published_date')
+            if published_date and not published_date.tzinfo:
+                published_date = pytz.UTC.localize(published_date)
+                
+            scraped_date = article_data.get('scraped_date')
+            if scraped_date and not scraped_date.tzinfo:
+                scraped_date = pytz.UTC.localize(scraped_date)
+            
+            # Prepare parameters
             params = (
                 article_data.get('title'),
                 article_data.get('link'),
                 article_data.get('content'),
                 article_data.get('source'),
-                article_data.get('published_date'),
-                datetime.now(timezone.utc),
-                json.dumps(article_data.get('symbols', [])),
-                False,  # is_analyzed
-                None   # analyzed_at
+                published_date,
+                scraped_date,
+                json.dumps(formatted_symbols),  # Store the classified symbols
+                False,  # is_deleted
+                False   # is_analyzed
             )
             
-            cursor.execute(query, params)
-            connection.commit()
-            article_id = cursor.lastrowid
-            
-            # Log successful article addition
-            logger.info(f"Successfully added/updated article: {article_data.get('title')} (ID: {article_id})")
-            
-            return article_id
+            # Execute query
+            return self.execute_query(query, params)
             
         except Error as e:
-            if connection:
-                connection.rollback()
             logger.error(f"Error adding article: {e}")
             raise
-        finally:
-            if connection:
-                connection.close()
 
     def get_recent_articles(self, limit=10, offset=0, sort_by='published_date', sort_order='DESC'):
         """Get recent articles with pagination and sorting."""

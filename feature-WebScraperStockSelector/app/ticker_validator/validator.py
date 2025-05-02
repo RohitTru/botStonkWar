@@ -1,18 +1,20 @@
 """
-Ticker validator implementation that integrates with the database.
+Ticker validator implementation that integrates with the database and yfinance.
 """
 
 import re
 import logging
-from typing import Dict, List, Optional, Set
-from datetime import datetime
-import mysql.connector
+from typing import Dict, List, Optional, Set, Tuple
+from datetime import datetime, timedelta
+import yfinance as yf
+import json
 from app.utils.logging import setup_logger
+import time
 
 logger = setup_logger()
 
 class TickerValidator:
-    """A modular ticker validator that uses database-backed validation."""
+    """A modular ticker validator that uses database caching and yfinance validation."""
     
     def __init__(self, db_connection):
         """
@@ -23,20 +25,200 @@ class TickerValidator:
         """
         self.db = db_connection
         
-        # Basic validation rules
-        self.min_length = 1
-        self.max_length = 10  # Increased to match DB schema
-        self.valid_chars = set("ABCDEFGHIJKLMNOPQRSTUVWXYZ-.")  # Added - and . for tickers like BRK-B
-        
         # Common words that shouldn't be considered as tickers
         self.common_words = {
             'THE', 'AND', 'FOR', 'NEW', 'INC', 'LTD', 'LLC', 'CORP',
-            'CEO', 'CFO', 'CTO', 'COO', 'NYSE', 'IPO', 'ETF'
+            'CEO', 'CFO', 'CTO', 'COO', 'NYSE', 'IPO', 'ETF', 'USA',
+            'GDP', 'FBI', 'SEC', 'FED', 'USD', 'CEO', 'AI', 'US',
+            'Q1', 'Q2', 'Q3', 'Q4', 'YOY', 'QOQ', 'EST', 'PST',
+            'EDT', 'PDT', 'GMT', 'PM', 'AM', 'NEWS', 'UPDATE'
         }
         
-        # Cache for validation results
-        self._cache = {}
+        # Company name to symbol mapping cache
+        self.company_to_symbol = {}
         
+        # Rate limiting parameters
+        self.last_api_call = 0
+        self.min_api_interval = 0.2  # Minimum 200ms between API calls
+        
+    def _rate_limit(self):
+        """Implement rate limiting for API calls."""
+        current_time = time.time()
+        time_since_last = current_time - self.last_api_call
+        if time_since_last < self.min_api_interval:
+            time.sleep(self.min_api_interval - time_since_last)
+        self.last_api_call = time.time()
+
+    def _check_cache(self, symbol: str) -> Optional[Dict]:
+        """Check if symbol exists in database cache."""
+        try:
+            query = """
+                SELECT symbol, exchange, company_name, is_active, last_verified
+                FROM ticker_symbols
+                WHERE symbol = %s AND is_active = TRUE
+                AND last_verified > DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            """
+            result = self.db.execute_query(query, (symbol,))
+            
+            if result and len(result) > 0:
+                ticker_data = result[0]
+                return {
+                    'symbol': ticker_data['symbol'],
+                    'exchange': ticker_data['exchange'],
+                    'company_name': ticker_data['company_name'],
+                    'validated': True,
+                    'last_verified': ticker_data['last_verified'].isoformat()
+                }
+            return None
+            
+        except Exception as e:
+            logger.error(f"Error checking ticker cache: {e}")
+            return None
+
+    def _update_cache(self, symbol: str, info: Dict) -> None:
+        """Update the ticker symbols cache."""
+        try:
+            query = """
+                INSERT INTO ticker_symbols 
+                    (symbol, exchange, company_name, is_active, last_verified)
+                VALUES (%s, %s, %s, %s, NOW())
+                ON DUPLICATE KEY UPDATE
+                    exchange = VALUES(exchange),
+                    company_name = VALUES(company_name),
+                    is_active = VALUES(is_active),
+                    last_verified = NOW()
+            """
+            params = (
+                symbol,
+                info.get('exchange', ''),
+                info.get('longName', info.get('shortName', '')),
+                True
+            )
+            self.db.execute_query(query, params)
+            
+        except Exception as e:
+            logger.error(f"Error updating ticker cache: {e}")
+
+    def validate_symbol(self, symbol: str) -> Dict:
+        """
+        Validate a single symbol using cache and yfinance.
+        
+        Args:
+            symbol: The ticker symbol to validate
+            
+        Returns:
+            Dictionary containing validation result
+        """
+        # Clean the symbol
+        symbol = symbol.strip().upper()
+        
+        # Check common words
+        if symbol in self.common_words:
+            return {'symbol': symbol, 'validated': False, 'reason': 'common_word'}
+            
+        # Check cache first
+        cache_result = self._check_cache(symbol)
+        if cache_result:
+            return cache_result
+            
+        try:
+            # Rate limiting
+            self._rate_limit()
+            
+            # Use yfinance to validate
+            ticker = yf.Ticker(symbol)
+            info = ticker.info
+            
+            if info and 'regularMarketPrice' in info:
+                # Valid symbol found
+                result = {
+                    'symbol': symbol,
+                    'exchange': info.get('exchange', ''),
+                    'company_name': info.get('longName', info.get('shortName', '')),
+                    'validated': True,
+                    'last_verified': datetime.now().isoformat()
+                }
+                
+                # Update cache
+                self._update_cache(symbol, info)
+                
+                return result
+            else:
+                return {'symbol': symbol, 'validated': False, 'reason': 'not_found'}
+                
+        except Exception as e:
+            logger.error(f"Error validating symbol {symbol}: {e}")
+            return {'symbol': symbol, 'validated': False, 'reason': str(e)}
+
+    def validate_symbols(self, symbols: List[str]) -> List[Dict]:
+        """
+        Validate multiple symbols.
+        
+        Args:
+            symbols: List of symbols to validate
+            
+        Returns:
+            List of validation results
+        """
+        return [self.validate_symbol(symbol) for symbol in symbols]
+
+    def extract_symbols(self, text: str) -> List[str]:
+        """
+        Extract potential symbols from text.
+        
+        Args:
+            text: Text to extract symbols from
+            
+        Returns:
+            List of potential symbols
+        """
+        symbols = set()
+        
+        # Pattern for stock symbols
+        patterns = [
+            r'\$([A-Z]{1,5})\b',  # $AAPL
+            r'\(([A-Z]{1,5})\)',  # (AAPL)
+            r'(?:NYSE|NASDAQ|AMEX):\s*([A-Z]{1,5})\b',  # NYSE: AAPL
+            r'(?<=\s)([A-Z]{1,5})\s+(?:stock|shares)\b',  # AAPL stock
+            r'\b[A-Z]{1,5}\b(?=\s+(?:Inc\.?|Corp\.?|Co\.?|Ltd\.?))',  # AAPL Inc.
+        ]
+        
+        for pattern in patterns:
+            matches = re.finditer(pattern, text)
+            for match in matches:
+                symbol = match.group(1) if len(match.groups()) > 0 else match.group(0)
+                symbol = symbol.strip().upper()
+                if symbol and symbol not in self.common_words:
+                    symbols.add(symbol)
+        
+        return list(symbols)
+
+    def process_article_symbols(self, article_data: Dict) -> Tuple[List[Dict], List[Dict]]:
+        """
+        Process and validate symbols from an article.
+        
+        Args:
+            article_data: Article data containing title and content
+            
+        Returns:
+            Tuple of (all_symbols, validated_symbols)
+        """
+        # Extract symbols from title and content
+        text = f"{article_data.get('title', '')} {article_data.get('content', '')}"
+        symbols = self.extract_symbols(text)
+        
+        # Validate each symbol
+        all_symbols = []
+        validated_symbols = []
+        
+        for symbol in symbols:
+            result = self.validate_symbol(symbol)
+            all_symbols.append(result)
+            if result['validated']:
+                validated_symbols.append(result)
+        
+        return all_symbols, validated_symbols
+
     def validate_ticker(self, ticker: str, context: Optional[Dict] = None) -> Dict:
         """
         Validate a single ticker symbol.
