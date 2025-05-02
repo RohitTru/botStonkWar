@@ -81,8 +81,23 @@ class TickerValidator:
         Returns:
             Set of potential symbols
         """
-        # Find all potential symbols
-        potential_symbols = set(re.findall(r'\b[A-Z]{1,5}\b', text))
+        # Find all potential symbols using multiple patterns
+        patterns = [
+            r'\b[A-Z]{1,5}\b',  # Basic ticker format
+            r'\$([A-Z]{1,5})\b',  # $AAPL format
+            r'NYSE:([A-Z]{1,5})\b',  # NYSE:AAPL format
+            r'NASDAQ:([A-Z]{1,5})\b',  # NASDAQ:AAPL format
+            r'\(([A-Z]{1,5})\)',  # (AAPL) format
+            r'([A-Z]{1,5})\.(?:US|UK|CA|DE|FR|JP|AU)\b'  # AAPL.US format
+        ]
+        
+        potential_symbols = set()
+        for pattern in patterns:
+            matches = re.finditer(pattern, text)
+            for match in matches:
+                # Extract the symbol from the match group if it exists
+                symbol = match.group(1) if match.groups() else match.group(0)
+                potential_symbols.add(symbol)
         
         # Filter out common words and single letters
         filtered_symbols = {
@@ -96,7 +111,7 @@ class TickerValidator:
 
     def extract_company_names(self, text: str) -> Set[str]:
         """
-        Extract company names from text.
+        Extract company names from text with improved matching.
         
         Args:
             text: Text to extract company names from
@@ -106,9 +121,20 @@ class TickerValidator:
         """
         found = set()
         upper_text = text.upper()
+        
+        # First try exact matches
         for name, ticker in self.company_to_ticker.items():
             if name in upper_text:
                 found.add(ticker)
+        
+        # Then try partial matches for longer company names
+        for name, ticker in self.company_to_ticker.items():
+            if len(name.split()) > 2:  # Only for longer company names
+                name_parts = name.split()
+                # Check if all parts of the company name are present in the text
+                if all(part in upper_text for part in name_parts):
+                    found.add(ticker)
+        
         return found
 
     def process_article_symbols(self, article_data: Dict) -> Tuple[List[Dict], List[str]]:

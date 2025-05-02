@@ -126,6 +126,7 @@ class Database:
                     published_date DATETIME,
                     scraped_date DATETIME,
                     symbols JSON,
+                    validated_symbols JSON DEFAULT NULL,
                     is_deleted BOOLEAN DEFAULT FALSE,
                     is_analyzed BOOLEAN DEFAULT FALSE,
                     analyzed_at DATETIME DEFAULT NULL,
@@ -227,64 +228,37 @@ class Database:
     def add_article(self, article_data):
         """Add a new article to the database."""
         try:
-            # Convert symbols list to proper format
+            # Convert symbols and validated_symbols to JSON format
             symbols = article_data.get('symbols', [])
+            validated_symbols = article_data.get('validated_symbols', [])
             
-            # Convert the symbols to the correct format for storage
-            formatted_symbols = []
-            for symbol_data in symbols:
-                if isinstance(symbol_data, dict):
-                    # New format with classification
-                    formatted_symbols.append({
-                        'symbol': symbol_data['symbol'],
-                        'type': symbol_data['type'],
-                        'validated': False  # Default to false until validated
-                    })
-                else:
-                    # Handle old format (just in case)
-                    formatted_symbols.append({
-                        'symbol': symbol_data,
-                        'type': 'stock',
-                        'validated': False
-                    })
+            # Convert symbols to JSON string
+            symbols_json = json.dumps(symbols) if symbols else '[]'
+            validated_symbols_json = json.dumps(validated_symbols) if validated_symbols else '[]'
             
-            # Create the query
             query = """
                 INSERT INTO articles (
-                    title, link, content, source,
-                    published_date, scraped_date, symbols,
-                    is_deleted, is_analyzed
+                    title, link, content, source, published_date, 
+                    scraped_date, symbols, validated_symbols
                 ) VALUES (
-                    %s, %s, %s, %s, %s, %s, %s, %s, %s
+                    %s, %s, %s, %s, %s, %s, %s, %s
                 )
             """
             
-            # Convert dates to UTC if they're not
-            published_date = article_data.get('published_date')
-            if published_date and not published_date.tzinfo:
-                published_date = pytz.UTC.localize(published_date)
-                
-            scraped_date = article_data.get('scraped_date')
-            if scraped_date and not scraped_date.tzinfo:
-                scraped_date = pytz.UTC.localize(scraped_date)
-            
-            # Prepare parameters
             params = (
-                article_data.get('title'),
-                article_data.get('link'),
-                article_data.get('content'),
-                article_data.get('source'),
-                published_date,
-                scraped_date,
-                json.dumps(formatted_symbols),  # Store the classified symbols
-                False,  # is_deleted
-                False   # is_analyzed
+                article_data.get('title', ''),
+                article_data.get('link', ''),
+                article_data.get('content', ''),
+                article_data.get('source', ''),
+                article_data.get('published_date'),
+                article_data.get('scraped_date'),
+                symbols_json,
+                validated_symbols_json
             )
             
-            # Execute query
             return self.execute_query(query, params)
             
-        except Error as e:
+        except Exception as e:
             logger.error(f"Error adding article: {e}")
             raise
 

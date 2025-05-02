@@ -266,36 +266,70 @@ class YahooFinanceScraper:
             response.raise_for_status()
             soup = BeautifulSoup(response.text, 'html.parser')
 
-            # Improved title extraction
+            # Improved title extraction - prioritize RSS feed title
             title = None
-            h1_tag = soup.find('h1')
-            if h1_tag and h1_tag.get_text(strip=True):
-                title = h1_tag.get_text(strip=True)
-            # Fallback to RSS entry title if available
-            if not title and entry and 'title' in entry:
+            if entry and 'title' in entry:
                 title = entry['title']
+                # Clean up the title if it contains "Yahoo Finance"
+                if "Yahoo Finance" in title:
+                    # Try to extract the actual article title from the URL
+                    url_parts = url.split('/')
+                    if len(url_parts) > 0:
+                        last_part = url_parts[-1]
+                        # Remove query parameters and file extension
+                        last_part = last_part.split('?')[0].split('.')[0]
+                        # Replace hyphens with spaces and capitalize
+                        title = ' '.join(word.capitalize() for word in last_part.split('-'))
+            
             # Fallback to meta og:title
             if not title:
                 meta_title = soup.find('meta', property='og:title')
                 if meta_title and meta_title.get('content'):
                     title = meta_title['content']
+            
+            # Fallback to h1 tag
+            if not title:
+                h1_tag = soup.find('h1')
+                if h1_tag and h1_tag.get_text(strip=True):
+                    title = h1_tag.get_text(strip=True)
+            
             title = title or 'Untitled Article'
 
-            # Try different content selectors
+            # Improved content extraction with more selectors
             content = None
             content_selectors = [
                 'div[class*="caas-body"]',
                 'div[class*="article-body"]',
                 'div[class*="content"]',
                 'article',
+                'div[class*="story-body"]',
+                'div[class*="article-content"]',
+                'div[class*="post-content"]',
+                'div[class*="entry-content"]',
+                'div[class*="main-content"]',
+                'div[class*="story-content"]',
+                'div[class*="article-text"]',
+                'div[class*="post-body"]',
+                'div[class*="entry-body"]',
+                'div[class*="main-body"]',
+                'div[class*="story-text"]',
+                'div[class*="article-main"]',
+                'div[class*="post-main"]',
+                'div[class*="entry-main"]',
+                'div[class*="main-article"]',
+                'div[class*="story-main"]'
             ]
+            
             for selector in content_selectors:
                 content_div = soup.select_one(selector)
                 if content_div:
-                    content = content_div.get_text().strip()
-                    break
-            if not content:
-                logger.warning(f"No content found with any selector for article: {url}")
+                    # Get all text content, including nested elements
+                    content = ' '.join([p.get_text(strip=True) for p in content_div.find_all(['p', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6'])])
+                    if content and len(content) > 100:  # Ensure we have substantial content
+                        break
+            
+            if not content or len(content) < 100:
+                logger.warning(f"No substantial content found for article: {url}")
                 return None
 
             article_data = {
