@@ -1,6 +1,6 @@
 Flask==2.0.1
 Werkzeug==2.0.1
-requests==2.26.0
+requests>=2.31.0
 beautifulsoup4==4.9.3
 feedparser==6.0.8
 mysql-connector-python==8.0.26
