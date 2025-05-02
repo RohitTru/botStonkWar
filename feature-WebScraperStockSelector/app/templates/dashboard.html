@@ -383,13 +383,19 @@
                 return 'None';
             }
 
-            const validatedSet = new Set(article.validated_symbols || []);
-            
-            return article.symbols.map(symbol => {
-                if (validatedSet.has(symbol)) {
-                    return `<span class="ticker-symbol valid" data-tooltip="Valid Symbol">${symbol}</span>`;
+            return article.symbols.map(symbolData => {
+                // Handle both old and new format
+                if (typeof symbolData === 'object') {
+                    // New format
+                    const tooltip = symbolData.validated ? 
+                        `Valid ${symbolData.type || 'stock'}: ${symbolData.company_name || ''}` :
+                        `Invalid symbol: ${symbolData.reason || 'Not validated'}`;
+                    
+                    const className = symbolData.validated ? 'valid' : 'invalid';
+                    return `<span class="ticker-symbol ${className}" data-tooltip="${tooltip}">${symbolData.symbol}</span>`;
                 } else {
-                    return `<span class="ticker-symbol invalid" data-tooltip="Invalid Symbol">${symbol}</span>`;
+                    // Old format (just in case)
+                    return `<span class="ticker-symbol unvalidated" data-tooltip="Symbol not validated">${symbolData}</span>`;
                 }
             }).join(' ');
         }
