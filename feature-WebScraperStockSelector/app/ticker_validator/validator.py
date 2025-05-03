@@ -73,13 +73,13 @@ class TickerValidator:
 
     def extract_symbols(self, text: str) -> Set[str]:
         """
-        Extract potential symbols from text with improved filtering.
+        Extract potential symbols from text.
         
         Args:
             text: Text to extract symbols from
             
         Returns:
-            Set of potential symbols
+            Set of potential symbols found in text
         """
         # Find all potential symbols using multiple patterns
         patterns = [
@@ -97,17 +97,11 @@ class TickerValidator:
             for match in matches:
                 # Extract the symbol from the match group if it exists
                 symbol = match.group(1) if match.groups() else match.group(0)
-                potential_symbols.add(symbol)
+                # Only filter out common words and single letters
+                if symbol not in self.common_words and len(symbol) > 1:
+                    potential_symbols.add(symbol)
         
-        # Filter out common words and single letters
-        filtered_symbols = {
-            symbol for symbol in potential_symbols
-            if symbol not in self.common_words
-            and len(symbol) > 1  # Filter out single letters
-            and symbol in self.valid_tickers  # Only keep symbols we know exist
-        }
-        
-        return filtered_symbols
+        return potential_symbols
 
     def extract_company_names(self, text: str) -> Set[str]:
         """
@@ -137,7 +131,7 @@ class TickerValidator:
         
         return found
 
-    def process_article_symbols(self, article_data: Dict) -> Tuple[List[Dict], List[str]]:
+    def process_article_symbols(self, article_data: Dict) -> Tuple[List[str], List[str]]:
         """
         Process and validate symbols from an article.
         
@@ -146,29 +140,27 @@ class TickerValidator:
             
         Returns:
             Tuple of (all_symbols, validated_symbols)
+            all_symbols: List of all symbols found in the text
+            validated_symbols: List of symbols that were validated against company_tickers.json
         """
         # Extract symbols from title and content
         text = f"{article_data.get('title', '')} {article_data.get('content', '')}"
-        symbols = self.extract_symbols(text)
+        all_symbols = list(self.extract_symbols(text))
+        validated_symbols = []
         
         # Validate each symbol
-        all_symbols = []
-        validated_symbols = set()
-        
-        for symbol in symbols:
+        for symbol in all_symbols:
             result = self.validate_symbol(symbol)
-            all_symbols.append(result)
             if result['validated']:
-                validated_symbols.add(result['symbol'])
+                validated_symbols.append(symbol)
         
         # Add tickers found by company name, but only if they're valid
         company_tickers = self.extract_company_names(text)
         for ticker in company_tickers:
             result = self.validate_symbol(ticker)
-            if result['validated']:
-                validated_symbols.add(result['symbol'])
-                # Only add to all_symbols if not already present
-                if not any(s['symbol'] == result['symbol'] for s in all_symbols):
-                    all_symbols.append(result)
+            if result['validated'] and ticker not in validated_symbols:
+                validated_symbols.append(ticker)
+                if ticker not in all_symbols:
+                    all_symbols.append(ticker)
         
-        return all_symbols, list(validated_symbols) 
+        return all_symbols, validated_symbols 
