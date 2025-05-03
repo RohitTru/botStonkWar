@@ -119,18 +119,18 @@
 
         function displayRecommendations(recommendations) {
             const recommendationsList = document.getElementById('recommendations-list');
-            recommendationsList.innerHTML = recommendations.map(rec => {
+            recommendationsList.innerHTML = recommendations.map((rec, idx) => {
                 let live = rec.metadata && rec.metadata.live_data ? rec.metadata.live_data : {};
                 let priceInfo = '';
                 if (live.price !== undefined) {
-                    priceInfo += `<div><b>Price:</b> $${live.price} <span class='ms-2 text-${live.change_percent > 0 ? 'success' : (live.change_percent < 0 ? 'danger' : 'secondary')}'>(${live.change_percent ? live.change_percent.toFixed(2) : '0.00'}%)</span></div>`;
+                    priceInfo += `<div class="live-price" id="live-price-${idx}"><b>Price:</b> $${live.price} <span class='ms-2 text-${live.change_percent > 0 ? 'success' : (live.change_percent < 0 ? 'danger' : 'secondary')}'>(${live.change_percent ? live.change_percent.toFixed(2) : '0.00'}%)</span></div>`;
                 }
                 if (live.volume !== undefined) {
-                    priceInfo += `<div><b>Volume:</b> ${live.volume}</div>`;
+                    priceInfo += `<div class="live-volume" id="live-volume-${idx}"><b>Volume:</b> ${live.volume}</div>`;
                 }
                 let tradeTime = rec.trade_time ? `<div><b>Trade Time:</b> ${new Date(rec.trade_time).toLocaleString()}</div>` : '';
                 return `
-                <div class="recommendation-card card mb-3 ${rec.action}" data-strategy="${rec.strategy_name}">
+                <div class="recommendation-card card mb-3 ${rec.action}" data-strategy="${rec.strategy_name}" data-symbol="${rec.symbol}" data-idx="${idx}">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
@@ -158,6 +158,35 @@
                 </div>
                 `;
             }).join('');
+
+            // Add click event listeners for live price refresh
+            document.querySelectorAll('.recommendation-card').forEach(card => {
+                card.addEventListener('click', async function(e) {
+                    e.stopPropagation();
+                    const symbol = card.getAttribute('data-symbol');
+                    const idx = card.getAttribute('data-idx');
+                    const priceDiv = document.getElementById(`live-price-${idx}`);
+                    const volumeDiv = document.getElementById(`live-volume-${idx}`);
+                    if (symbol && priceDiv) {
+                        priceDiv.innerHTML = 'Fetching live price...';
+                        if (volumeDiv) volumeDiv.innerHTML = '';
+                        try {
+                            const resp = await fetch(`/api/live-price/${symbol}`);
+                            const data = await resp.json();
+                            if (data.price !== undefined) {
+                                priceDiv.innerHTML = `<b>Price:</b> $${data.price} <span class='ms-2 text-${data.change_percent > 0 ? 'success' : (data.change_percent < 0 ? 'danger' : 'secondary')}'>(${data.change_percent ? data.change_percent.toFixed(2) : '0.00'}%)</span> <span class='badge bg-info ms-2'>Live</span>`;
+                            } else {
+                                priceDiv.innerHTML = 'Live price unavailable';
+                            }
+                            if (data.volume !== undefined && volumeDiv) {
+                                volumeDiv.innerHTML = `<b>Volume:</b> ${data.volume}`;
+                            }
+                        } catch (err) {
+                            priceDiv.innerHTML = 'Error fetching live price';
+                        }
+                    }
+                });
+            });
         }
 
         function filterRecommendations(action) {

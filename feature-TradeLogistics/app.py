@@ -158,6 +158,19 @@ def health():
     print("Endpoint: /health called")
     return jsonify(status="healthy")
 
+@app.route('/api/live-price/<symbol>')
+def get_live_price(symbol):
+    print(f"Endpoint: /api/live-price/{symbol} called")
+    # Use the short-term strategy's fetch_live_price, but bypass cache
+    from decision_engine.strategies.short_term import ShortTermVolatileStrategy
+    strat = ShortTermVolatileStrategy()
+    # Temporarily set cache TTL to 0 to force refresh
+    orig_ttl = strat._alpaca_cache_ttl
+    strat._alpaca_cache_ttl = timedelta(seconds=0)
+    data = strat.fetch_live_price(symbol)
+    strat._alpaca_cache_ttl = orig_ttl
+    return jsonify(data)
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))
     app.run(host='0.0.0.0', port=port)

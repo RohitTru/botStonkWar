@@ -1,8 +1,9 @@
 from typing import List, Dict, Any
 from ..base import BaseStrategy
 from ..models.recommendation import TradeRecommendation
-from datetime import datetime
-import importlib
+from datetime import datetime, timedelta
+import os
+import requests
 
 class ShortTermVolatileStrategy(BaseStrategy):
     """
@@ -10,32 +11,66 @@ class ShortTermVolatileStrategy(BaseStrategy):
     to identify potential short-term trading opportunities.
     """
     
+    _alpaca_cache = {}  # symbol -> (data, timestamp)
+    _alpaca_cache_ttl = timedelta(minutes=15)
+
     def __init__(self, confidence_threshold: float = 0.8):
         super().__init__(
             name="short_term_volatile",
             description="Identifies high-confidence short-term trading opportunities based on recent sentiment analysis"
         )
         self.confidence_threshold = confidence_threshold
+        self.alpaca_key = os.getenv('ALPACA_KEY')
+        self.alpaca_secret = os.getenv('ALPACA_SECRET')
+        self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
     
     def get_required_data(self) -> List[str]:
         return ['articles', 'sentiment_scores']
     
     def fetch_live_price(self, symbol: str) -> Dict[str, Any]:
+        now = datetime.utcnow()
+        # Check cache
+        cache_entry = self._alpaca_cache.get(symbol)
+        if cache_entry:
+            data, ts = cache_entry
+            if now - ts < self._alpaca_cache_ttl:
+                return data
+        # Fetch from Alpaca
         try:
-            yf = importlib.import_module('yfinance')
-            ticker = yf.Ticker(symbol)
-            info = ticker.info
-            price = info.get('regularMarketPrice')
-            change = info.get('regularMarketChangePercent')
-            volume = info.get('regularMarketVolume')
-            return {
-                'price': price,
-                'change_percent': change,
-                'volume': volume
+            headers = {
+                'APCA-API-KEY-ID': self.alpaca_key,
+                'APCA-API-SECRET-KEY': self.alpaca_secret
             }
+            resp = requests.get(f'{self.alpaca_url}/{symbol}/quotes/latest', headers=headers)
+            if resp.status_code == 200:
+                quote = resp.json().get('quote', {})
+                price = quote.get('ap') or quote.get('bp') or quote.get('sp')  # ask, bid, or spread price
+                # Fetch last trade for % change and volume
+                trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
+                trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
+                last_price = trade.get('p')
+                volume = trade.get('s')
+                # For % change, fetch previous close
+                bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit=2', headers=headers)
+                bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
+                change_percent = None
+                if len(bars) == 2 and last_price:
+                    prev_close = bars[0].get('c')
+                    if prev_close:
+                        change_percent = ((last_price - prev_close) / prev_close) * 100
+                data = {
+                    'price': last_price or price,
+                    'change_percent': change_percent,
+                    'volume': volume,
+                    'last_updated': now.isoformat()
+                }
+                self._alpaca_cache[symbol] = (data, now)
+                return data
+            else:
+                print(f"[ShortTerm] Alpaca API error for {symbol}: {resp.status_code} {resp.text}")
         except Exception as e:
             print(f"[ShortTerm] Could not fetch live price for {symbol}: {e}")
-            return {}
+        return {}
     
     def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         recommendations = []
