@@ -21,21 +21,19 @@ class StrategyManager:
         """Get status of all registered strategies."""
         return [strategy.get_status() for strategy in self.strategies.values()]
     
-    async def run_all_strategies(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        """Run all registered strategies with the provided data."""
+    def run_all_strategies(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        print("StrategyManager: Running all strategies synchronously.")
         all_recommendations = []
-        
         for strategy in self.strategies.values():
             try:
-                recommendations = await strategy.analyze(data)
+                recommendations = strategy.analyze(data)
                 strategy.update_last_run()
                 all_recommendations.extend(recommendations)
             except Exception as e:
                 print(f"Error running strategy {strategy.name}: {str(e)}")
-        
-        # Sort recommendations by confidence
         all_recommendations.sort(key=lambda x: x['confidence'], reverse=True)
         self.recommendations = all_recommendations
+        print(f"StrategyManager: Total recommendations generated: {len(all_recommendations)}")
         return all_recommendations
     
     def get_recommendations(self, 

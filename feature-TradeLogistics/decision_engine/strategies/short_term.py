@@ -18,7 +18,7 @@ class ShortTermVolatileStrategy(BaseStrategy):
     def get_required_data(self) -> List[str]:
         return ['articles', 'sentiment_scores']
     
-    async def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         recommendations = []
         articles_processed = 0
         high_confidence_articles = 0

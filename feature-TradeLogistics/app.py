@@ -162,7 +162,7 @@ TRADING_STRATEGIES = {
     )
 }
 
-async def fetch_strategy_data():
+def fetch_strategy_data():
     """Fetch and process data from database for strategy analysis (last 30 entries for testing)."""
     with engine.connect() as conn:
         # Get the last 30 sentiment analyses with their articles
@@ -252,34 +252,35 @@ def get_recommendations():
     return jsonify(recommendations)
 
 @app.route('/api/run-analysis', methods=['POST'])
-async def run_analysis():
+def run_analysis():
     """Run all strategies with the provided data."""
     try:
         data = request.json
-        recommendations = await strategy_manager.run_all_strategies(data)
+        print("Calling run_all_strategies() from run-analysis endpoint.")
+        recommendations = strategy_manager.run_all_strategies(data)
         return jsonify({
             'status': 'success',
             'recommendations': recommendations
         })
     except Exception as e:
+        print(f"Error in run-analysis endpoint: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e)
         }), 500
 
 @app.route('/api/dashboard-data')
-async def get_dashboard_data():
+def get_dashboard_data():
     """Get all data needed for the dashboard."""
     try:
+        print("Calling fetch_strategy_data() from dashboard-data endpoint.")
         # Fetch data for strategy analysis
-        strategy_data = await fetch_strategy_data()
-        
+        strategy_data = fetch_strategy_data()
+        print("Calling run_all_strategies() from dashboard-data endpoint.")
         # Run strategies with the fetched data
-        recommendations = await strategy_manager.run_all_strategies(strategy_data)
-        
+        recommendations = strategy_manager.run_all_strategies(strategy_data)
         # Get strategy statuses
         strategies = strategy_manager.get_all_strategies()
-        
         # Calculate metrics
         metrics = {
             'total_recommendations': len(recommendations),
@@ -287,7 +288,6 @@ async def get_dashboard_data():
             'sell_signals': len([r for r in recommendations if r['action'] == 'sell']),
             'high_confidence_signals': len([r for r in recommendations if r['confidence'] >= 0.8])
         }
-        
         return jsonify({
             'status': 'success',
             'recommendations': recommendations,
@@ -295,6 +295,7 @@ async def get_dashboard_data():
             'metrics': metrics
         })
     except Exception as e:
+        print(f"Error in dashboard-data endpoint: {e}")
         return jsonify({
             'status': 'error',
             'message': str(e)
