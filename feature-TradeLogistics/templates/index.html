@@ -31,6 +31,41 @@
             height: 100%;
             border-radius: 2px;
         }
+        .price-box {
+            display: inline-block;
+            font-size: 2.2rem;
+            font-weight: bold;
+            background: #f1f5f9;
+            border-radius: 12px;
+            padding: 12px 28px;
+            margin: 10px 0 10px 0;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.07);
+            cursor: pointer;
+            transition: transform 0.18s cubic-bezier(.4,2,.6,1), box-shadow 0.18s;
+            position: relative;
+        }
+        .price-box:hover {
+            transform: scale(1.13);
+            box-shadow: 0 4px 16px rgba(0,0,0,0.13);
+            background: #e0e7ef;
+        }
+        .price-tooltip {
+            display: none;
+            position: absolute;
+            left: 50%;
+            top: -38px;
+            transform: translateX(-50%);
+            background: #222;
+            color: #fff;
+            padding: 4px 12px;
+            border-radius: 6px;
+            font-size: 1rem;
+            white-space: nowrap;
+            z-index: 10;
+        }
+        .price-box:hover .price-tooltip {
+            display: block;
+        }
     </style>
 </head>
 <body class="bg-light">
@@ -121,12 +156,25 @@
             const recommendationsList = document.getElementById('recommendations-list');
             recommendationsList.innerHTML = recommendations.map((rec, idx) => {
                 let live = rec.metadata && rec.metadata.live_data ? rec.metadata.live_data : {};
-                let priceInfo = '';
-                if (live.price !== undefined) {
-                    priceInfo += `<div class="live-price" id="live-price-${idx}"><b>Price:</b> $${live.price} <span class='ms-2 text-${live.change_percent > 0 ? 'success' : (live.change_percent < 0 ? 'danger' : 'secondary')}'>(${live.change_percent ? live.change_percent.toFixed(2) : '0.00'}%)</span></div>`;
+                if (!live.price && rec.live_price) {
+                    live.price = rec.live_price;
+                    live.change_percent = rec.live_change_percent;
+                    live.volume = rec.live_volume;
                 }
-                if (live.volume !== undefined) {
-                    priceInfo += `<div class="live-volume" id="live-volume-${idx}"><b>Volume:</b> ${live.volume}</div>`;
+                let priceBox = '';
+                if (live.price !== undefined && live.price !== null) {
+                    priceBox = `
+                        <div class="price-box" id="price-box-${idx}" data-symbol="${rec.symbol}" data-action="${rec.action}" data-strategy="${rec.strategy_name}" data-created="${rec.created_at}">
+                            <span class="price-tooltip">Click to refresh price</span>
+                            $${live.price} <span style="font-size:1.1rem;" class='ms-2 text-${live.change_percent > 0 ? 'success' : (live.change_percent < 0 ? 'danger' : 'secondary')}'>(${live.change_percent ? live.change_percent.toFixed(2) : '0.00'}%)</span>
+                        </div>
+                    `;
+                } else {
+                    priceBox = `<div class="price-box" id="price-box-${idx}" data-symbol="${rec.symbol}" data-action="${rec.action}" data-strategy="${rec.strategy_name}" data-created="${rec.created_at}"><span class="price-tooltip">Click to refresh price</span>Live price unavailable</div>`;
+                }
+                let volumeInfo = '';
+                if (live.volume !== undefined && live.volume !== null) {
+                    volumeInfo = `<div style="font-size:1.1rem;"><b>Volume:</b> ${live.volume}</div>`;
                 }
                 let tradeTime = rec.trade_time ? `<div><b>Trade Time:</b> ${new Date(rec.trade_time).toLocaleString()}</div>` : '';
                 return `
@@ -144,7 +192,8 @@
                             </span>
                         </div>
                         <p class="card-text">${rec.reasoning}</p>
-                        ${priceInfo}
+                        ${priceBox}
+                        ${volumeInfo}
                         ${tradeTime}
                         <div class="confidence-bar mb-2">
                             <div class="progress bg-${rec.action === 'buy' ? 'success' : 'danger'}" 
@@ -159,31 +208,29 @@
                 `;
             }).join('');
 
-            // Add click event listeners for live price refresh
-            document.querySelectorAll('.recommendation-card').forEach(card => {
-                card.addEventListener('click', async function(e) {
+            // Add click event listeners for price box refresh
+            document.querySelectorAll('.price-box').forEach(box => {
+                box.addEventListener('click', async function(e) {
                     e.stopPropagation();
-                    const symbol = card.getAttribute('data-symbol');
-                    const idx = card.getAttribute('data-idx');
-                    const priceDiv = document.getElementById(`live-price-${idx}`);
-                    const volumeDiv = document.getElementById(`live-volume-${idx}`);
-                    if (symbol && priceDiv) {
-                        priceDiv.innerHTML = 'Fetching live price...';
-                        if (volumeDiv) volumeDiv.innerHTML = '';
-                        try {
-                            const resp = await fetch(`/api/live-price/${symbol}`);
-                            const data = await resp.json();
-                            if (data.price !== undefined) {
-                                priceDiv.innerHTML = `<b>Price:</b> $${data.price} <span class='ms-2 text-${data.change_percent > 0 ? 'success' : (data.change_percent < 0 ? 'danger' : 'secondary')}'>(${data.change_percent ? data.change_percent.toFixed(2) : '0.00'}%)</span> <span class='badge bg-info ms-2'>Live</span>`;
-                            } else {
-                                priceDiv.innerHTML = 'Live price unavailable';
-                            }
-                            if (data.volume !== undefined && volumeDiv) {
-                                volumeDiv.innerHTML = `<b>Volume:</b> ${data.volume}`;
-                            }
-                        } catch (err) {
-                            priceDiv.innerHTML = 'Error fetching live price';
+                    const symbol = box.getAttribute('data-symbol');
+                    const action = box.getAttribute('data-action');
+                    const strategy = box.getAttribute('data-strategy');
+                    const created = box.getAttribute('data-created');
+                    box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Fetching...';
+                    try {
+                        const resp = await fetch('/api/live-price', {
+                            method: 'POST',
+                            headers: { 'Content-Type': 'application/json' },
+                            body: JSON.stringify({ symbol, action, strategy_name: strategy, created_at: created })
+                        });
+                        const data = await resp.json();
+                        if (data.price !== undefined && data.price !== null) {
+                            box.innerHTML = `<span class="price-tooltip">Click to refresh price</span>$${data.price} <span style="font-size:1.1rem;" class='ms-2 text-${data.change_percent > 0 ? 'success' : (data.change_percent < 0 ? 'danger' : 'secondary')}'>(${data.change_percent ? data.change_percent.toFixed(2) : '0.00'}%)</span>`;
+                        } else {
+                            box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Live price unavailable';
                         }
+                    } catch (err) {
+                        box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Error fetching price';
                     }
                 });
             });
