@@ -3,7 +3,7 @@ import os
 import json
 from datetime import datetime
 
-SQLITE_PATH = os.getenv('TRADE_SQLITE_PATH', 'trade_recommendations.sqlite')
+SQLITE_PATH = os.getenv('TRADE_SQLITE_PATH', '/data/trade_recommendations.sqlite')
 
 class TradeRecommendationSQLite:
     def __init__(self, db_path=SQLITE_PATH):

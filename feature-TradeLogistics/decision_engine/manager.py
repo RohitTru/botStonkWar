@@ -1,28 +1,27 @@
 from typing import List, Dict, Any, Type
 from .base import BaseStrategy
 from .models.recommendation import TradeRecommendation
-from .models.trade_sqlite import TradeRecommendationSQLite
 
 class StrategyManager:
     """Manages and coordinates all trading strategies."""
     
-    def __init__(self):
+    def __init__(self, trade_db):
         self.strategies: Dict[str, BaseStrategy] = {}
         self.recommendations: List[Dict[str, Any]] = []
-        self.sqlite = TradeRecommendationSQLite()
+        self.trade_db = trade_db
     
     def register_strategy(self, strategy: BaseStrategy, active: bool = True):
         """Register a new strategy with the manager."""
         self.strategies[strategy.name] = strategy
         # Set activation state in DB if not already present
-        if self.sqlite.get_strategy_activation(strategy.name) != active:
-            self.sqlite.set_strategy_activation(strategy.name, active)
+        if self.trade_db.get_strategy_activation(strategy.name) != active:
+            self.trade_db.set_strategy_activation(strategy.name, active)
     
     def set_active(self, name: str, is_active: bool):
-        self.sqlite.set_strategy_activation(name, is_active)
+        self.trade_db.set_strategy_activation(name, is_active)
     
     def get_active(self, name: str) -> bool:
-        return self.sqlite.get_strategy_activation(name)
+        return self.trade_db.get_strategy_activation(name)
     
     def get_strategy(self, name: str) -> BaseStrategy:
         """Get a strategy by name."""
@@ -30,7 +29,7 @@ class StrategyManager:
     
     def get_all_strategies(self) -> List[Dict[str, Any]]:
         """Get status of all registered strategies."""
-        activation = self.sqlite.get_all_strategy_activation()
+        activation = self.trade_db.get_all_strategy_activation()
         return [
             {**strategy.get_status(), "active": activation.get(strategy.name, True)}
             for strategy in self.strategies.values()
@@ -39,7 +38,7 @@ class StrategyManager:
     def run_all_strategies(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         print("StrategyManager: Running all strategies synchronously.")
         all_recommendations = []
-        activation = self.sqlite.get_all_strategy_activation()
+        activation = self.trade_db.get_all_strategy_activation()
         for name, strategy in self.strategies.items():
             if not activation.get(name, True):
                 continue

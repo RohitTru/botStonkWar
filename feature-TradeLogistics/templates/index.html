@@ -110,6 +110,13 @@
     <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
         <div class="container">
             <a class="navbar-brand" href="#">Trading Strategy Dashboard</a>
+            <div class="d-flex align-items-center">
+                <div class="database-status me-3">
+                    <span class="badge bg-secondary" id="db-status">
+                        <i class="bi bi-database"></i> DB Status: Checking...
+                    </span>
+                </div>
+            </div>
         </div>
     </nav>
 
@@ -324,6 +331,27 @@
             });
         }, { threshold: 1.0 });
 
+        // Add this near your other JavaScript functions
+        async function checkDatabaseConnection() {
+            try {
+                const response = await fetch('/api/db-health');
+                const data = await response.json();
+                const statusBadge = document.getElementById('db-status');
+                
+                if (data.status === 'connected') {
+                    statusBadge.className = 'badge bg-success';
+                    statusBadge.innerHTML = '<i class="bi bi-database-check"></i> DB Connected';
+                } else {
+                    statusBadge.className = 'badge bg-danger';
+                    statusBadge.innerHTML = '<i class="bi bi-database-x"></i> DB Error';
+                }
+            } catch (error) {
+                const statusBadge = document.getElementById('db-status');
+                statusBadge.className = 'badge bg-danger';
+                statusBadge.innerHTML = '<i class="bi bi-database-x"></i> DB Error';
+            }
+        }
+
         // Initial load
         document.addEventListener('DOMContentLoaded', () => {
             loadStrategies();
@@ -331,6 +359,8 @@
             loadWsSubscribedSymbols();
             observer.observe(document.getElementById('infinite-scroll-trigger'));
             setInterval(loadWsSubscribedSymbols, 5000);
+            checkDatabaseConnection();  // Initial check
+            setInterval(checkDatabaseConnection, 30000);  // Check every 30 seconds
         });
     </script>
 </body>
