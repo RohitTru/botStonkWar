@@ -383,21 +383,30 @@
                 return 'None';
             }
 
-            return article.symbols.map(symbolData => {
-                // Handle both old and new format
-                if (typeof symbolData === 'object') {
-                    // New format
-                    const tooltip = symbolData.validated ? 
+            // Convert validated_symbols array to a Set for O(1) lookup
+            const validatedSymbols = new Set(article.validated_symbols || []);
+
+            // If symbols is an array of objects (new format)
+            if (typeof article.symbols[0] === 'object') {
+                return article.symbols.map(symbolData => {
+                    // Check if symbol is in validated_symbols array
+                    const isValidated = validatedSymbols.has(symbolData.symbol);
+                    const tooltip = isValidated ? 
                         `Valid ${symbolData.type || 'stock'}: ${symbolData.company_name || ''}` :
                         `Invalid symbol: ${symbolData.reason || 'Not validated'}`;
                     
-                    const className = symbolData.validated ? 'valid' : 'invalid';
+                    const className = isValidated ? 'valid' : 'invalid';
                     return `<span class="ticker-symbol ${className}" data-tooltip="${tooltip}">${symbolData.symbol}</span>`;
-                } else {
-                    // Old format (just in case)
-                    return `<span class="ticker-symbol unvalidated" data-tooltip="Symbol not validated">${symbolData}</span>`;
-                }
-            }).join(' ');
+                }).join(' ');
+            } else {
+                // Old format (array of strings)
+                return article.symbols.map(symbol => {
+                    const isValidated = validatedSymbols.has(symbol);
+                    const className = isValidated ? 'valid' : 'invalid';
+                    const tooltip = isValidated ? 'Valid stock symbol' : 'Invalid symbol';
+                    return `<span class="ticker-symbol ${className}" data-tooltip="${tooltip}">${symbol}</span>`;
+                }).join(' ');
+            }
         }
         
         function updateArticlesList() {

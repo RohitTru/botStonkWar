@@ -161,7 +161,14 @@ class TickerValidator:
             if result['validated']:
                 validated_symbols.add(result['symbol'])
         
-        # Add tickers found by company name
-        validated_symbols |= self.extract_company_names(text)
+        # Add tickers found by company name, but only if they're valid
+        company_tickers = self.extract_company_names(text)
+        for ticker in company_tickers:
+            result = self.validate_symbol(ticker)
+            if result['validated']:
+                validated_symbols.add(result['symbol'])
+                # Only add to all_symbols if not already present
+                if not any(s['symbol'] == result['symbol'] for s in all_symbols):
+                    all_symbols.append(result)
         
         return all_symbols, list(validated_symbols) 
