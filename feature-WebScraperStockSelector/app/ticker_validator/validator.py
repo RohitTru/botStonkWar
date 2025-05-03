@@ -111,19 +111,19 @@ class TickerValidator:
             text: Text to extract company names from
             
         Returns:
-            Set of company names
+            Set of validated ticker symbols found from company names
         """
         found = set()
         upper_text = text.upper()
         
         # First try exact matches
         for name, ticker in self.company_to_ticker.items():
-            if name in upper_text:
+            if name in upper_text and ticker in self.valid_tickers:
                 found.add(ticker)
         
         # Then try partial matches for longer company names
         for name, ticker in self.company_to_ticker.items():
-            if len(name.split()) > 2:  # Only for longer company names
+            if len(name.split()) > 2 and ticker in self.valid_tickers:  # Only for longer company names
                 name_parts = name.split()
                 # Check if all parts of the company name are present in the text
                 if all(part in upper_text for part in name_parts):
