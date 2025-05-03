@@ -163,9 +163,9 @@ TRADING_STRATEGIES = {
 }
 
 async def fetch_strategy_data():
-    """Fetch and process data from database for strategy analysis."""
+    """Fetch and process data from database for strategy analysis (last 30 entries for testing)."""
     with engine.connect() as conn:
-        # Get recent articles with their sentiment analysis
+        # Get the last 30 sentiment analyses with their articles
         query = text("""
             SELECT 
                 a.id,
@@ -175,11 +175,11 @@ async def fetch_strategy_data():
                 sa.sentiment_score,
                 sa.confidence_score,
                 sa.prediction
-            FROM articles a
-            JOIN sentiment_analysis sa ON a.id = sa.article_id
+            FROM sentiment_analysis sa
+            JOIN articles a ON a.id = sa.article_id
             WHERE a.is_analyzed = TRUE
-            AND a.published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-            ORDER BY a.published_date DESC
+            ORDER BY sa.analysis_timestamp DESC
+            LIMIT 30
         """)
         
         result = conn.execute(query)
