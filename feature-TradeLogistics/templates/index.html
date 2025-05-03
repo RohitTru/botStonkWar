@@ -86,10 +86,16 @@
                     <div class="card-body">
                         <h6 class="card-title">${strategy.name}</h6>
                         <p class="card-text small text-muted">${strategy.description}</p>
-                        <div class="d-flex justify-content-between align-items-center">
+                        <div class="d-flex justify-content-between align-items-center mb-2">
                             <span class="badge bg-success">Active</span>
-                            <small class="text-muted">Last run: ${strategy.last_run || 'Never'}</small>
+                            <small class="text-muted">Last run: ${strategy.metrics.last_run || 'Never'}</small>
                         </div>
+                        <ul class="list-group list-group-flush small">
+                            <li class="list-group-item">Articles processed: <b>${strategy.metrics.articles_processed}</b></li>
+                            <li class="list-group-item">High-confidence articles: <b>${strategy.metrics.high_confidence_articles}</b></li>
+                            <li class="list-group-item">Recommendations: <b>${strategy.metrics.recommendations_generated}</b></li>
+                            ${strategy.metrics.errors ? `<li class="list-group-item text-danger">Error: ${strategy.metrics.errors}</li>` : ''}
+                        </ul>
                     </div>
                 </div>
             `).join('');

@@ -9,6 +9,13 @@ class BaseStrategy(ABC):
         self.name = name
         self.description = description
         self.last_run = None
+        self.metrics = {
+            'last_run': None,
+            'articles_processed': 0,
+            'recommendations_generated': 0,
+            'high_confidence_articles': 0,
+            'errors': None
+        }
     
     @abstractmethod
     async def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -45,6 +52,7 @@ class BaseStrategy(ABC):
     def update_last_run(self):
         """Update the timestamp of the last strategy run."""
         self.last_run = datetime.utcnow()
+        self.metrics['last_run'] = self.last_run.isoformat()
     
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the strategy."""
@@ -52,5 +60,10 @@ class BaseStrategy(ABC):
             'name': self.name,
             'description': self.description,
             'last_run': self.last_run,
-            'required_data': self.get_required_data()
-        } 
+            'required_data': self.get_required_data(),
+            'metrics': self.get_metrics()
+        }
+
+    def get_metrics(self) -> Dict[str, Any]:
+        """Return the latest metrics for this strategy."""
+        return self.metrics 
