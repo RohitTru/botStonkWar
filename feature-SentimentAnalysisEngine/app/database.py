@@ -117,12 +117,18 @@ class Database:
                 cursor.close()
 
     def get_unanalyzed_articles(self, limit: int = 10) -> List[Dict]:
-        """Get articles that haven't been analyzed yet."""
+        """Get articles that haven't been analyzed yet, prioritizing:
+        1. Recent articles (by published_date)
+        2. Only articles with at least one validated symbol
+        """
         query = """
-        SELECT a.* FROM articles a
+        SELECT a.id, a.title, a.content, a.link, a.validated_symbols
+        FROM articles a
         LEFT JOIN sentiment_analysis sa ON a.id = sa.article_id
         WHERE sa.article_id IS NULL
-        AND a.is_deleted = 0
+        AND a.is_deleted = FALSE
+        AND a.validated_symbols IS NOT NULL
+        AND JSON_LENGTH(a.validated_symbols) > 0
         ORDER BY a.published_date DESC
         LIMIT %s
         """
@@ -305,14 +311,7 @@ class Database:
 
     def get_unanalyzed_articles(self) -> List[Dict]:
         """Get articles that haven't been analyzed yet"""
-        return self.execute_query("""
-            SELECT id, title, content, link
-            FROM articles
-            WHERE is_analyzed = FALSE
-            AND is_deleted = FALSE
-            ORDER BY published_date ASC
-            LIMIT 10
-        """)
+        return self.get_unanalyzed_articles(limit=10)  # Call the main implementation
 
     def get_last_processed_timestamp(self) -> str:
         """Get the timestamp of the last processed article"""
@@ -327,9 +326,12 @@ class Database:
         """Get the count of articles waiting to be analyzed"""
         result = self.execute_query("""
             SELECT COUNT(*) as count
-            FROM articles
-            WHERE is_analyzed = FALSE
-            AND is_deleted = FALSE
+            FROM articles a
+            LEFT JOIN sentiment_analysis sa ON a.id = sa.article_id
+            WHERE sa.article_id IS NULL
+            AND a.is_deleted = FALSE
+            AND a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
         """)
         return result[0]['count'] if result else 0
 
