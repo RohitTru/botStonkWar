@@ -20,13 +20,15 @@ class Database:
             
             self.pool = mysql.connector.pooling.MySQLConnectionPool(
                 pool_name="sentiment_pool",
-                pool_size=10,
+                pool_size=32,  # Increased from 10
                 pool_reset_session=True,
                 host=os.getenv('MYSQL_HOST', 'mysql'),
                 port=3306,
                 user=os.getenv('MYSQL_USER', 'root'),
                 password=os.getenv('MYSQL_PASSWORD', ''),
-                database=db_name
+                database=db_name,
+                connect_timeout=60,
+                autocommit=True
             )
             logging.info("Database connection pool initialized successfully")
             
@@ -85,6 +87,7 @@ class Database:
     def execute_query(self, query: str, params: tuple = None) -> List[Dict]:
         """Execute a query and return results"""
         connection = None
+        cursor = None
         try:
             connection = self.pool.get_connection()
             cursor = connection.cursor(dictionary=True)
@@ -99,22 +102,40 @@ class Database:
         except Exception as e:
             if connection:
                 connection.rollback()
-            logging.error(f"Database error: {str(e)}")
+            logging.error(f"Database error executing query: {str(e)}")
+            logging.error(f"Query was: {query}")
+            if params:
+                logging.error(f"Parameters were: {params}")
             raise
         finally:
+            if cursor:
+                cursor.close()
             if connection:
                 connection.close()
 
     def execute_write(self, query: str, params: tuple = None) -> int:
         """Execute a write query and return the last insert ID."""
-        with self.get_connection() as conn:
-            cursor = conn.cursor()
-            try:
-                cursor.execute(query, params or ())
-                conn.commit()
-                return cursor.lastrowid
-            finally:
+        connection = None
+        cursor = None
+        try:
+            connection = self.pool.get_connection()
+            cursor = connection.cursor()
+            cursor.execute(query, params or ())
+            connection.commit()
+            return cursor.lastrowid
+        except Exception as e:
+            if connection:
+                connection.rollback()
+            logging.error(f"Database error executing write: {str(e)}")
+            logging.error(f"Query was: {query}")
+            if params:
+                logging.error(f"Parameters were: {params}")
+            raise
+        finally:
+            if cursor:
                 cursor.close()
+            if connection:
+                connection.close()
 
     def get_unanalyzed_articles(self, limit: int = 10) -> List[Dict]:
         """Get articles that haven't been analyzed yet, prioritizing:
