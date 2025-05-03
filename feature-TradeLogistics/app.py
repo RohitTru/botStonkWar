@@ -1,6 +1,6 @@
 import os
 from datetime import datetime, timedelta
-from flask import Flask, jsonify, render_template
+from flask import Flask, jsonify, render_template, request
 import requests
 import pandas as pd
 from collections import defaultdict
@@ -10,8 +10,15 @@ from sqlalchemy.sql import func
 import json
 import logging
 from logging.handlers import RotatingFileHandler
+from decision_engine.manager import StrategyManager
+from decision_engine.strategies.short_term import ShortTermVolatileStrategy
+import asyncio
+from dotenv import load_dotenv
+
+load_dotenv()
 
 app = Flask(__name__)
+strategy_manager = StrategyManager()
 
 # Configure logging
 if not os.path.exists('logs'):
@@ -26,26 +33,60 @@ app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 app.logger.info('Trade Brain startup')
 
-# Database configuration from environment variables
-DB_CONFIG = {
-    'host': os.getenv('MYSQL_HOST', 'localhost'),
-    'user': os.getenv('MYSQL_USER', 'root'),
-    'password': os.getenv('MYSQL_PASSWORD', ''),
-    'database': os.getenv('MYSQL_DATABASE', 'botstonkwar_scraping_db')
-}
+# Register strategies
+strategy_manager.register_strategy(ShortTermVolatileStrategy(confidence_threshold=0.8))
 
-# Create SQLAlchemy engine
-try:
-    DATABASE_URL = f"mysql+pymysql://{DB_CONFIG['user']}:{DB_CONFIG['password']}@{DB_CONFIG['host']}/{DB_CONFIG['database']}"
-    engine = create_engine(DATABASE_URL)
-    Session = sessionmaker(bind=engine)
-    # Test the connection
+# Database connection
+DB_USER = os.getenv('DB_USER')
+DB_PASSWORD = os.getenv('DB_PASSWORD')
+DB_HOST = os.getenv('DB_HOST')
+DB_NAME = os.getenv('DB_NAME')
+
+engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}')
+
+async def fetch_strategy_data():
+    """Fetch and process data from database for strategy analysis."""
     with engine.connect() as conn:
-        conn.execute(text('SELECT 1'))
-    app.logger.info('Database connection established successfully')
-except Exception as e:
-    app.logger.error(f'Error connecting to database: {str(e)}')
-    raise
+        # Get recent articles with their sentiment analysis
+        query = text("""
+            SELECT 
+                a.id,
+                a.title,
+                a.validated_symbols,
+                a.published_date,
+                sa.sentiment_score,
+                sa.confidence_score,
+                sa.prediction
+            FROM articles a
+            JOIN sentiment_analysis sa ON a.id = sa.article_id
+            WHERE a.is_analyzed = TRUE
+            AND a.published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY a.published_date DESC
+        """)
+        
+        result = conn.execute(query)
+        articles = []
+        sentiment_scores = {}
+        
+        for row in result:
+            article = {
+                'id': row[0],
+                'title': row[1],
+                'validated_symbols': json.loads(row[2]) if row[2] else [],
+                'published_date': row[3].isoformat() if row[3] else None
+            }
+            articles.append(article)
+            
+            sentiment_scores[row[0]] = {
+                'sentiment_score': float(row[4]),
+                'confidence_score': float(row[5]),
+                'prediction': row[6]
+            }
+        
+        return {
+            'articles': articles,
+            'sentiment_scores': sentiment_scores
+        }
 
 class TradingStrategy:
     def __init__(self, name, description, threshold=0.7):
@@ -185,62 +226,76 @@ def generate_trading_signals():
 
 @app.route('/')
 def index():
-    signals = generate_trading_signals()
-    buy_signals = [s for s in signals if s['type'] == 'BUY']
-    sell_signals = [s for s in signals if s['type'] == 'SELL']
-    
-    # Get active users count
-    session = Session()
-    # This would need to be implemented based on your user tracking system
-    users_following = 0
-    session.close()
-    
-    strategies_status = []
-    for strategy in TRADING_STRATEGIES.values():
-        strategies_status.append({
-            "id": id(strategy),
-            "name": strategy.name,
-            "description": strategy.description,
-            "status": "Active",
-            "status_class": "status-active",
-            "success_rate": strategy.get_success_rate(),
-            "last_signal": "Just now" if signals else "No recent signals"
-        })
+    """Render the main dashboard."""
+    return render_template('index.html')
 
-    return render_template('dashboard.html',
-                         last_update=datetime.now().strftime("%Y-%m-%d %H:%M:%S"),
-                         active_strategies=len(TRADING_STRATEGIES),
-                         success_rate=75,  # This should be calculated based on historical performance
-                         users_following=users_following,
-                         pending_signals=len(signals),
-                         strategies=strategies_status,
-                         buy_signals=buy_signals,
-                         sell_signals=sell_signals)
+@app.route('/api/strategies')
+def get_strategies():
+    """Get all registered strategies and their status."""
+    return jsonify(strategy_manager.get_all_strategies())
+
+@app.route('/api/recommendations')
+def get_recommendations():
+    """Get filtered recommendations."""
+    min_confidence = float(request.args.get('min_confidence', 0.0))
+    timeframe = request.args.get('timeframe')
+    strategy_name = request.args.get('strategy_name')
+    
+    recommendations = strategy_manager.get_recommendations(
+        min_confidence=min_confidence,
+        timeframe=timeframe,
+        strategy_name=strategy_name
+    )
+    return jsonify(recommendations)
+
+@app.route('/api/run-analysis', methods=['POST'])
+async def run_analysis():
+    """Run all strategies with the provided data."""
+    try:
+        data = request.json
+        recommendations = await strategy_manager.run_all_strategies(data)
+        return jsonify({
+            'status': 'success',
+            'recommendations': recommendations
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 @app.route('/api/dashboard-data')
-def dashboard_data():
-    signals = generate_trading_signals()
-    
-    # Get performance data for each strategy
-    performance_data = {"strategies": []}
-    for strategy in TRADING_STRATEGIES.values():
-        timestamps, performance = get_strategy_performance(strategy)
-        performance_data["strategies"].append({
-            "name": strategy.name,
-            "timestamps": timestamps,
-            "performance": performance
-        })
-    
-    return jsonify({
-        "performance": performance_data,
-        "strategies": [s for s in TRADING_STRATEGIES.values()],
-        "metrics": {
-            "active_strategies": len(TRADING_STRATEGIES),
-            "success_rate": 75,  # Should be calculated from actual performance
-            "users_following": 0,  # Implement based on your user system
-            "pending_signals": len(signals)
+async def get_dashboard_data():
+    """Get all data needed for the dashboard."""
+    try:
+        # Fetch data for strategy analysis
+        strategy_data = await fetch_strategy_data()
+        
+        # Run strategies with the fetched data
+        recommendations = await strategy_manager.run_all_strategies(strategy_data)
+        
+        # Get strategy statuses
+        strategies = strategy_manager.get_all_strategies()
+        
+        # Calculate metrics
+        metrics = {
+            'total_recommendations': len(recommendations),
+            'buy_signals': len([r for r in recommendations if r['action'] == 'buy']),
+            'sell_signals': len([r for r in recommendations if r['action'] == 'sell']),
+            'high_confidence_signals': len([r for r in recommendations if r['confidence'] >= 0.8])
         }
-    })
+        
+        return jsonify({
+            'status': 'success',
+            'recommendations': recommendations,
+            'strategies': strategies,
+            'metrics': metrics
+        })
+    except Exception as e:
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
+        }), 500
 
 @app.route('/health')
 def health():

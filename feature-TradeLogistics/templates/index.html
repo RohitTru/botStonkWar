@@ -1,0 +1,157 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Trading Strategy Dashboard</title>
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
+    <style>
+        .strategy-card {
+            transition: transform 0.2s;
+        }
+        .strategy-card:hover {
+            transform: translateY(-5px);
+        }
+        .recommendation-card {
+            border-left: 4px solid;
+        }
+        .recommendation-card.buy {
+            border-left-color: #28a745;
+        }
+        .recommendation-card.sell {
+            border-left-color: #dc3545;
+        }
+        .confidence-bar {
+            height: 4px;
+            background: #e9ecef;
+            border-radius: 2px;
+        }
+        .confidence-bar .progress {
+            height: 100%;
+            border-radius: 2px;
+        }
+    </style>
+</head>
+<body class="bg-light">
+    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
+        <div class="container">
+            <a class="navbar-brand" href="#">Trading Strategy Dashboard</a>
+        </div>
+    </nav>
+
+    <div class="container mt-4">
+        <div class="row">
+            <!-- Strategy Status -->
+            <div class="col-md-4">
+                <div class="card">
+                    <div class="card-header">
+                        <h5 class="card-title mb-0">Active Strategies</h5>
+                    </div>
+                    <div class="card-body">
+                        <div id="strategies-list"></div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Recommendations -->
+            <div class="col-md-8">
+                <div class="card">
+                    <div class="card-header d-flex justify-content-between align-items-center">
+                        <h5 class="card-title mb-0">Trading Recommendations</h5>
+                        <div class="btn-group">
+                            <button class="btn btn-sm btn-outline-secondary" onclick="filterRecommendations('all')">All</button>
+                            <button class="btn btn-sm btn-outline-success" onclick="filterRecommendations('buy')">Buy</button>
+                            <button class="btn btn-sm btn-outline-danger" onclick="filterRecommendations('sell')">Sell</button>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <div id="recommendations-list"></div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script>
+        // Fetch and display strategies
+        async function loadStrategies() {
+            const response = await fetch('/api/strategies');
+            const strategies = await response.json();
+            
+            const strategiesList = document.getElementById('strategies-list');
+            strategiesList.innerHTML = strategies.map(strategy => `
+                <div class="strategy-card card mb-2">
+                    <div class="card-body">
+                        <h6 class="card-title">${strategy.name}</h6>
+                        <p class="card-text small text-muted">${strategy.description}</p>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <span class="badge bg-success">Active</span>
+                            <small class="text-muted">Last run: ${strategy.last_run || 'Never'}</small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Fetch and display recommendations
+        async function loadRecommendations() {
+            const response = await fetch('/api/recommendations');
+            const recommendations = await response.json();
+            displayRecommendations(recommendations);
+        }
+
+        function displayRecommendations(recommendations) {
+            const recommendationsList = document.getElementById('recommendations-list');
+            recommendationsList.innerHTML = recommendations.map(rec => `
+                <div class="recommendation-card card mb-3 ${rec.action}">
+                    <div class="card-body">
+                        <div class="d-flex justify-content-between align-items-start">
+                            <div>
+                                <h5 class="card-title">${rec.symbol}</h5>
+                                <h6 class="card-subtitle mb-2 text-${rec.action === 'buy' ? 'success' : 'danger'}">
+                                    ${rec.action.toUpperCase()}
+                                </h6>
+                            </div>
+                            <span class="badge bg-${rec.timeframe === 'short_term' ? 'warning' : 'info'}">
+                                ${rec.timeframe}
+                            </span>
+                        </div>
+                        <p class="card-text">${rec.reasoning}</p>
+                        <div class="confidence-bar mb-2">
+                            <div class="progress bg-${rec.action === 'buy' ? 'success' : 'danger'}" 
+                                 style="width: ${rec.confidence * 100}%"></div>
+                        </div>
+                        <div class="d-flex justify-content-between align-items-center">
+                            <small class="text-muted">Confidence: ${(rec.confidence * 100).toFixed(1)}%</small>
+                            <small class="text-muted">Strategy: ${rec.strategy_name}</small>
+                        </div>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function filterRecommendations(action) {
+            const recommendations = document.querySelectorAll('.recommendation-card');
+            recommendations.forEach(rec => {
+                if (action === 'all' || rec.classList.contains(action)) {
+                    rec.style.display = 'block';
+                } else {
+                    rec.style.display = 'none';
+                }
+            });
+        }
+
+        // Initial load
+        loadStrategies();
+        loadRecommendations();
+
+        // Refresh data every 30 seconds
+        setInterval(() => {
+            loadStrategies();
+            loadRecommendations();
+        }, 30000);
+    </script>
+</body>
+</html> 

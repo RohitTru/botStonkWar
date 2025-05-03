@@ -70,6 +70,9 @@ async function fetchDashboardData() {
         // Update metrics
         updateMetrics(data.metrics);
         
+        // Update recommendations
+        await loadRecommendations();
+        
     } catch (error) {
         console.error('Error fetching dashboard data:', error);
     }
@@ -94,6 +97,60 @@ function updateMetrics(metrics) {
         const element = document.querySelector(`[data-metric="${key}"]`);
         if (element) {
             element.textContent = value;
+        }
+    });
+}
+
+// Function to load and display recommendations
+async function loadRecommendations() {
+    try {
+        const response = await fetch('/api/recommendations');
+        const recommendations = await response.json();
+        displayRecommendations(recommendations);
+    } catch (error) {
+        console.error('Error loading recommendations:', error);
+    }
+}
+
+function displayRecommendations(recommendations) {
+    const recommendationsList = document.getElementById('recommendations-list');
+    if (!recommendationsList) return;
+
+    recommendationsList.innerHTML = recommendations.map(rec => `
+        <div class="recommendation-card card mb-3 ${rec.action} hover-card">
+            <div class="card-body">
+                <div class="d-flex justify-content-between align-items-start">
+                    <div>
+                        <h5 class="card-title">${rec.symbol}</h5>
+                        <h6 class="card-subtitle mb-2 text-${rec.action === 'buy' ? 'success' : 'danger'}">
+                            ${rec.action.toUpperCase()}
+                        </h6>
+                    </div>
+                    <span class="badge bg-${rec.timeframe === 'short_term' ? 'warning' : 'info'}">
+                        ${rec.timeframe}
+                    </span>
+                </div>
+                <p class="card-text">${rec.reasoning}</p>
+                <div class="confidence-bar mb-2">
+                    <div class="progress bg-${rec.action === 'buy' ? 'success' : 'danger'}" 
+                         style="width: ${rec.confidence * 100}%"></div>
+                </div>
+                <div class="d-flex justify-content-between align-items-center">
+                    <small class="text-muted">Confidence: ${(rec.confidence * 100).toFixed(1)}%</small>
+                    <small class="text-muted">Strategy: ${rec.strategy_name}</small>
+                </div>
+            </div>
+        </div>
+    `).join('');
+}
+
+function filterRecommendations(action) {
+    const recommendations = document.querySelectorAll('.recommendation-card');
+    recommendations.forEach(rec => {
+        if (action === 'all' || rec.classList.contains(action)) {
+            rec.style.display = 'block';
+        } else {
+            rec.style.display = 'none';
         }
     });
 }
