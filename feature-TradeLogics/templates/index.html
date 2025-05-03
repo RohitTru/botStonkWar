@@ -1,0 +1,48 @@
+async function loadStrategies() {
+    try {
+        const resp = await fetch('/api/strategy-status');
+        const data = await resp.json();
+        allStrategies = data.strategies;
+        
+        // Update strategy status toggles
+        const statusEl = document.getElementById('strategy-status');
+        if (data.strategies && data.strategies.length > 0) {
+            statusEl.innerHTML = data.strategies.map(s => 
+                `<div class="form-check form-switch">
+                    <input class="form-check-input" type="checkbox" id="strategy-${s.name}" 
+                        ${s.active ? 'checked' : ''} 
+                        onchange="toggleStrategy('${s.name}', this.checked)">
+                    <label class="form-check-label" for="strategy-${s.name}">${s.name}</label>
+                </div>`
+            ).join('');
+        }
+
+        // Update strategy filter dropdown
+        const filterEl = document.getElementById('strategy-filter');
+        filterEl.innerHTML = '<option value="">All Strategies</option>' + 
+            data.strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+    } catch (error) {
+        console.error('Error loading strategies:', error);
+    }
+}
+
+async function toggleStrategy(name, active) {
+    try {
+        const resp = await fetch('/api/strategy-activation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name, active })
+        });
+        const data = await resp.json();
+        if (data.status !== 'success') {
+            // If failed, revert the checkbox
+            document.getElementById(`strategy-${name}`).checked = !active;
+        }
+        // Reload recommendations to reflect the change
+        loadRecommendations(1);
+    } catch (error) {
+        console.error('Error toggling strategy:', error);
+        // On error, revert the checkbox
+        document.getElementById(`strategy-${name}`).checked = !active;
+    }
+} 
