@@ -122,7 +122,7 @@ class Database:
         2. Only articles with at least one validated symbol
         """
         query = """
-        SELECT a.id, a.title, a.content, a.link, a.validated_symbols
+        SELECT a.id, a.title, a.content, a.link, a.validated_symbols, a.symbols, a.published_date
         FROM articles a
         LEFT JOIN sentiment_analysis sa ON a.id = sa.article_id
         WHERE sa.article_id IS NULL
@@ -308,10 +308,6 @@ class Database:
         except Exception as e:
             logging.error(f"Failed to store sentiment analysis for article {article_id}: {str(e)}")
             raise
-
-    def get_unanalyzed_articles(self) -> List[Dict]:
-        """Get articles that haven't been analyzed yet"""
-        return self.get_unanalyzed_articles(limit=10)  # Call the main implementation
 
     def get_last_processed_timestamp(self) -> str:
         """Get the timestamp of the last processed article"""
