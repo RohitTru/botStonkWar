@@ -167,10 +167,15 @@
                 }
                 let priceBox = '';
                 if (live.price !== undefined && live.price !== null) {
+                    let noteHtml = '';
+                    if (live.market_closed || (live.note && live.note.length > 0)) {
+                        noteHtml = `<div class='text-warning small mt-1'>${live.note || 'Market is closed. Showing last close price.'}</div>`;
+                    }
                     priceBox = `
                         <div class="price-box" id="price-box-${idx}" data-symbol="${rec.symbol}" data-action="${rec.action}" data-strategy="${rec.strategy_name}" data-created="${rec.created_at}">
                             <span class="price-tooltip">Click to refresh price</span>
                             $${live.price} <span style="font-size:1.1rem;" class='ms-2 text-${live.change_percent > 0 ? 'success' : (live.change_percent < 0 ? 'danger' : 'secondary')}'>(${live.change_percent ? live.change_percent.toFixed(2) : '0.00'}%)</span>
+                            ${noteHtml}
                         </div>
                     `;
                 } else {
@@ -229,7 +234,11 @@
                         });
                         const data = await resp.json();
                         if (data.price !== undefined && data.price !== null) {
-                            box.innerHTML = `<span class="price-tooltip">Click to refresh price</span>$${data.price} <span style="font-size:1.1rem;" class='ms-2 text-${data.change_percent > 0 ? 'success' : (data.change_percent < 0 ? 'danger' : 'secondary')}'>(${data.change_percent ? data.change_percent.toFixed(2) : '0.00'}%)</span>`;
+                            let noteHtml = '';
+                            if (data.market_closed || (data.note && data.note.length > 0)) {
+                                noteHtml = `<div class='text-warning small mt-1'>${data.note || 'Market is closed. Showing last close price.'}</div>`;
+                            }
+                            box.innerHTML = `<span class="price-tooltip">Click to refresh price</span>$${data.price} <span style="font-size:1.1rem;" class='ms-2 text-${data.change_percent > 0 ? 'success' : (data.change_percent < 0 ? 'danger' : 'secondary')}'>(${data.change_percent ? data.change_percent.toFixed(2) : '0.00'}%)</span>${noteHtml}`;
                         } else {
                             box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Live price unavailable';
                         }

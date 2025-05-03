@@ -42,40 +42,47 @@ class ShortTermVolatileStrategy(BaseStrategy):
                 'APCA-API-SECRET-KEY': self.alpaca_secret
             }
             resp = requests.get(f'{self.alpaca_url}/{symbol}/quotes/latest', headers=headers)
-            if resp.status_code == 200:
-                quote = resp.json().get('quote', {})
-                price = quote.get('ap') or quote.get('bp') or quote.get('sp')
-                # Fetch last trade for % change and volume
-                trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
-                trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
-                last_price = trade.get('p')
-                volume = trade.get('s')
-                # For % change, fetch previous close
-                bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit=2', headers=headers)
-                bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
-                change_percent = None
-                if len(bars) == 2 and last_price:
-                    prev_close = bars[0].get('c')
-                    if prev_close:
-                        change_percent = ((last_price - prev_close) / prev_close) * 100
+            quote = resp.json().get('quote', {}) if resp.status_code == 200 else {}
+            price = quote.get('ap') or quote.get('bp') or quote.get('sp')
+            # Fetch last trade for % change and volume
+            trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
+            trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
+            last_price = trade.get('p')
+            volume = trade.get('s')
+            # For % change, fetch previous close
+            bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit=2', headers=headers)
+            bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
+            change_percent = None
+            prev_close = None
+            if len(bars) == 2:
+                prev_close = bars[0].get('c')
+                if last_price and prev_close:
+                    change_percent = ((last_price - prev_close) / prev_close) * 100
+            # Determine if market is closed (no live price, but we have last close)
+            if (last_price is None or last_price == 0) and prev_close:
                 data = {
-                    'price': last_price or price,
-                    'change_percent': change_percent,
+                    'price': prev_close,
+                    'change_percent': 0.0,
                     'volume': volume,
                     'last_updated': now.isoformat(),
-                    'status': 'ok' if (last_price or price) is not None else 'unknown'
+                    'status': 'market_closed',
+                    'market_closed': True,
+                    'note': 'Market is closed. Showing last close price.'
                 }
                 self._alpaca_cache[symbol] = (data, now)
                 return data
-            else:
-                print(f"[ShortTerm] Alpaca API error for {symbol}: {resp.status_code} {resp.text}")
-                return {
-                    'price': None,
-                    'change_percent': None,
-                    'volume': None,
-                    'last_updated': now.isoformat(),
-                    'status': f'error: {resp.status_code} {resp.text}'
-                }
+            # Normal live price
+            data = {
+                'price': last_price or price or prev_close,
+                'change_percent': change_percent,
+                'volume': volume,
+                'last_updated': now.isoformat(),
+                'status': 'ok' if (last_price or price) is not None else 'unknown',
+                'market_closed': False,
+                'note': None
+            }
+            self._alpaca_cache[symbol] = (data, now)
+            return data
         except Exception as e:
             print(f"[ShortTerm] Could not fetch live price for {symbol}: {e}")
             return {
@@ -83,7 +90,9 @@ class ShortTermVolatileStrategy(BaseStrategy):
                 'change_percent': None,
                 'volume': None,
                 'last_updated': now.isoformat(),
-                'status': f'exception: {e}'
+                'status': f'exception: {e}',
+                'market_closed': None,
+                'note': None
             }
     
     def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
