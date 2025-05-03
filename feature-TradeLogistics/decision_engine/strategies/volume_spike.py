@@ -23,42 +23,57 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
 
     def fetch_live_price(self, symbol):
         ws_price = price_service.get_price(symbol)
-        if ws_price and ws_price.get('price') is not None:
-            return ws_price
+        if ws_price and ws_price.get('price') is not None and ws_price.get('volume') is not None:
+            return {**ws_price, 'data_source': 'websocket'}
+        # Try to subscribe if not already subscribed
+        price_service.subscribe(symbol)
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None and ws_price.get('volume') is not None:
+            return {**ws_price, 'data_source': 'websocket'}
         now = datetime.utcnow()
         cache_entry = self._alpaca_cache.get(symbol)
         if cache_entry:
             data, ts = cache_entry
             if now - ts < self._alpaca_cache_ttl:
-                return data
+                return {**data, 'data_source': 'rest_api'}
         try:
             headers = {
                 'APCA-API-KEY-ID': self.alpaca_key,
                 'APCA-API-SECRET-KEY': self.alpaca_secret
             }
+            # Get real-time volume from trades
+            trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
+            trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
+            real_time_volume = trade.get('s')
+            
+            # Get historical volume for comparison
             bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit={self.volume_window+1}', headers=headers)
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             volumes = [b.get('v') for b in bars if b.get('v') is not None]
-            last_volume = volumes[-1] if len(volumes) >= 1 else None
+            last_volume = real_time_volume or volumes[-1] if len(volumes) >= 1 else None
             avg_volume = sum(volumes[:-1]) / self.volume_window if len(volumes) > 1 else None
+            
             data = {
                 'last_volume': last_volume,
                 'avg_volume': avg_volume,
+                'real_time_volume': real_time_volume,
                 'last_updated': now.isoformat(),
                 'status': 'ok' if last_volume is not None else 'unknown',
                 'market_closed': None,
                 'note': None
             }
             self._alpaca_cache[symbol] = (data, now)
-            return data
+            return {**data, 'data_source': 'rest_api'}
         except Exception as e:
             return {
                 'last_volume': None,
                 'avg_volume': None,
+                'real_time_volume': None,
                 'last_updated': now.isoformat(),
                 'status': f'exception: {e}',
                 'market_closed': None,
-                'note': None
+                'note': None,
+                'data_source': 'rest_api'
             }
 
     def get_required_data(self):
@@ -76,7 +91,7 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
                 continue
             for symbol in article.get('validated_symbols', []):
                 price_data = self.fetch_live_price(symbol)
-                last_volume = price_data.get('last_volume')
+                last_volume = price_data.get('real_time_volume') or price_data.get('last_volume')
                 avg_volume = price_data.get('avg_volume')
                 if last_volume is None or avg_volume is None:
                     continue
@@ -87,7 +102,12 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
                         confidence=sentiment['confidence_score'],
                         reasoning=f"Volume spike: {last_volume} vs avg {avg_volume:.0f} (factor {self.spike_factor}x)",
                         timeframe='short_term',
-                        metadata={'last_volume': last_volume, 'avg_volume': avg_volume, 'live_data': price_data},
+                        metadata={
+                            'last_volume': last_volume,
+                            'avg_volume': avg_volume,
+                            'real_time_volume': price_data.get('real_time_volume'),
+                            'live_data': price_data
+                        },
                         strategy_name=self.name,
                         created_at=now
                     ).to_dict())

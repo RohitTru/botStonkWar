@@ -20,7 +20,6 @@ from decision_engine.strategies.mean_reversion import MeanReversionFilterStrateg
 from decision_engine.strategies.volume_spike import VolumeSpikeSentimentStrategy
 from decision_engine.strategies.news_breakout import NewsDrivenBreakoutStrategy
 from decision_engine.strategies.sentiment_divergence import SentimentDivergenceStrategy
-from decision_engine.alpaca_ws_price_service import AlpacaWebSocketPriceService
 
 load_dotenv()
 
@@ -65,10 +64,6 @@ strategy_manager.register_strategy(NewsDrivenBreakoutStrategy())
 strategy_manager.register_strategy(SentimentDivergenceStrategy())
 
 FETCH_WINDOW_MINUTES = 30  # Time window for live strategies
-
-# Start Alpaca WebSocket price service with a default symbol list (expand as needed)
-DEFAULT_SYMBOLS = ['AAPL', 'TSLA', 'GOOG', 'MSFT', 'AMZN']
-price_service = AlpacaWebSocketPriceService(DEFAULT_SYMBOLS)
 
 def fetch_strategy_data():
     with engine.connect() as conn:
@@ -211,6 +206,11 @@ def set_strategy_activation():
 @app.route('/api/strategy-activation', methods=['GET'])
 def get_strategy_activation():
     return jsonify(strategy_manager.sqlite.get_all_strategy_activation())
+
+@app.route('/api/ws-subscribed-symbols')
+def get_ws_subscribed_symbols():
+    from decision_engine.alpaca_ws_price_service import price_service
+    return jsonify({'symbols': price_service.get_subscribed_symbols()})
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))

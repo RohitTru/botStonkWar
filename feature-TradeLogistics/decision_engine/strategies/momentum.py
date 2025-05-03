@@ -24,13 +24,18 @@ class SentimentMomentumStrategy(BaseStrategy):
     def fetch_live_price(self, symbol):
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
-            return ws_price
+            return {**ws_price, 'data_source': 'websocket'}
+        # Try to subscribe if not already subscribed
+        price_service.subscribe(symbol)
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None:
+            return {**ws_price, 'data_source': 'websocket'}
         now = datetime.utcnow()
         cache_entry = self._alpaca_cache.get(symbol)
         if cache_entry:
             data, ts = cache_entry
             if now - ts < self._alpaca_cache_ttl:
-                return data
+                return {**data, 'data_source': 'rest_api'}
         try:
             headers = {
                 'APCA-API-KEY-ID': self.alpaca_key,
@@ -62,7 +67,7 @@ class SentimentMomentumStrategy(BaseStrategy):
                     'note': 'Market is closed. Showing last close price.'
                 }
                 self._alpaca_cache[symbol] = (data, now)
-                return data
+                return {**data, 'data_source': 'rest_api'}
             data = {
                 'price': last_price or price or prev_close,
                 'change_percent': change_percent,
@@ -73,7 +78,7 @@ class SentimentMomentumStrategy(BaseStrategy):
                 'note': None
             }
             self._alpaca_cache[symbol] = (data, now)
-            return data
+            return {**data, 'data_source': 'rest_api'}
         except Exception as e:
             return {
                 'price': None,
@@ -82,7 +87,8 @@ class SentimentMomentumStrategy(BaseStrategy):
                 'last_updated': now.isoformat(),
                 'status': f'exception: {e}',
                 'market_closed': None,
-                'note': None
+                'note': None,
+                'data_source': 'rest_api'
             }
 
     def get_required_data(self):

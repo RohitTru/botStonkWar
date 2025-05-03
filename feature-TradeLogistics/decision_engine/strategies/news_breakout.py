@@ -22,41 +22,56 @@ class NewsDrivenBreakoutStrategy(BaseStrategy):
     def fetch_live_price(self, symbol):
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
-            return ws_price
+            return {**ws_price, 'data_source': 'websocket'}
+        # Try to subscribe if not already subscribed
+        price_service.subscribe(symbol)
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None:
+            return {**ws_price, 'data_source': 'websocket'}
         now = datetime.utcnow()
         cache_entry = self._alpaca_cache.get(symbol)
         if cache_entry:
             data, ts = cache_entry
             if now - ts < self._alpaca_cache_ttl:
-                return data
+                return {**data, 'data_source': 'rest_api'}
         try:
             headers = {
                 'APCA-API-KEY-ID': self.alpaca_key,
                 'APCA-API-SECRET-KEY': self.alpaca_secret
             }
+            # Get real-time price
+            resp = requests.get(f'{self.alpaca_url}/{symbol}/quotes/latest', headers=headers)
+            quote = resp.json().get('quote', {}) if resp.status_code == 200 else {}
+            real_time_price = quote.get('ap') or quote.get('bp') or quote.get('sp')
+            
+            # Get historical prices for resistance level
             bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit={self.resistance_window+1}', headers=headers)
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             close_prices = [b.get('c') for b in bars if b.get('c') is not None]
-            last_close = close_prices[-1] if close_prices else None
+            last_close = real_time_price or close_prices[-1] if close_prices else None
             resistance = max(close_prices[:-1]) if len(close_prices) > 1 else None
+            
             data = {
                 'last_close': last_close,
                 'resistance': resistance,
+                'real_time_price': real_time_price,
                 'last_updated': now.isoformat(),
                 'status': 'ok' if last_close is not None else 'unknown',
                 'market_closed': None,
                 'note': None
             }
             self._alpaca_cache[symbol] = (data, now)
-            return data
+            return {**data, 'data_source': 'rest_api'}
         except Exception as e:
             return {
                 'last_close': None,
                 'resistance': None,
+                'real_time_price': None,
                 'last_updated': now.isoformat(),
                 'status': f'exception: {e}',
                 'market_closed': None,
-                'note': None
+                'note': None,
+                'data_source': 'rest_api'
             }
 
     def get_required_data(self):
@@ -74,18 +89,23 @@ class NewsDrivenBreakoutStrategy(BaseStrategy):
                 continue
             for symbol in article.get('validated_symbols', []):
                 price_data = self.fetch_live_price(symbol)
-                last_close = price_data.get('last_close')
+                current_price = price_data.get('real_time_price') or price_data.get('last_close')
                 resistance = price_data.get('resistance')
-                if last_close is None or resistance is None:
+                if current_price is None or resistance is None:
                     continue
-                if last_close > resistance:
+                if current_price > resistance:
                     recommendations.append(TradeRecommendation(
                         symbol=symbol,
                         action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
                         confidence=sentiment['confidence_score'],
-                        reasoning=f"Breakout: last close {last_close} above resistance {resistance}.",
+                        reasoning=f"Breakout: current price {current_price:.2f} above resistance {resistance:.2f}",
                         timeframe='short_term',
-                        metadata={'last_close': last_close, 'resistance': resistance, 'live_data': price_data},
+                        metadata={
+                            'current_price': current_price,
+                            'resistance': resistance,
+                            'real_time_price': price_data.get('real_time_price'),
+                            'live_data': price_data
+                        },
                         strategy_name=self.name,
                         created_at=now
                     ).to_dict())

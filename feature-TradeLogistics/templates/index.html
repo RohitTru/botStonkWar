@@ -81,34 +81,36 @@
 
     <div class="container mt-4">
         <div class="row">
+            <!-- WebSocket Subscribed Symbols -->
+            <div class="col-12 mb-3">
+                <div class="card">
+                    <div class="card-header">
+                        <h6 class="mb-0">WebSocket Subscribed Symbols (Live)</h6>
+                    </div>
+                    <div class="card-body">
+                        <div id="ws-subscribed-symbols" class="small text-muted">Loading...</div>
+                    </div>
+                </div>
+            </div>
             <!-- Strategy Status -->
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-header">
-                        <h5 class="card-title mb-0">Active Strategies</h5>
+                        <h6 class="mb-0">Strategy Status</h6>
                     </div>
                     <div class="card-body">
-                        <div id="strategies-list"></div>
+                        <div id="strategy-status">Loading...</div>
                     </div>
                 </div>
             </div>
-
             <!-- Recommendations -->
             <div class="col-md-8">
                 <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h5 class="card-title mb-0">Trading Recommendations</h5>
-                        <div class="btn-group me-2">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="filterRecommendations('all')">All</button>
-                            <button class="btn btn-sm btn-outline-success" onclick="filterRecommendations('buy')">Buy</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="filterRecommendations('sell')">Sell</button>
-                        </div>
-                        <select id="strategyFilter" class="form-select form-select-sm w-auto" onchange="applyStrategyFilter()">
-                            <option value="all">All Strategies</option>
-                        </select>
+                    <div class="card-header">
+                        <h6 class="mb-0">Recommendations</h6>
                     </div>
                     <div class="card-body">
-                        <div id="recommendations-list"></div>
+                        <div id="recommendations">Loading...</div>
                     </div>
                 </div>
             </div>
@@ -121,182 +123,40 @@
         let allStrategies = [];
 
         async function loadStrategies() {
-            const response = await fetch('/api/strategies');
-            const strategies = await response.json();
-            allStrategies = strategies;
-            const strategiesList = document.getElementById('strategies-list');
-            strategiesList.innerHTML = strategies.map(strategy => `
-                <div class="strategy-card card mb-2">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-center">
-                            <div>
-                                <h6 class="card-title">${strategy.name}</h6>
-                                <p class="card-text small text-muted">${strategy.description}</p>
-                            </div>
-                            <div>
-                                <label class="form-check form-switch mb-0">
-                                    <input class="form-check-input" type="checkbox" id="toggle-${strategy.name}" ${strategy.active ? 'checked' : ''} onchange="toggleStrategyActivation('${strategy.name}', this.checked)">
-                                    <span class="ms-1">${strategy.active ? 'Active' : 'Inactive'}</span>
-                                </label>
-                            </div>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center mb-2">
-                            <small class="text-muted">Last run: ${strategy.metrics.last_run || 'Never'}</small>
-                        </div>
-                        <ul class="list-group list-group-flush small">
-                            <li class="list-group-item">Articles processed: <b>${strategy.metrics.articles_processed}</b></li>
-                            <li class="list-group-item">High-confidence articles: <b>${strategy.metrics.high_confidence_articles}</b></li>
-                            <li class="list-group-item">Recommendations: <b>${strategy.metrics.recommendations_generated}</b></li>
-                            ${strategy.metrics.errors ? `<li class="list-group-item text-danger">Error: ${strategy.metrics.errors}</li>` : ''}
-                        </ul>
-                    </div>
-                </div>
-            `).join('');
-            // Populate strategy filter dropdown
-            const strategyFilter = document.getElementById('strategyFilter');
-            strategyFilter.innerHTML = `<option value="all">All Strategies</option>` +
-                strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+            const resp = await fetch('/api/strategy-status');
+            const data = await resp.json();
+            const el = document.getElementById('strategy-status');
+            el.innerHTML = data.map(s => `<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="strategy-${s.name}" ${s.active ? 'checked' : ''} onchange="toggleStrategy('${s.name}', this.checked)"><label class="form-check-label" for="strategy-${s.name}">${s.name}</label></div>`).join('');
+        }
+
+        async function toggleStrategy(name, active) {
+            await fetch('/api/strategy-status', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ name, active }) });
+            loadStrategies();
         }
 
         async function loadRecommendations() {
-            const response = await fetch('/api/recommendations');
-            const recommendations = await response.json();
-            allRecommendations = recommendations;
-            displayRecommendations(recommendations);
+            const resp = await fetch('/api/recommendations');
+            const data = await resp.json();
+            const el = document.getElementById('recommendations');
+            el.innerHTML = data.map(r => `<div class="alert alert-${r.action === 'buy' ? 'success' : 'danger'} mb-2"><strong>${r.symbol}</strong> ${r.action.toUpperCase()} (${r.confidence.toFixed(2)})<br><small>${r.reasoning}</small><span class="badge bg-${r.metadata.live_data.data_source === 'websocket' ? 'info' : 'secondary'} ms-2">${r.metadata.live_data.data_source}</span></div>`).join('');
         }
 
-        function displayRecommendations(recommendations) {
-            const recommendationsList = document.getElementById('recommendations-list');
-            recommendationsList.innerHTML = recommendations.map((rec, idx) => {
-                let live = rec.metadata && rec.metadata.live_data ? rec.metadata.live_data : {};
-                if (!live.price && rec.live_price) {
-                    live.price = rec.live_price;
-                    live.change_percent = rec.live_change_percent;
-                    live.volume = rec.live_volume;
-                }
-                let priceBox = '';
-                if (live.price !== undefined && live.price !== null) {
-                    let noteHtml = '';
-                    if (live.market_closed || (live.note && live.note.length > 0)) {
-                        noteHtml = `<div class='text-warning small mt-1'>${live.note || 'Market is closed. Showing last close price.'}</div>`;
-                    }
-                    priceBox = `
-                        <div class="price-box" id="price-box-${idx}" data-symbol="${rec.symbol}" data-action="${rec.action}" data-strategy="${rec.strategy_name}" data-created="${rec.created_at}">
-                            <span class="price-tooltip">Click to refresh price</span>
-                            $${live.price} <span style="font-size:1.1rem;" class='ms-2 text-${live.change_percent > 0 ? 'success' : (live.change_percent < 0 ? 'danger' : 'secondary')}'>(${live.change_percent ? live.change_percent.toFixed(2) : '0.00'}%)</span>
-                            ${noteHtml}
-                        </div>
-                    `;
-                } else {
-                    priceBox = `<div class="price-box" id="price-box-${idx}" data-symbol="${rec.symbol}" data-action="${rec.action}" data-strategy="${rec.strategy_name}" data-created="${rec.created_at}"><span class="price-tooltip">Click to refresh price</span>Live price unavailable</div>`;
-                }
-                let volumeInfo = '';
-                if (live.volume !== undefined && live.volume !== null) {
-                    volumeInfo = `<div style="font-size:1.1rem;"><b>Volume:</b> ${live.volume}</div>`;
-                }
-                let tradeTime = rec.trade_time ? `<div><b>Trade Time:</b> ${new Date(rec.trade_time).toLocaleString()}</div>` : '';
-                return `
-                <div class="recommendation-card card mb-3 ${rec.action}" data-strategy="${rec.strategy_name}" data-symbol="${rec.symbol}" data-idx="${idx}">
-                    <div class="card-body">
-                        <div class="d-flex justify-content-between align-items-start">
-                            <div>
-                                <h5 class="card-title">${rec.symbol}</h5>
-                                <h6 class="card-subtitle mb-2 text-${rec.action === 'buy' ? 'success' : 'danger'}">
-                                    ${rec.action.toUpperCase()}
-                                </h6>
-                            </div>
-                            <span class="badge bg-${rec.timeframe === 'short_term' ? 'warning' : 'info'}">
-                                ${rec.timeframe}
-                            </span>
-                            ${priceBox}
-                        </div>
-                        <p class="card-text">${rec.reasoning}</p>
-                        ${volumeInfo}
-                        ${tradeTime}
-                        <div class="confidence-bar mb-2">
-                            <div class="progress bg-${rec.action === 'buy' ? 'success' : 'danger'}" 
-                                 style="width: ${rec.confidence * 100}%"></div>
-                        </div>
-                        <div class="d-flex justify-content-between align-items-center">
-                            <small class="text-muted">Confidence: ${(rec.confidence * 100).toFixed(1)}%</small>
-                            <small class="text-muted">Strategy: ${rec.strategy_name}</small>
-                        </div>
-                    </div>
-                </div>
-                `;
-            }).join('');
-
-            // Add click event listeners for price box refresh
-            document.querySelectorAll('.price-box').forEach(box => {
-                box.addEventListener('click', async function(e) {
-                    e.stopPropagation();
-                    const symbol = box.getAttribute('data-symbol');
-                    const action = box.getAttribute('data-action');
-                    const strategy = box.getAttribute('data-strategy');
-                    const created = box.getAttribute('data-created');
-                    box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Fetching...';
-                    try {
-                        const resp = await fetch('/api/live-price', {
-                            method: 'POST',
-                            headers: { 'Content-Type': 'application/json' },
-                            body: JSON.stringify({ symbol, action, strategy_name: strategy, created_at: created })
-                        });
-                        const data = await resp.json();
-                        if (data.price !== undefined && data.price !== null) {
-                            let noteHtml = '';
-                            if (data.market_closed || (data.note && data.note.length > 0)) {
-                                noteHtml = `<div class='text-warning small mt-1'>${data.note || 'Market is closed. Showing last close price.'}</div>`;
-                            }
-                            box.innerHTML = `<span class="price-tooltip">Click to refresh price</span>$${data.price} <span style="font-size:1.1rem;" class='ms-2 text-${data.change_percent > 0 ? 'success' : (data.change_percent < 0 ? 'danger' : 'secondary')}'>(${data.change_percent ? data.change_percent.toFixed(2) : '0.00'}%)</span>${noteHtml}`;
-                        } else {
-                            box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Live price unavailable';
-                        }
-                    } catch (err) {
-                        box.innerHTML = '<span class="price-tooltip">Click to refresh price</span>Error fetching price';
-                    }
-                });
-            });
-        }
-
-        function filterRecommendations(action) {
-            const recommendations = document.querySelectorAll('.recommendation-card');
-            recommendations.forEach(rec => {
-                if (action === 'all' || rec.classList.contains(action)) {
-                    rec.style.display = 'block';
-                } else {
-                    rec.style.display = 'none';
-                }
-            });
-        }
-
-        function applyStrategyFilter() {
-            const selected = document.getElementById('strategyFilter').value;
-            let filtered = allRecommendations;
-            if (selected !== 'all') {
-                filtered = allRecommendations.filter(r => r.strategy_name === selected);
+        async function loadWsSubscribedSymbols() {
+            const resp = await fetch('/api/ws-subscribed-symbols');
+            const data = await resp.json();
+            const el = document.getElementById('ws-subscribed-symbols');
+            if (data.symbols && data.symbols.length > 0) {
+                el.innerHTML = data.symbols.map(s => `<span class="badge bg-info text-dark me-1">${s}</span>`).join(' ');
+            } else {
+                el.innerHTML = '<span class="text-danger">No active subscriptions</span>';
             }
-            displayRecommendations(filtered);
-        }
-
-        async function toggleStrategyActivation(name, active) {
-            await fetch('/api/strategy-activation', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ name, active })
-            });
-            // Optionally reload strategies to update UI
-            loadStrategies();
         }
 
         // Initial load
         loadStrategies();
         loadRecommendations();
-
-        // Refresh data every 30 seconds
-        setInterval(() => {
-            loadStrategies();
-            loadRecommendations();
-        }, 30000);
+        loadWsSubscribedSymbols();
+        setInterval(loadWsSubscribedSymbols, 5000);
     </script>
 </body>
 </html> 

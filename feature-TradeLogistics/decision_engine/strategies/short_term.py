@@ -32,7 +32,12 @@ class ShortTermVolatileStrategy(BaseStrategy):
         # Try WebSocket price service first
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
-            return ws_price
+            return {**ws_price, 'data_source': 'websocket'}
+        # Try to subscribe if not already subscribed
+        price_service.subscribe(symbol)
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None:
+            return {**ws_price, 'data_source': 'websocket'}
         # Fallback to REST API/last close as before
         now = datetime.utcnow()
         # Check cache
@@ -40,7 +45,7 @@ class ShortTermVolatileStrategy(BaseStrategy):
         if cache_entry:
             data, ts = cache_entry
             if now - ts < self._alpaca_cache_ttl:
-                return data
+                return {**data, 'data_source': 'rest_api'}
         # Fetch from Alpaca
         try:
             headers = {
@@ -76,7 +81,7 @@ class ShortTermVolatileStrategy(BaseStrategy):
                     'note': 'Market is closed. Showing last close price.'
                 }
                 self._alpaca_cache[symbol] = (data, now)
-                return data
+                return {**data, 'data_source': 'rest_api'}
             # Normal live price
             data = {
                 'price': last_price or price or prev_close,
@@ -88,7 +93,7 @@ class ShortTermVolatileStrategy(BaseStrategy):
                 'note': None
             }
             self._alpaca_cache[symbol] = (data, now)
-            return data
+            return {**data, 'data_source': 'rest_api'}
         except Exception as e:
             print(f"[ShortTerm] Could not fetch live price for {symbol}: {e}")
             return {
@@ -98,7 +103,8 @@ class ShortTermVolatileStrategy(BaseStrategy):
                 'last_updated': now.isoformat(),
                 'status': f'exception: {e}',
                 'market_closed': None,
-                'note': None
+                'note': None,
+                'data_source': 'rest_api'
             }
     
     def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
