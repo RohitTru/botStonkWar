@@ -12,11 +12,13 @@ from decision_engine.strategies.short_term import ShortTermVolatileStrategy
 from decision_engine.strategies.consensus import SentimentConsensusStrategy
 from decision_engine.strategies.reversal import SentimentReversalStrategy
 from dotenv import load_dotenv
+from decision_engine.models.trade_sqlite import TradeRecommendationSQLite
 
 load_dotenv()
 
 app = Flask(__name__)
 strategy_manager = StrategyManager()
+trade_sqlite = TradeRecommendationSQLite()
 
 # Configure logging
 if not os.path.exists('logs'):
@@ -104,16 +106,22 @@ def get_recommendations():
     print("Endpoint: /api/recommendations called")
     # Always fetch and run strategies before returning recommendations
     strategy_data = fetch_strategy_data()
-    strategy_manager.run_all_strategies(strategy_data)
+    recs = strategy_manager.run_all_strategies(strategy_data)
+    # Insert new recommendations into SQLite
+    for rec in recs:
+        trade_sqlite.insert(rec)
+    # Fetch all recommendations from SQLite for the dashboard
     min_confidence = float(request.args.get('min_confidence', 0.0))
     timeframe = request.args.get('timeframe')
     strategy_name = request.args.get('strategy_name')
-    recommendations = strategy_manager.get_recommendations(
-        min_confidence=min_confidence,
-        timeframe=timeframe,
-        strategy_name=strategy_name
-    )
-    return jsonify(recommendations)
+    all_recs = trade_sqlite.fetch_all()
+    # Apply filters
+    filtered = [r for r in all_recs if (
+        (min_confidence == 0.0 or r['confidence'] >= min_confidence) and
+        (not timeframe or r['timeframe'] == timeframe) and
+        (not strategy_name or r['strategy_name'] == strategy_name)
+    )]
+    return jsonify(filtered)
 
 @app.route('/api/run-analysis', methods=['POST'])
 def run_analysis():
@@ -158,18 +166,20 @@ def health():
     print("Endpoint: /health called")
     return jsonify(status="healthy")
 
-@app.route('/api/live-price/<symbol>')
-def get_live_price(symbol):
-    print(f"Endpoint: /api/live-price/{symbol} called")
-    # Use the short-term strategy's fetch_live_price, but bypass cache
+@app.route('/api/live-price', methods=['POST'])
+def get_live_price():
+    print(f"Endpoint: /api/live-price POST called")
+    data = request.json
+    symbol = data.get('symbol')
+    action = data.get('action')
+    strategy_name = data.get('strategy_name')
+    created_at = data.get('created_at')
     from decision_engine.strategies.short_term import ShortTermVolatileStrategy
     strat = ShortTermVolatileStrategy()
-    # Temporarily set cache TTL to 0 to force refresh
-    orig_ttl = strat._alpaca_cache_ttl
-    strat._alpaca_cache_ttl = timedelta(seconds=0)
-    data = strat.fetch_live_price(symbol)
-    strat._alpaca_cache_ttl = orig_ttl
-    return jsonify(data)
+    live_data = strat.fetch_live_price(symbol)
+    # Update SQLite record
+    trade_sqlite.update_live_data(symbol, action, strategy_name, created_at, live_data)
+    return jsonify(live_data)
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))
