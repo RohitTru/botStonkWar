@@ -194,7 +194,7 @@ class Database:
                 a.source,
                 a.published_date,
                 a.scraped_date,
-                a.symbols,
+                a.validated_symbols,
                 a.content,
                 sa.sentiment_score,
                 sa.confidence_score,
@@ -205,6 +205,8 @@ class Database:
             FROM articles a
             JOIN sentiment_analysis sa ON a.id = sa.article_id
             WHERE a.is_deleted = FALSE
+            AND a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
             ORDER BY {order_by}
             LIMIT %s OFFSET %s
         """
@@ -386,18 +388,24 @@ class Database:
         return self.execute_query(query, (json.dumps(symbol),))
 
     def get_analyzed_count(self) -> int:
-        """Get total count of analyzed articles"""
+        """Get total count of analyzed articles with validated symbols"""
         result = self.execute_query("""
             SELECT COUNT(*) as count
-            FROM sentiment_analysis
+            FROM sentiment_analysis sa
+            JOIN articles a ON sa.article_id = a.id
+            WHERE a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
         """)
         return result[0]['count'] if result else 0
 
     def get_sentiment_count(self, prediction: str) -> int:
-        """Get count of articles with specific sentiment prediction"""
+        """Get count of articles with specific sentiment prediction and validated symbols"""
         result = self.execute_query("""
             SELECT COUNT(*) as count
-            FROM sentiment_analysis
+            FROM sentiment_analysis sa
+            JOIN articles a ON sa.article_id = a.id
             WHERE prediction = %s
+            AND a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
         """, (prediction,))
         return result[0]['count'] if result else 0 

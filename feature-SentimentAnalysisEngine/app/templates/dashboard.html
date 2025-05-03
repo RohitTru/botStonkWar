@@ -362,6 +362,23 @@
         function createSymbolsPreview(stocks) {
             if (!stocks || stocks.length === 0) return 'N/A';
             
+            // Ensure stocks is an array of strings
+            let symbolsArray = stocks;
+            if (typeof stocks === 'string') {
+                try {
+                    symbolsArray = JSON.parse(stocks);
+                } catch (e) {
+                    console.error('Error parsing stocks:', e);
+                    return 'N/A';
+                }
+            }
+            
+            // Ensure we have an array
+            if (!Array.isArray(symbolsArray)) {
+                console.error('Stocks is not an array:', stocks);
+                return 'N/A';
+            }
+            
             const container = document.createElement('div');
             container.className = 'symbols-container';
             
@@ -369,32 +386,32 @@
             preview.className = 'symbols-preview';
             
             // Show first 3 symbols
-            const visibleSymbols = stocks.slice(0, 3);
+            const visibleSymbols = symbolsArray.slice(0, 3);
             visibleSymbols.forEach(symbol => {
                 const span = document.createElement('span');
                 span.className = 'stock-symbol';
-                span.textContent = symbol;
+                span.textContent = typeof symbol === 'object' ? symbol.symbol || 'Unknown' : symbol;
                 preview.appendChild(span);
             });
             
             // Add "more" indicator if there are additional symbols
-            if (stocks.length > 3) {
+            if (symbolsArray.length > 3) {
                 const more = document.createElement('span');
                 more.className = 'symbols-more';
-                more.textContent = `+${stocks.length - 3}`;
+                more.textContent = `+${symbolsArray.length - 3}`;
                 preview.appendChild(more);
             }
             
             container.appendChild(preview);
             
             // Create tooltip with all symbols
-            if (stocks.length > 3) {
+            if (symbolsArray.length > 3) {
                 const tooltip = document.createElement('div');
                 tooltip.className = 'symbols-tooltip';
-                stocks.forEach(symbol => {
+                symbolsArray.forEach(symbol => {
                     const span = document.createElement('span');
                     span.className = 'stock-symbol';
-                    span.textContent = symbol;
+                    span.textContent = typeof symbol === 'object' ? symbol.symbol || 'Unknown' : symbol;
                     tooltip.appendChild(span);
                 });
                 container.appendChild(tooltip);
@@ -406,11 +423,19 @@
         function showArticleDetails(article) {
             document.getElementById('modal-title').textContent = article.title;
             
-            // Format stocks - show all symbols directly
+            // Format stocks - show all validated symbols directly
             const stocksContainer = document.getElementById('modal-stocks');
             stocksContainer.className = 'modal-stocks-container';
             stocksContainer.innerHTML = '';
-            const stocks = JSON.parse(article.symbols || '[]');
+            let stocks = article.validated_symbols;
+            if (typeof stocks === 'string') {
+                try {
+                    stocks = JSON.parse(stocks);
+                } catch (e) {
+                    console.error('Error parsing validated_symbols:', e);
+                    stocks = [];
+                }
+            }
             stocks.forEach(symbol => {
                 const span = document.createElement('span');
                 span.className = 'stock-symbol';
@@ -605,7 +630,18 @@
                     row.onclick = () => showArticleDetails(analysis);
                     
                     const sentimentClass = analysis.prediction === 'bullish' ? 'bullish' : 'bearish';
-                    const stocks = JSON.parse(analysis.symbols || '[]');
+                    
+                    // Handle validated_symbols data instead of symbols
+                    let stocks = analysis.validated_symbols;
+                    if (typeof stocks === 'string') {
+                        try {
+                            stocks = JSON.parse(stocks);
+                        } catch (e) {
+                            console.error('Error parsing validated_symbols:', e);
+                            stocks = [];
+                        }
+                    }
+                    
                     const stocksHtml = createSymbolsPreview(stocks);
                     
                     row.innerHTML = `
