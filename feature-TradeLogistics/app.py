@@ -95,6 +95,9 @@ def get_strategies():
 @app.route('/api/recommendations')
 def get_recommendations():
     print("Endpoint: /api/recommendations called")
+    # Always fetch and run strategies before returning recommendations
+    strategy_data = fetch_strategy_data()
+    strategy_manager.run_all_strategies(strategy_data)
     min_confidence = float(request.args.get('min_confidence', 0.0))
     timeframe = request.args.get('timeframe')
     strategy_name = request.args.get('strategy_name')
