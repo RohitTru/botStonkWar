@@ -132,6 +132,10 @@
             padding: 1rem;
             background: #f8f9fa;
             border-radius: 8px;
+            transition: transform 0.2s;
+        }
+        .stats-item:hover {
+            transform: translateY(-2px);
         }
         .stats-item .number {
             font-size: 1.5rem;
@@ -141,6 +145,23 @@
         .stats-item .label {
             font-size: 0.9rem;
             color: #6c757d;
+        }
+        .stats-item.attempts .number {
+            color: #ffc107; /* Bootstrap warning yellow */
+        }
+        .stats-item.successful .number {
+            color: #198754; /* Bootstrap success green */
+        }
+        .stats-item.failed .number {
+            color: #dc3545; /* Bootstrap danger red */
+        }
+        .stats-item.rate .number {
+            color: #0d6efd; /* Bootstrap primary blue */
+        }
+        .card-title .time-window {
+            font-size: 0.8rem;
+            color: #6c757d;
+            font-weight: normal;
         }
     </style>
 </head>
@@ -169,7 +190,7 @@
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Articles Found</h5>
+                        <h5 class="card-title">TotalArticles Found</h5>
                         <div id="articles-count" class="h2">0</div>
                     </div>
                 </div>
@@ -179,21 +200,21 @@
             <div class="col-md-4">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Last Hour Statistics</h5>
+                        <h5 class="card-title">Last Hour Statistics <span class="time-window">(past 60 minutes)</span></h5>
                         <div class="stats-grid">
-                            <div class="stats-item">
+                            <div class="stats-item attempts">
                                 <div class="number" id="total-attempts">0</div>
                                 <div class="label">Attempts</div>
                             </div>
-                            <div class="stats-item">
+                            <div class="stats-item successful">
                                 <div class="number" id="successful-attempts">0</div>
                                 <div class="label">Successful</div>
                             </div>
-                            <div class="stats-item">
+                            <div class="stats-item failed">
                                 <div class="number" id="failed-attempts">0</div>
                                 <div class="label">Failed</div>
                             </div>
-                            <div class="stats-item">
+                            <div class="stats-item rate">
                                 <div class="number" id="success-rate">0%</div>
                                 <div class="label">Success Rate</div>
                             </div>
