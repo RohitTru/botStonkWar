@@ -44,7 +44,7 @@ class ShortTermVolatileStrategy(BaseStrategy):
             resp = requests.get(f'{self.alpaca_url}/{symbol}/quotes/latest', headers=headers)
             if resp.status_code == 200:
                 quote = resp.json().get('quote', {})
-                price = quote.get('ap') or quote.get('bp') or quote.get('sp')  # ask, bid, or spread price
+                price = quote.get('ap') or quote.get('bp') or quote.get('sp')
                 # Fetch last trade for % change and volume
                 trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
                 trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
@@ -62,15 +62,29 @@ class ShortTermVolatileStrategy(BaseStrategy):
                     'price': last_price or price,
                     'change_percent': change_percent,
                     'volume': volume,
-                    'last_updated': now.isoformat()
+                    'last_updated': now.isoformat(),
+                    'status': 'ok' if (last_price or price) is not None else 'unknown'
                 }
                 self._alpaca_cache[symbol] = (data, now)
                 return data
             else:
                 print(f"[ShortTerm] Alpaca API error for {symbol}: {resp.status_code} {resp.text}")
+                return {
+                    'price': None,
+                    'change_percent': None,
+                    'volume': None,
+                    'last_updated': now.isoformat(),
+                    'status': f'error: {resp.status_code} {resp.text}'
+                }
         except Exception as e:
             print(f"[ShortTerm] Could not fetch live price for {symbol}: {e}")
-        return {}
+            return {
+                'price': None,
+                'change_percent': None,
+                'volume': None,
+                'last_updated': now.isoformat(),
+                'status': f'exception: {e}'
+            }
     
     def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         recommendations = []
