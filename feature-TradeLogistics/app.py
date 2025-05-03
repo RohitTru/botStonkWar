@@ -200,7 +200,7 @@ async def fetch_strategy_data():
                 'confidence_score': float(row[5]),
                 'prediction': row[6]
             }
-        
+        print(f"Fetched {len(articles)} articles from DB for strategy analysis.")
         return {
             'articles': articles,
             'sentiment_scores': sentiment_scores

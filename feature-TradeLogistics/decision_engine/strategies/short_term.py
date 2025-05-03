@@ -28,20 +28,22 @@ class ShortTermVolatileStrategy(BaseStrategy):
             articles = data.get('articles', [])
             sentiment_scores = data.get('sentiment_scores', {})
             articles_processed = len(articles)
+            print(f"Analyzing {len(articles)} articles in strategy.")
+            print(f"Sentiment scores keys: {list(sentiment_scores.keys())}")
             
             for article in articles:
                 article_id = article['id']
                 sentiment = sentiment_scores.get(article_id)
-                
                 if not sentiment:
+                    print(f"No sentiment for article {article_id}")
                     continue
-                
                 # Check if sentiment confidence is high enough
                 if sentiment['confidence_score'] >= self.confidence_threshold:
+                    print(f"High confidence article: {article_id}, score: {sentiment['confidence_score']}")
                     high_confidence_articles += 1
                     # Get symbols from the article
                     symbols = article.get('validated_symbols', [])
-                    
+                    print(f"Symbols for article {article_id}: {symbols}")
                     for symbol in symbols:
                         recommendation = TradeRecommendation(
                             symbol=symbol,
@@ -58,8 +60,10 @@ class ShortTermVolatileStrategy(BaseStrategy):
                             strategy_name=self.name
                         )
                         recommendations.append(recommendation.to_dict())
+            print(f"Generated {len(recommendations)} recommendations.")
         except Exception as e:
             errors = str(e)
+            print(f"Error in strategy analyze: {errors}")
         
         # Update metrics
         self.metrics['articles_processed'] = articles_processed
