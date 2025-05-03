@@ -2,18 +2,20 @@ from typing import List, Dict, Any
 from ..base import BaseStrategy
 from ..models.recommendation import TradeRecommendation
 from collections import defaultdict, Counter
+from datetime import datetime, timedelta
 
 class SentimentConsensusStrategy(BaseStrategy):
     """
-    Recommends a trade if multiple high-confidence articles (default 3+) in the last 30 entries agree on direction for the same ticker.
+    Recommends a trade if multiple high-confidence articles (default 3+) in the last X minutes agree on direction for the same ticker.
     """
-    def __init__(self, confidence_threshold: float = 0.8, min_articles: int = 3):
+    def __init__(self, confidence_threshold: float = 0.8, min_articles: int = 3, window_minutes: int = 30):
         super().__init__(
             name="sentiment_consensus",
-            description="Recommends trades only if multiple high-confidence articles agree on direction for the same ticker."
+            description="Recommends trades only if multiple high-confidence articles agree on direction for the same ticker in a recent time window."
         )
         self.confidence_threshold = confidence_threshold
         self.min_articles = min_articles
+        self.window_minutes = window_minutes
 
     def get_required_data(self) -> List[str]:
         return ['articles', 'sentiment_scores']
@@ -26,8 +28,14 @@ class SentimentConsensusStrategy(BaseStrategy):
         articles_processed = 0
         high_confidence_articles = 0
         errors = None
+        now = datetime.utcnow()
+        window_start = now - timedelta(minutes=self.window_minutes)
         try:
             for article in articles:
+                # Only consider articles in the time window
+                published_date = datetime.fromisoformat(article['published_date']) if article['published_date'] else None
+                if not published_date or published_date < window_start:
+                    continue
                 article_id = article['id']
                 sentiment = sentiment_scores.get(article_id)
                 if not sentiment:
@@ -47,10 +55,11 @@ class SentimentConsensusStrategy(BaseStrategy):
                             symbol=symbol,
                             action='buy' if direction == 'bullish' else 'sell',
                             confidence=1.0,  # Consensus, so max confidence
-                            reasoning=f"{num} high-confidence articles agree on {direction} for {symbol}",
+                            reasoning=f"{num} high-confidence articles agree on {direction} for {symbol} in last {self.window_minutes} min",
                             timeframe='short_term',
-                            metadata={'consensus_count': num},
-                            strategy_name=self.name
+                            metadata={'consensus_count': num, 'window_minutes': self.window_minutes},
+                            strategy_name=self.name,
+                            created_at=now,
                         ).to_dict())
             print(f"[Consensus] Processed {articles_processed} articles, {high_confidence_articles} high-confidence, {len(recommendations)} recommendations.")
         except Exception as e:

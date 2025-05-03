@@ -14,10 +14,11 @@ class TradeRecommendation:
     metadata: Dict[str, Any]
     created_at: datetime = datetime.utcnow()
     strategy_name: Optional[str] = None
+    trade_time: Optional[datetime] = None  # When to make the trade
     
     def to_dict(self) -> Dict[str, Any]:
         """Convert recommendation to dictionary format."""
-        return {
+        d = {
             'symbol': self.symbol,
             'action': self.action,
             'confidence': self.confidence,
@@ -27,6 +28,9 @@ class TradeRecommendation:
             'created_at': self.created_at.isoformat(),
             'strategy_name': self.strategy_name
         }
+        if self.trade_time:
+            d['trade_time'] = self.trade_time.isoformat()
+        return d
     
     @classmethod
     def from_dict(cls, data: Dict[str, Any]) -> 'TradeRecommendation':
@@ -39,5 +43,6 @@ class TradeRecommendation:
             timeframe=data['timeframe'],
             metadata=data['metadata'],
             created_at=datetime.fromisoformat(data['created_at']),
-            strategy_name=data.get('strategy_name')
+            strategy_name=data.get('strategy_name'),
+            trade_time=datetime.fromisoformat(data['trade_time']) if data.get('trade_time') else None
         ) 

@@ -44,11 +44,14 @@ Session = sessionmaker(bind=engine)
 
 # Register strategies
 strategy_manager.register_strategy(ShortTermVolatileStrategy(confidence_threshold=0.8))
-strategy_manager.register_strategy(SentimentConsensusStrategy(confidence_threshold=0.8, min_articles=3))
+strategy_manager.register_strategy(SentimentConsensusStrategy(confidence_threshold=0.8, min_articles=3, window_minutes=30))
 strategy_manager.register_strategy(SentimentReversalStrategy(confidence_threshold=0.8, lookback=10, cluster=2))
+
+FETCH_WINDOW_MINUTES = 30  # Time window for live strategies
 
 def fetch_strategy_data():
     with engine.connect() as conn:
+        window_start = (datetime.utcnow() - timedelta(minutes=FETCH_WINDOW_MINUTES)).strftime('%Y-%m-%d %H:%M:%S')
         query = text("""
             SELECT 
                 a.id,
@@ -61,10 +64,10 @@ def fetch_strategy_data():
             FROM sentiment_analysis sa
             JOIN articles a ON a.id = sa.article_id
             WHERE a.is_analyzed = TRUE
-            ORDER BY sa.analysis_timestamp DESC
-            LIMIT 30
+              AND a.published_date >= :window_start
+            ORDER BY a.published_date DESC
         """)
-        result = conn.execute(query)
+        result = conn.execute(query, {'window_start': window_start})
         articles = []
         sentiment_scores = {}
         for row in result:
@@ -80,7 +83,7 @@ def fetch_strategy_data():
                 'confidence_score': float(row[5]),
                 'prediction': row[6]
             }
-        print(f"Fetched {len(articles)} articles from DB for strategy analysis.")
+        print(f"Fetched {len(articles)} articles from DB for strategy analysis (window: {window_start} to now).")
         return {
             'articles': articles,
             'sentiment_scores': sentiment_scores
