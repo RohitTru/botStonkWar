@@ -13,6 +13,13 @@ from decision_engine.strategies.consensus import SentimentConsensusStrategy
 from decision_engine.strategies.reversal import SentimentReversalStrategy
 from dotenv import load_dotenv
 from decision_engine.models.trade_sqlite import TradeRecommendationSQLite
+from decision_engine.strategies.obscure import ObscureStockDetectorStrategy
+from decision_engine.strategies.momentum import SentimentMomentumStrategy
+from decision_engine.strategies.price_confirmation import SentimentPriceConfirmationStrategy
+from decision_engine.strategies.mean_reversion import MeanReversionFilterStrategy
+from decision_engine.strategies.volume_spike import VolumeSpikeSentimentStrategy
+from decision_engine.strategies.news_breakout import NewsDrivenBreakoutStrategy
+from decision_engine.strategies.sentiment_divergence import SentimentDivergenceStrategy
 
 load_dotenv()
 
@@ -48,6 +55,13 @@ Session = sessionmaker(bind=engine)
 strategy_manager.register_strategy(ShortTermVolatileStrategy(confidence_threshold=0.8))
 strategy_manager.register_strategy(SentimentConsensusStrategy(confidence_threshold=0.8, min_articles=3, window_minutes=30))
 strategy_manager.register_strategy(SentimentReversalStrategy(confidence_threshold=0.8, lookback=10, cluster=2))
+strategy_manager.register_strategy(ObscureStockDetectorStrategy())
+strategy_manager.register_strategy(SentimentMomentumStrategy())
+strategy_manager.register_strategy(SentimentPriceConfirmationStrategy())
+strategy_manager.register_strategy(MeanReversionFilterStrategy())
+strategy_manager.register_strategy(VolumeSpikeSentimentStrategy())
+strategy_manager.register_strategy(NewsDrivenBreakoutStrategy())
+strategy_manager.register_strategy(SentimentDivergenceStrategy())
 
 FETCH_WINDOW_MINUTES = 30  # Time window for live strategies
 
