@@ -119,24 +119,45 @@ def get_strategies():
 @app.route('/api/recommendations')
 def get_recommendations():
     print("Endpoint: /api/recommendations called")
+    
+    # Get query parameters
+    page = int(request.args.get('page', 1))
+    filter_type = request.args.get('filter', 'all')
+    strategy = request.args.get('strategy', '')
+    
     # Always fetch and run strategies before returning recommendations
     strategy_data = fetch_strategy_data()
-    recs = strategy_manager.run_all_strategies(strategy_data)
+    new_recs = strategy_manager.run_all_strategies(strategy_data)
+    
     # Insert new recommendations into SQLite
-    for rec in recs:
+    for rec in new_recs:
         trade_sqlite.insert(rec)
+    
     # Fetch all recommendations from SQLite for the dashboard
     min_confidence = float(request.args.get('min_confidence', 0.0))
     timeframe = request.args.get('timeframe')
-    strategy_name = request.args.get('strategy_name')
+    
+    # Get recommendations with pagination
+    per_page = 10
     all_recs = trade_sqlite.fetch_all()
+    
     # Apply filters
     filtered = [r for r in all_recs if (
         (min_confidence == 0.0 or r['confidence'] >= min_confidence) and
         (not timeframe or r['timeframe'] == timeframe) and
-        (not strategy_name or r['strategy_name'] == strategy_name)
+        (not strategy or r['strategy_name'] == strategy) and
+        (filter_type == 'all' or r['action'] == filter_type)
     )]
-    return jsonify(filtered)
+    
+    # Sort by creation time, newest first
+    filtered.sort(key=lambda x: x['created_at'], reverse=True)
+    
+    # Paginate results
+    start_idx = (page - 1) * per_page
+    end_idx = start_idx + per_page
+    paginated = filtered[start_idx:end_idx]
+    
+    return jsonify(paginated)
 
 @app.route('/api/run-analysis', methods=['POST'])
 def run_analysis():
