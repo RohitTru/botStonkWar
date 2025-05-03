@@ -3,6 +3,7 @@ from ..models.recommendation import TradeRecommendation
 from datetime import datetime, timedelta
 import os, requests
 from collections import defaultdict, deque
+from decision_engine.alpaca_ws_price_service import price_service
 
 class SentimentMomentumStrategy(BaseStrategy):
     _alpaca_cache = {}
@@ -21,6 +22,9 @@ class SentimentMomentumStrategy(BaseStrategy):
         self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
 
     def fetch_live_price(self, symbol):
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None:
+            return ws_price
         now = datetime.utcnow()
         cache_entry = self._alpaca_cache.get(symbol)
         if cache_entry:

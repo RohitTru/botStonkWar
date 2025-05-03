@@ -4,6 +4,7 @@ from ..models.recommendation import TradeRecommendation
 from datetime import datetime, timedelta
 import os
 import requests
+from decision_engine.alpaca_ws_price_service import price_service
 
 class ShortTermVolatileStrategy(BaseStrategy):
     """
@@ -28,6 +29,11 @@ class ShortTermVolatileStrategy(BaseStrategy):
         return ['articles', 'sentiment_scores']
     
     def fetch_live_price(self, symbol: str) -> Dict[str, Any]:
+        # Try WebSocket price service first
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None:
+            return ws_price
+        # Fallback to REST API/last close as before
         now = datetime.utcnow()
         # Check cache
         cache_entry = self._alpaca_cache.get(symbol)

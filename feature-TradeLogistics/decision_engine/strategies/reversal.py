@@ -5,6 +5,7 @@ from collections import defaultdict, deque
 import os
 import requests
 from datetime import datetime, timedelta
+from decision_engine.alpaca_ws_price_service import price_service
 
 class SentimentReversalStrategy(BaseStrategy):
     """
@@ -26,6 +27,9 @@ class SentimentReversalStrategy(BaseStrategy):
         self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
 
     def fetch_live_price(self, symbol: str) -> Dict[str, Any]:
+        ws_price = price_service.get_price(symbol)
+        if ws_price and ws_price.get('price') is not None:
+            return ws_price
         now = datetime.utcnow()
         cache_entry = self._alpaca_cache.get(symbol)
         if cache_entry:
