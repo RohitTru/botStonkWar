@@ -1,6 +1,7 @@
 from typing import List, Dict, Any, Type
 from .base import BaseStrategy
 from .models.recommendation import TradeRecommendation
+from .models.trade_sqlite import TradeRecommendationSQLite
 
 class StrategyManager:
     """Manages and coordinates all trading strategies."""
@@ -8,10 +9,20 @@ class StrategyManager:
     def __init__(self):
         self.strategies: Dict[str, BaseStrategy] = {}
         self.recommendations: List[Dict[str, Any]] = []
+        self.sqlite = TradeRecommendationSQLite()
     
-    def register_strategy(self, strategy: BaseStrategy):
+    def register_strategy(self, strategy: BaseStrategy, active: bool = True):
         """Register a new strategy with the manager."""
         self.strategies[strategy.name] = strategy
+        # Set activation state in DB if not already present
+        if self.sqlite.get_strategy_activation(strategy.name) != active:
+            self.sqlite.set_strategy_activation(strategy.name, active)
+    
+    def set_active(self, name: str, is_active: bool):
+        self.sqlite.set_strategy_activation(name, is_active)
+    
+    def get_active(self, name: str) -> bool:
+        return self.sqlite.get_strategy_activation(name)
     
     def get_strategy(self, name: str) -> BaseStrategy:
         """Get a strategy by name."""
@@ -19,12 +30,19 @@ class StrategyManager:
     
     def get_all_strategies(self) -> List[Dict[str, Any]]:
         """Get status of all registered strategies."""
-        return [strategy.get_status() for strategy in self.strategies.values()]
+        activation = self.sqlite.get_all_strategy_activation()
+        return [
+            {**strategy.get_status(), "active": activation.get(strategy.name, True)}
+            for strategy in self.strategies.values()
+        ]
     
     def run_all_strategies(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         print("StrategyManager: Running all strategies synchronously.")
         all_recommendations = []
-        for strategy in self.strategies.values():
+        activation = self.sqlite.get_all_strategy_activation()
+        for name, strategy in self.strategies.items():
+            if not activation.get(name, True):
+                continue
             try:
                 recommendations = strategy.analyze(data)
                 strategy.update_last_run()

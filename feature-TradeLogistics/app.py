@@ -195,6 +195,18 @@ def get_live_price():
     trade_sqlite.update_live_data(symbol, action, strategy_name, created_at, live_data)
     return jsonify(live_data)
 
+@app.route('/api/strategy-activation', methods=['POST'])
+def set_strategy_activation():
+    data = request.json
+    name = data.get('name')
+    active = data.get('active')
+    strategy_manager.set_active(name, active)
+    return jsonify({"status": "success", "name": name, "active": active})
+
+@app.route('/api/strategy-activation', methods=['GET'])
+def get_strategy_activation():
+    return jsonify(strategy_manager.sqlite.get_all_strategy_activation())
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))
     app.run(host='0.0.0.0', port=port)

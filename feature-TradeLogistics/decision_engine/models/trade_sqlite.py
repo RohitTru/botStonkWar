@@ -9,6 +9,7 @@ class TradeRecommendationSQLite:
     def __init__(self, db_path=SQLITE_PATH):
         self.db_path = db_path
         self._ensure_table()
+        self._ensure_strategy_activation_table()
 
     def _ensure_table(self):
         with sqlite3.connect(self.db_path) as conn:
@@ -31,6 +32,38 @@ class TradeRecommendationSQLite:
                 )
             ''')
             conn.commit()
+
+    def _ensure_strategy_activation_table(self):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                CREATE TABLE IF NOT EXISTS strategy_activation (
+                    strategy_name TEXT PRIMARY KEY,
+                    is_active INTEGER DEFAULT 1
+                )
+            ''')
+            conn.commit()
+
+    def get_strategy_activation(self, strategy_name):
+        with sqlite3.connect(self.db_path) as conn:
+            cur = conn.execute('SELECT is_active FROM strategy_activation WHERE strategy_name = ?', (strategy_name,))
+            row = cur.fetchone()
+            if row is not None:
+                return bool(row[0])
+            return True  # Default to active if not set
+
+    def set_strategy_activation(self, strategy_name, is_active):
+        with sqlite3.connect(self.db_path) as conn:
+            conn.execute('''
+                INSERT INTO strategy_activation (strategy_name, is_active)
+                VALUES (?, ?)
+                ON CONFLICT(strategy_name) DO UPDATE SET is_active=excluded.is_active
+            ''', (strategy_name, int(is_active)))
+            conn.commit()
+
+    def get_all_strategy_activation(self):
+        with sqlite3.connect(self.db_path) as conn:
+            cur = conn.execute('SELECT strategy_name, is_active FROM strategy_activation')
+            return {row[0]: bool(row[1]) for row in cur.fetchall()}
 
     def insert(self, rec: dict):
         # Only insert if not duplicate (by symbol, action, strategy, created_at)
