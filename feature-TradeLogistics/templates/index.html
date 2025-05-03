@@ -59,11 +59,14 @@
                 <div class="card">
                     <div class="card-header d-flex justify-content-between align-items-center">
                         <h5 class="card-title mb-0">Trading Recommendations</h5>
-                        <div class="btn-group">
+                        <div class="btn-group me-2">
                             <button class="btn btn-sm btn-outline-secondary" onclick="filterRecommendations('all')">All</button>
                             <button class="btn btn-sm btn-outline-success" onclick="filterRecommendations('buy')">Buy</button>
                             <button class="btn btn-sm btn-outline-danger" onclick="filterRecommendations('sell')">Sell</button>
                         </div>
+                        <select id="strategyFilter" class="form-select form-select-sm w-auto" onchange="applyStrategyFilter()">
+                            <option value="all">All Strategies</option>
+                        </select>
                     </div>
                     <div class="card-body">
                         <div id="recommendations-list"></div>
@@ -75,11 +78,13 @@
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
     <script>
-        // Fetch and display strategies
+        let allRecommendations = [];
+        let allStrategies = [];
+
         async function loadStrategies() {
             const response = await fetch('/api/strategies');
             const strategies = await response.json();
-            
+            allStrategies = strategies;
             const strategiesList = document.getElementById('strategies-list');
             strategiesList.innerHTML = strategies.map(strategy => `
                 <div class="strategy-card card mb-2">
@@ -99,19 +104,23 @@
                     </div>
                 </div>
             `).join('');
+            // Populate strategy filter dropdown
+            const strategyFilter = document.getElementById('strategyFilter');
+            strategyFilter.innerHTML = `<option value="all">All Strategies</option>` +
+                strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
         }
 
-        // Fetch and display recommendations
         async function loadRecommendations() {
             const response = await fetch('/api/recommendations');
             const recommendations = await response.json();
+            allRecommendations = recommendations;
             displayRecommendations(recommendations);
         }
 
         function displayRecommendations(recommendations) {
             const recommendationsList = document.getElementById('recommendations-list');
             recommendationsList.innerHTML = recommendations.map(rec => `
-                <div class="recommendation-card card mb-3 ${rec.action}">
+                <div class="recommendation-card card mb-3 ${rec.action}" data-strategy="${rec.strategy_name}">
                     <div class="card-body">
                         <div class="d-flex justify-content-between align-items-start">
                             <div>
@@ -147,6 +156,15 @@
                     rec.style.display = 'none';
                 }
             });
+        }
+
+        function applyStrategyFilter() {
+            const selected = document.getElementById('strategyFilter').value;
+            let filtered = allRecommendations;
+            if (selected !== 'all') {
+                filtered = allRecommendations.filter(r => r.strategy_name === selected);
+            }
+            displayRecommendations(filtered);
         }
 
         // Initial load

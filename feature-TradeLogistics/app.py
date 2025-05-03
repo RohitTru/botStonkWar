@@ -10,6 +10,7 @@ from logging.handlers import RotatingFileHandler
 from decision_engine.manager import StrategyManager
 from decision_engine.strategies.short_term import ShortTermVolatileStrategy
 from decision_engine.strategies.consensus import SentimentConsensusStrategy
+from decision_engine.strategies.reversal import SentimentReversalStrategy
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -44,6 +45,7 @@ Session = sessionmaker(bind=engine)
 # Register strategies
 strategy_manager.register_strategy(ShortTermVolatileStrategy(confidence_threshold=0.8))
 strategy_manager.register_strategy(SentimentConsensusStrategy(confidence_threshold=0.8, min_articles=3))
+strategy_manager.register_strategy(SentimentReversalStrategy(confidence_threshold=0.8, lookback=10, cluster=2))
 
 def fetch_strategy_data():
     with engine.connect() as conn:
