@@ -26,11 +26,10 @@ class SentimentConsensusStrategy(BaseStrategy):
         self.alpaca_secret = os.getenv('ALPACA_SECRET')
         self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
 
-    def fetch_live_price(self, symbol: str) -> Dict[str, Any]:
+    def fetch_live_price(self, symbol: str) -> dict:
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
@@ -57,9 +56,9 @@ class SentimentConsensusStrategy(BaseStrategy):
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             change_percent = None
             prev_close = None
-            if len(bars) == 2:
+            if bars and len(bars) == 2:
                 prev_close = bars[0].get('c')
-                if last_price and prev_close:
+                if last_price is not None and prev_close:
                     change_percent = ((last_price - prev_close) / prev_close) * 100
             if (last_price is None or last_price == 0) and prev_close:
                 data = {
@@ -85,6 +84,7 @@ class SentimentConsensusStrategy(BaseStrategy):
             self._alpaca_cache[symbol] = (data, now)
             return {**data, 'data_source': 'rest_api'}
         except Exception as e:
+            print(f"[Consensus] Could not fetch live price for {symbol}: {e}")
             return {
                 'price': None,
                 'change_percent': None,
@@ -99,54 +99,31 @@ class SentimentConsensusStrategy(BaseStrategy):
     def get_required_data(self) -> List[str]:
         return ['articles', 'sentiment_scores']
 
-    def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze(self, data: dict) -> list:
         recommendations = []
         articles = data.get('articles', [])
         sentiment_scores = data.get('sentiment_scores', {})
-        symbol_sentiments = defaultdict(list)
-        articles_processed = 0
-        high_confidence_articles = 0
-        errors = None
         now = datetime.utcnow()
-        window_start = now - timedelta(minutes=self.window_minutes)
-        try:
-            for article in articles:
-                # Only consider articles in the time window
-                published_date = datetime.fromisoformat(article['published_date']) if article['published_date'] else None
-                if not published_date or published_date < window_start:
+        for article in articles:
+            article_id = article['id']
+            sentiment = sentiment_scores.get(article_id)
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
+                continue
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
+                live_data = self.fetch_live_price(symbol)
+                price = live_data.get('price') if isinstance(live_data, dict) else None
+                if price is None:
                     continue
-                article_id = article['id']
-                sentiment = sentiment_scores.get(article_id)
-                if not sentiment:
-                    continue
-                if sentiment['confidence_score'] >= self.confidence_threshold:
-                    high_confidence_articles += 1
-                    direction = sentiment['prediction']
-                    for symbol in article.get('validated_symbols', []):
-                        symbol_sentiments[symbol].append(direction)
-                articles_processed += 1
-            # Now, for each symbol, check if enough articles agree
-            for symbol, directions in symbol_sentiments.items():
-                count = Counter(directions)
-                for direction, num in count.items():
-                    if num >= self.min_articles:
-                        live_data = self.fetch_live_price(symbol)
-                        recommendations.append(TradeRecommendation(
-                            symbol=symbol,
-                            action='buy' if direction == 'bullish' else 'sell',
-                            confidence=1.0,  # Consensus, so max confidence
-                            reasoning=f"{num} high-confidence articles agree on {direction} for {symbol} in last {self.window_minutes} min",
-                            timeframe='short_term',
-                            metadata={'consensus_count': num, 'window_minutes': self.window_minutes, 'live_data': live_data},
-                            strategy_name=self.name,
-                            created_at=now,
-                        ).to_dict())
-            print(f"[Consensus] Processed {articles_processed} articles, {high_confidence_articles} high-confidence, {len(recommendations)} recommendations.")
-        except Exception as e:
-            errors = str(e)
-            print(f"Error in SentimentConsensusStrategy: {errors}")
-        self.metrics['articles_processed'] = articles_processed
-        self.metrics['recommendations_generated'] = len(recommendations)
-        self.metrics['high_confidence_articles'] = high_confidence_articles
-        self.metrics['errors'] = errors
+                recommendation = TradeRecommendation(
+                    symbol=symbol,
+                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                    confidence=sentiment['confidence_score'],
+                    reasoning=f"Consensus: multiple high-confidence articles agree on {sentiment['prediction']} for {symbol}.",
+                    timeframe='short_term',
+                    metadata={'live_data': live_data},
+                    strategy_name=self.name,
+                    created_at=now
+                )
+                recommendations.append(recommendation.to_dict())
         return recommendations 

@@ -23,7 +23,6 @@ class NewsDrivenBreakoutStrategy(BaseStrategy):
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
@@ -39,18 +38,14 @@ class NewsDrivenBreakoutStrategy(BaseStrategy):
                 'APCA-API-KEY-ID': self.alpaca_key,
                 'APCA-API-SECRET-KEY': self.alpaca_secret
             }
-            # Get real-time price
             resp = requests.get(f'{self.alpaca_url}/{symbol}/quotes/latest', headers=headers)
             quote = resp.json().get('quote', {}) if resp.status_code == 200 else {}
             real_time_price = quote.get('ap') or quote.get('bp') or quote.get('sp')
-            
-            # Get historical prices for resistance level
             bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit={self.resistance_window+1}', headers=headers)
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             close_prices = [b.get('c') for b in bars if b.get('c') is not None]
-            last_close = real_time_price or close_prices[-1] if close_prices else None
+            last_close = real_time_price or (close_prices[-1] if close_prices else None)
             resistance = max(close_prices[:-1]) if len(close_prices) > 1 else None
-            
             data = {
                 'last_close': last_close,
                 'resistance': resistance,
@@ -63,6 +58,7 @@ class NewsDrivenBreakoutStrategy(BaseStrategy):
             self._alpaca_cache[symbol] = (data, now)
             return {**data, 'data_source': 'rest_api'}
         except Exception as e:
+            print(f"[NewsBreakout] Could not fetch live price for {symbol}: {e}")
             return {
                 'last_close': None,
                 'resistance': None,
@@ -85,28 +81,33 @@ class NewsDrivenBreakoutStrategy(BaseStrategy):
         for article in articles:
             article_id = article['id']
             sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment['confidence_score'] < self.confidence_threshold:
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                 continue
-            for symbol in article.get('validated_symbols', []):
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
                 price_data = self.fetch_live_price(symbol)
                 current_price = price_data.get('real_time_price') or price_data.get('last_close')
                 resistance = price_data.get('resistance')
                 if current_price is None or resistance is None:
                     continue
-                if current_price > resistance:
-                    recommendations.append(TradeRecommendation(
-                        symbol=symbol,
-                        action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
-                        confidence=sentiment['confidence_score'],
-                        reasoning=f"Breakout: current price {current_price:.2f} above resistance {resistance:.2f}",
-                        timeframe='short_term',
-                        metadata={
-                            'current_price': current_price,
-                            'resistance': resistance,
-                            'real_time_price': price_data.get('real_time_price'),
-                            'live_data': price_data
-                        },
-                        strategy_name=self.name,
-                        created_at=now
-                    ).to_dict())
+                try:
+                    reasoning = f"Breakout: current price {current_price:.2f} above resistance {resistance:.2f}"
+                except Exception:
+                    reasoning = f"Breakout: current price or resistance N/A"
+                recommendation = TradeRecommendation(
+                    symbol=symbol,
+                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                    confidence=sentiment['confidence_score'],
+                    reasoning=reasoning,
+                    timeframe='short_term',
+                    metadata={
+                        'current_price': current_price,
+                        'resistance': resistance,
+                        'real_time_price': price_data.get('real_time_price'),
+                        'live_data': price_data
+                    },
+                    strategy_name=self.name,
+                    created_at=now
+                )
+                recommendations.append(recommendation.to_dict())
         return recommendations 

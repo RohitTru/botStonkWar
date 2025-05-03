@@ -212,6 +212,23 @@ def get_ws_subscribed_symbols():
     from decision_engine.alpaca_ws_price_service import price_service
     return jsonify({'symbols': price_service.get_subscribed_symbols()})
 
+@app.route('/api/strategy-status')
+def strategy_status():
+    # This can be made dynamic, but for now, list all strategies as active
+    strategies = [
+        {"name": "Short Term Volatile", "status": "active"},
+        {"name": "Consensus", "status": "active"},
+        {"name": "Reversal", "status": "active"},
+        {"name": "Momentum", "status": "active"},
+        {"name": "Volume Spike", "status": "active"},
+        {"name": "Obscure Stock", "status": "active"},
+        {"name": "Mean Reversion", "status": "active"},
+        {"name": "Sentiment Divergence", "status": "active"},
+        {"name": "Price Confirmation", "status": "active"},
+        {"name": "News Breakout", "status": "active"},
+    ]
+    return jsonify({"strategies": strategies})
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))
     app.run(host='0.0.0.0', port=port)

@@ -25,7 +25,6 @@ class SentimentMomentumStrategy(BaseStrategy):
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
@@ -52,9 +51,9 @@ class SentimentMomentumStrategy(BaseStrategy):
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             change_percent = None
             prev_close = None
-            if len(bars) == 2:
+            if bars and len(bars) == 2:
                 prev_close = bars[0].get('c')
-                if last_price and prev_close:
+                if last_price is not None and prev_close:
                     change_percent = ((last_price - prev_close) / prev_close) * 100
             if (last_price is None or last_price == 0) and prev_close:
                 data = {
@@ -80,6 +79,7 @@ class SentimentMomentumStrategy(BaseStrategy):
             self._alpaca_cache[symbol] = (data, now)
             return {**data, 'data_source': 'rest_api'}
         except Exception as e:
+            print(f"[Momentum] Could not fetch live price for {symbol}: {e}")
             return {
                 'price': None,
                 'change_percent': None,
@@ -99,29 +99,26 @@ class SentimentMomentumStrategy(BaseStrategy):
         articles = data.get('articles', [])
         sentiment_scores = data.get('sentiment_scores', {})
         now = datetime.utcnow()
-        symbol_sentiments = defaultdict(lambda: deque(maxlen=self.lookback))
         for article in articles:
             article_id = article['id']
             sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment['confidence_score'] < self.confidence_threshold:
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                 continue
-            for symbol in article.get('validated_symbols', []):
-                symbol_sentiments[symbol].append(sentiment['sentiment_score'])
-        for symbol, scores in symbol_sentiments.items():
-            if len(scores) < self.lookback:
-                continue
-            momentum = scores[-1] - scores[0]
-            if abs(momentum) >= self.momentum_threshold:
-                action = 'buy' if momentum > 0 else 'sell'
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
                 live_data = self.fetch_live_price(symbol)
-                recommendations.append(TradeRecommendation(
+                price = live_data.get('price') if isinstance(live_data, dict) else None
+                if price is None:
+                    continue
+                recommendation = TradeRecommendation(
                     symbol=symbol,
-                    action=action,
-                    confidence=1.0,
-                    reasoning=f"Sentiment momentum: {momentum:+.2f} over {self.lookback} articles.",
+                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                    confidence=sentiment['confidence_score'],
+                    reasoning=f"Momentum: {sentiment['prediction']} momentum detected for {symbol}.",
                     timeframe='short_term',
-                    metadata={'momentum': momentum, 'live_data': live_data},
+                    metadata={'live_data': live_data},
                     strategy_name=self.name,
                     created_at=now
-                ).to_dict())
+                )
+                recommendations.append(recommendation.to_dict())
         return recommendations 

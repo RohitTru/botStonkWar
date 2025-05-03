@@ -25,7 +25,6 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None and ws_price.get('volume') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None and ws_price.get('volume') is not None:
@@ -41,18 +40,14 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
                 'APCA-API-KEY-ID': self.alpaca_key,
                 'APCA-API-SECRET-KEY': self.alpaca_secret
             }
-            # Get real-time volume from trades
             trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
             trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
             real_time_volume = trade.get('s')
-            
-            # Get historical volume for comparison
             bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit={self.volume_window+1}', headers=headers)
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             volumes = [b.get('v') for b in bars if b.get('v') is not None]
-            last_volume = real_time_volume or volumes[-1] if len(volumes) >= 1 else None
+            last_volume = real_time_volume or (volumes[-1] if volumes else None)
             avg_volume = sum(volumes[:-1]) / self.volume_window if len(volumes) > 1 else None
-            
             data = {
                 'last_volume': last_volume,
                 'avg_volume': avg_volume,
@@ -65,6 +60,7 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
             self._alpaca_cache[symbol] = (data, now)
             return {**data, 'data_source': 'rest_api'}
         except Exception as e:
+            print(f"[VolumeSpike] Could not fetch live price for {symbol}: {e}")
             return {
                 'last_volume': None,
                 'avg_volume': None,
@@ -87,20 +83,25 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
         for article in articles:
             article_id = article['id']
             sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment['confidence_score'] < self.confidence_threshold:
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                 continue
-            for symbol in article.get('validated_symbols', []):
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
                 price_data = self.fetch_live_price(symbol)
                 last_volume = price_data.get('real_time_volume') or price_data.get('last_volume')
                 avg_volume = price_data.get('avg_volume')
                 if last_volume is None or avg_volume is None:
                     continue
+                try:
+                    reasoning = f"Volume spike: {last_volume} vs avg {avg_volume:.0f} (factor {self.spike_factor}x)"
+                except Exception:
+                    reasoning = f"Volume spike: last_volume or avg_volume N/A"
                 if last_volume > self.spike_factor * avg_volume:
-                    recommendations.append(TradeRecommendation(
+                    recommendation = TradeRecommendation(
                         symbol=symbol,
                         action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
                         confidence=sentiment['confidence_score'],
-                        reasoning=f"Volume spike: {last_volume} vs avg {avg_volume:.0f} (factor {self.spike_factor}x)",
+                        reasoning=reasoning,
                         timeframe='short_term',
                         metadata={
                             'last_volume': last_volume,
@@ -110,5 +111,6 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
                         },
                         strategy_name=self.name,
                         created_at=now
-                    ).to_dict())
+                    )
+                    recommendations.append(recommendation.to_dict())
         return recommendations 

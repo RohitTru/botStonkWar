@@ -24,7 +24,6 @@ class SentimentPriceConfirmationStrategy(BaseStrategy):
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
@@ -52,7 +51,7 @@ class SentimentPriceConfirmationStrategy(BaseStrategy):
             close_prices = [b.get('c') for b in bars if b.get('c') is not None]
             change_percent = None
             prev_close = close_prices[-2] if len(close_prices) >= 2 else None
-            if last_price and prev_close:
+            if last_price is not None and prev_close:
                 change_percent = ((last_price - prev_close) / prev_close) * 100
             if (last_price is None or last_price == 0) and prev_close:
                 data = {
@@ -78,6 +77,7 @@ class SentimentPriceConfirmationStrategy(BaseStrategy):
             self._alpaca_cache[symbol] = (data, now)
             return {**data, 'data_source': 'rest_api'}
         except Exception as e:
+            print(f"[PriceConfirmation] Could not fetch live price for {symbol}: {e}")
             return {
                 'price': None,
                 'change_percent': None,
@@ -100,9 +100,15 @@ class SentimentPriceConfirmationStrategy(BaseStrategy):
         for article in articles:
             article_id = article['id']
             sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment['confidence_score'] < self.confidence_threshold:
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                 continue
-            for symbol in article.get('validated_symbols', []):
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
+                # Defensive: fetch price and check for None
+                live_data = self.fetch_live_price(symbol)
+                price = live_data.get('price') if isinstance(live_data, dict) else None
+                if price is None:
+                    continue
                 # Fetch price and SMA
                 bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit={self.sma_window+1}',
                                         headers={
@@ -122,15 +128,19 @@ class SentimentPriceConfirmationStrategy(BaseStrategy):
                     action = 'sell'
                 else:
                     continue
-                live_data = self.fetch_live_price(symbol)
-                recommendations.append(TradeRecommendation(
+                recommendation = TradeRecommendation(
                     symbol=symbol,
                     action=action,
                     confidence=sentiment['confidence_score'],
-                    reasoning=f"Sentiment {sentiment['prediction']} confirmed by price trend (SMA{self.sma_window}).",
+                    reasoning=f"Price trend matches sentiment ({sentiment['prediction']}) with last close {last_close} and SMA {sma}",
                     timeframe='short_term',
-                    metadata={'sma': sma, 'last_close': last_close, 'live_data': live_data},
+                    metadata={
+                        'sma': sma,
+                        'last_close': last_close,
+                        'live_data': live_data
+                    },
                     strategy_name=self.name,
                     created_at=now
-                ).to_dict())
+                )
+                recommendations.append(recommendation.to_dict())
         return recommendations 

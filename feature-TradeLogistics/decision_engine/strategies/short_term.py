@@ -28,25 +28,20 @@ class ShortTermVolatileStrategy(BaseStrategy):
     def get_required_data(self) -> List[str]:
         return ['articles', 'sentiment_scores']
     
-    def fetch_live_price(self, symbol: str) -> Dict[str, Any]:
-        # Try WebSocket price service first
+    def fetch_live_price(self, symbol: str) -> dict:
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Fallback to REST API/last close as before
         now = datetime.utcnow()
-        # Check cache
         cache_entry = self._alpaca_cache.get(symbol)
         if cache_entry:
             data, ts = cache_entry
             if now - ts < self._alpaca_cache_ttl:
                 return {**data, 'data_source': 'rest_api'}
-        # Fetch from Alpaca
         try:
             headers = {
                 'APCA-API-KEY-ID': self.alpaca_key,
@@ -55,21 +50,18 @@ class ShortTermVolatileStrategy(BaseStrategy):
             resp = requests.get(f'{self.alpaca_url}/{symbol}/quotes/latest', headers=headers)
             quote = resp.json().get('quote', {}) if resp.status_code == 200 else {}
             price = quote.get('ap') or quote.get('bp') or quote.get('sp')
-            # Fetch last trade for % change and volume
             trade_resp = requests.get(f'{self.alpaca_url}/{symbol}/trades/latest', headers=headers)
             trade = trade_resp.json().get('trade', {}) if trade_resp.status_code == 200 else {}
             last_price = trade.get('p')
             volume = trade.get('s')
-            # For % change, fetch previous close
             bar_resp = requests.get(f'{self.alpaca_url}/{symbol}/bars?timeframe=1Day&limit=2', headers=headers)
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             change_percent = None
             prev_close = None
-            if len(bars) == 2:
+            if bars and len(bars) == 2:
                 prev_close = bars[0].get('c')
-                if last_price and prev_close:
+                if last_price is not None and prev_close:
                     change_percent = ((last_price - prev_close) / prev_close) * 100
-            # Determine if market is closed (no live price, but we have last close)
             if (last_price is None or last_price == 0) and prev_close:
                 data = {
                     'price': prev_close,
@@ -82,7 +74,6 @@ class ShortTermVolatileStrategy(BaseStrategy):
                 }
                 self._alpaca_cache[symbol] = (data, now)
                 return {**data, 'data_source': 'rest_api'}
-            # Normal live price
             data = {
                 'price': last_price or price or prev_close,
                 'change_percent': change_percent,
@@ -106,63 +97,40 @@ class ShortTermVolatileStrategy(BaseStrategy):
                 'note': None,
                 'data_source': 'rest_api'
             }
-    
-    def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+
+    def analyze(self, data: dict) -> list:
         recommendations = []
-        articles_processed = 0
-        high_confidence_articles = 0
-        errors = None
+        articles = data.get('articles', [])
+        sentiment_scores = data.get('sentiment_scores', {})
         now = datetime.utcnow()
-        try:
-            # Get recent articles with their sentiment analysis
-            articles = data.get('articles', [])
-            sentiment_scores = data.get('sentiment_scores', {})
-            articles_processed = len(articles)
-            print(f"Analyzing {len(articles)} articles in strategy.")
-            print(f"Sentiment scores keys: {list(sentiment_scores.keys())}")
-            
-            for article in articles:
-                article_id = article['id']
-                sentiment = sentiment_scores.get(article_id)
-                if not sentiment:
-                    print(f"No sentiment for article {article_id}")
+        for article in articles:
+            article_id = article['id']
+            sentiment = sentiment_scores.get(article_id)
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
+                continue
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
+                live_data = self.fetch_live_price(symbol)
+                # Defensive: check live_data is a dict and has price
+                price = live_data.get('price') if isinstance(live_data, dict) else None
+                if price is None:
                     continue
-                # Check if sentiment confidence is high enough
-                if sentiment['confidence_score'] >= self.confidence_threshold:
-                    print(f"High confidence article: {article_id}, score: {sentiment['confidence_score']}")
-                    high_confidence_articles += 1
-                    # Get symbols from the article
-                    symbols = article.get('validated_symbols', [])
-                    print(f"Symbols for article {article_id}: {symbols}")
-                    for symbol in symbols:
-                        live_data = self.fetch_live_price(symbol)
-                        recommendation = TradeRecommendation(
-                            symbol=symbol,
-                            action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
-                            confidence=sentiment['confidence_score'],
-                            reasoning=f"High confidence {sentiment['prediction']} signal from recent article",
-                            timeframe='short_term',
-                            metadata={
-                                'article_id': article_id,
-                                'sentiment_score': sentiment['sentiment_score'],
-                                'confidence_score': sentiment['confidence_score'],
-                                'article_title': article['title'],
-                                'live_data': live_data
-                            },
-                            strategy_name=self.name,
-                            created_at=now,
-                            trade_time=now
-                        )
-                        recommendations.append(recommendation.to_dict())
-            print(f"Generated {len(recommendations)} recommendations.")
-        except Exception as e:
-            errors = str(e)
-            print(f"Error in strategy analyze: {errors}")
-        
-        # Update metrics
-        self.metrics['articles_processed'] = articles_processed
-        self.metrics['recommendations_generated'] = len(recommendations)
-        self.metrics['high_confidence_articles'] = high_confidence_articles
-        self.metrics['errors'] = errors
-        
+                recommendation = TradeRecommendation(
+                    symbol=symbol,
+                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                    confidence=sentiment['confidence_score'],
+                    reasoning=f"High confidence {sentiment['prediction']} signal from recent article",
+                    timeframe='short_term',
+                    metadata={
+                        'article_id': article_id,
+                        'sentiment_score': sentiment.get('sentiment_score'),
+                        'confidence_score': sentiment.get('confidence_score'),
+                        'article_title': article.get('title'),
+                        'live_data': live_data
+                    },
+                    strategy_name=self.name,
+                    created_at=now,
+                    trade_time=now
+                )
+                recommendations.append(recommendation.to_dict())
         return recommendations 

@@ -26,11 +26,10 @@ class SentimentReversalStrategy(BaseStrategy):
         self.alpaca_secret = os.getenv('ALPACA_SECRET')
         self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
 
-    def fetch_live_price(self, symbol: str) -> Dict[str, Any]:
+    def fetch_live_price(self, symbol: str) -> dict:
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
             return {**ws_price, 'data_source': 'websocket'}
-        # Try to subscribe if not already subscribed
         price_service.subscribe(symbol)
         ws_price = price_service.get_price(symbol)
         if ws_price and ws_price.get('price') is not None:
@@ -57,9 +56,9 @@ class SentimentReversalStrategy(BaseStrategy):
             bars = bar_resp.json().get('bars', []) if bar_resp.status_code == 200 else []
             change_percent = None
             prev_close = None
-            if len(bars) == 2:
+            if bars and len(bars) == 2:
                 prev_close = bars[0].get('c')
-                if last_price and prev_close:
+                if last_price is not None and prev_close:
                     change_percent = ((last_price - prev_close) / prev_close) * 100
             if (last_price is None or last_price == 0) and prev_close:
                 data = {
@@ -85,6 +84,7 @@ class SentimentReversalStrategy(BaseStrategy):
             self._alpaca_cache[symbol] = (data, now)
             return {**data, 'data_source': 'rest_api'}
         except Exception as e:
+            print(f"[Reversal] Could not fetch live price for {symbol}: {e}")
             return {
                 'price': None,
                 'change_percent': None,
@@ -99,59 +99,31 @@ class SentimentReversalStrategy(BaseStrategy):
     def get_required_data(self) -> List[str]:
         return ['articles', 'sentiment_scores']
 
-    def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze(self, data: dict) -> list:
         recommendations = []
         articles = data.get('articles', [])
         sentiment_scores = data.get('sentiment_scores', {})
-        symbol_history = defaultdict(lambda: deque(maxlen=self.lookback))
-        articles_processed = 0
-        high_confidence_articles = 0
-        errors = None
-        try:
-            # Build sentiment history for each symbol
-            for article in articles:
-                article_id = article['id']
-                sentiment = sentiment_scores.get(article_id)
-                if not sentiment:
+        now = datetime.utcnow()
+        for article in articles:
+            article_id = article['id']
+            sentiment = sentiment_scores.get(article_id)
+            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
+                continue
+            symbols = article.get('validated_symbols', [])
+            for symbol in symbols:
+                live_data = self.fetch_live_price(symbol)
+                price = live_data.get('price') if isinstance(live_data, dict) else None
+                if price is None:
                     continue
-                if sentiment['confidence_score'] >= self.confidence_threshold:
-                    high_confidence_articles += 1
-                    for symbol in article.get('validated_symbols', []):
-                        symbol_history[symbol].append(sentiment['prediction'])
-                articles_processed += 1
-            # Look for reversals
-            for symbol, history in symbol_history.items():
-                if len(history) < self.lookback:
-                    continue
-                # If most of lookback is bearish, but last cluster are bullish (or vice versa)
-                if history.count('bearish') >= self.lookback - self.cluster and list(history)[-self.cluster:] == ['bullish'] * self.cluster:
-                    live_data = self.fetch_live_price(symbol)
-                    recommendations.append(TradeRecommendation(
-                        symbol=symbol,
-                        action='buy',
-                        confidence=1.0,
-                        reasoning=f"Reversal: {self.lookback - self.cluster} bearish then {self.cluster} bullish articles",
-                        timeframe='short_term',
-                        metadata={'reversal_type': 'bearish_to_bullish', 'live_data': live_data},
-                        strategy_name=self.name
-                    ).to_dict())
-                elif history.count('bullish') >= self.lookback - self.cluster and list(history)[-self.cluster:] == ['bearish'] * self.cluster:
-                    live_data = self.fetch_live_price(symbol)
-                    recommendations.append(TradeRecommendation(
-                        symbol=symbol,
-                        action='sell',
-                        confidence=1.0,
-                        reasoning=f"Reversal: {self.lookback - self.cluster} bullish then {self.cluster} bearish articles",
-                        timeframe='short_term',
-                        metadata={'reversal_type': 'bullish_to_bearish', 'live_data': live_data},
-                        strategy_name=self.name
-                    ).to_dict())
-            print(f"[Reversal] Processed {articles_processed} articles, {high_confidence_articles} high-confidence, {len(recommendations)} recommendations.")
-        except Exception as e:
-            errors = str(e)
-            print(f"Error in SentimentReversalStrategy: {errors}")
-        self.metrics['articles_processed'] = articles_processed
-        self.metrics['recommendations_generated'] = len(recommendations)
-        self.metrics['high_confidence_articles'] = high_confidence_articles
-        self.metrics['errors'] = errors
+                recommendation = TradeRecommendation(
+                    symbol=symbol,
+                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                    confidence=sentiment['confidence_score'],
+                    reasoning=f"Reversal: {sentiment['prediction']} cluster detected for {symbol}.",
+                    timeframe='short_term',
+                    metadata={'live_data': live_data},
+                    strategy_name=self.name,
+                    created_at=now
+                )
+                recommendations.append(recommendation.to_dict())
         return recommendations 
