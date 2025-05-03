@@ -126,7 +126,11 @@
             const resp = await fetch('/api/strategy-status');
             const data = await resp.json();
             const el = document.getElementById('strategy-status');
-            el.innerHTML = data.map(s => `<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="strategy-${s.name}" ${s.active ? 'checked' : ''} onchange="toggleStrategy('${s.name}', this.checked)"><label class="form-check-label" for="strategy-${s.name}">${s.name}</label></div>`).join('');
+            if (data.strategies && data.strategies.length > 0) {
+                el.innerHTML = data.strategies.map(s => `<div class="form-check form-switch"><input class="form-check-input" type="checkbox" id="strategy-${s.name}" ${s.status === 'active' ? 'checked' : ''} disabled><label class="form-check-label" for="strategy-${s.name}">${s.name}</label></div>`).join('');
+            } else {
+                el.innerHTML = '<span class="text-danger">No strategies found</span>';
+            }
         }
 
         async function toggleStrategy(name, active) {
@@ -144,9 +148,14 @@
         async function loadWsSubscribedSymbols() {
             const resp = await fetch('/api/ws-subscribed-symbols');
             const data = await resp.json();
+            const priceResp = await fetch('/api/ws-subscribed-symbol-prices');
+            const priceData = await priceResp.json();
             const el = document.getElementById('ws-subscribed-symbols');
             if (data.symbols && data.symbols.length > 0) {
-                el.innerHTML = data.symbols.map(s => `<span class="badge bg-info text-dark me-1">${s}</span>`).join(' ');
+                el.innerHTML = data.symbols.map(s => {
+                    const price = priceData[s] && priceData[s].price !== undefined && priceData[s].price !== null ? priceData[s].price : 'N/A';
+                    return `<span class="badge bg-info text-dark me-1">${s} <span class='text-secondary' style='font-size:0.95em;'>${price}</span></span>`;
+                }).join(' ');
             } else {
                 el.innerHTML = '<span class="text-danger">No active subscriptions</span>';
             }

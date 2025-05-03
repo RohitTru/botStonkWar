@@ -20,6 +20,7 @@ from decision_engine.strategies.mean_reversion import MeanReversionFilterStrateg
 from decision_engine.strategies.volume_spike import VolumeSpikeSentimentStrategy
 from decision_engine.strategies.news_breakout import NewsDrivenBreakoutStrategy
 from decision_engine.strategies.sentiment_divergence import SentimentDivergenceStrategy
+from decision_engine.alpaca_ws_price_service import price_service
 
 load_dotenv()
 
@@ -209,8 +210,16 @@ def get_strategy_activation():
 
 @app.route('/api/ws-subscribed-symbols')
 def get_ws_subscribed_symbols():
-    from decision_engine.alpaca_ws_price_service import price_service
     return jsonify({'symbols': price_service.get_subscribed_symbols()})
+
+@app.route('/api/ws-subscribed-symbol-prices')
+def ws_subscribed_symbol_prices():
+    symbols = price_service.get_subscribed_symbols()
+    prices = {}
+    for symbol in symbols:
+        price_data = price_service.get_price(symbol)
+        prices[symbol] = price_data if price_data else {}
+    return jsonify(prices)
 
 @app.route('/api/strategy-status')
 def strategy_status():
