@@ -33,60 +33,19 @@ app.logger.addHandler(file_handler)
 app.logger.setLevel(logging.INFO)
 app.logger.info('Trade Brain startup')
 
-# Register strategies
-strategy_manager.register_strategy(ShortTermVolatileStrategy(confidence_threshold=0.8))
+# Database connection using Docker environment variables
+DB_USER = os.getenv('MYSQL_USER')
+DB_PASSWORD = os.getenv('MYSQL_PASSWORD')
+DB_HOST = os.getenv('MYSQL_HOST')
+DB_NAME = os.getenv('MYSQL_DATABASE')
 
-# Database connection
-DB_USER = os.getenv('DB_USER')
-DB_PASSWORD = os.getenv('DB_PASSWORD')
-DB_HOST = os.getenv('DB_HOST')
-DB_NAME = os.getenv('DB_NAME')
+app.logger.info(f'Connecting to database at {DB_HOST}')
 
 engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}')
+Session = sessionmaker(bind=engine)
 
-async def fetch_strategy_data():
-    """Fetch and process data from database for strategy analysis."""
-    with engine.connect() as conn:
-        # Get recent articles with their sentiment analysis
-        query = text("""
-            SELECT 
-                a.id,
-                a.title,
-                a.validated_symbols,
-                a.published_date,
-                sa.sentiment_score,
-                sa.confidence_score,
-                sa.prediction
-            FROM articles a
-            JOIN sentiment_analysis sa ON a.id = sa.article_id
-            WHERE a.is_analyzed = TRUE
-            AND a.published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
-            ORDER BY a.published_date DESC
-        """)
-        
-        result = conn.execute(query)
-        articles = []
-        sentiment_scores = {}
-        
-        for row in result:
-            article = {
-                'id': row[0],
-                'title': row[1],
-                'validated_symbols': json.loads(row[2]) if row[2] else [],
-                'published_date': row[3].isoformat() if row[3] else None
-            }
-            articles.append(article)
-            
-            sentiment_scores[row[0]] = {
-                'sentiment_score': float(row[4]),
-                'confidence_score': float(row[5]),
-                'prediction': row[6]
-            }
-        
-        return {
-            'articles': articles,
-            'sentiment_scores': sentiment_scores
-        }
+# Register strategies
+strategy_manager.register_strategy(ShortTermVolatileStrategy(confidence_threshold=0.8))
 
 class TradingStrategy:
     def __init__(self, name, description, threshold=0.7):
@@ -202,6 +161,50 @@ TRADING_STRATEGIES = {
         "Identifies unusual trading volume patterns"
     )
 }
+
+async def fetch_strategy_data():
+    """Fetch and process data from database for strategy analysis."""
+    with engine.connect() as conn:
+        # Get recent articles with their sentiment analysis
+        query = text("""
+            SELECT 
+                a.id,
+                a.title,
+                a.validated_symbols,
+                a.published_date,
+                sa.sentiment_score,
+                sa.confidence_score,
+                sa.prediction
+            FROM articles a
+            JOIN sentiment_analysis sa ON a.id = sa.article_id
+            WHERE a.is_analyzed = TRUE
+            AND a.published_date >= DATE_SUB(NOW(), INTERVAL 24 HOUR)
+            ORDER BY a.published_date DESC
+        """)
+        
+        result = conn.execute(query)
+        articles = []
+        sentiment_scores = {}
+        
+        for row in result:
+            article = {
+                'id': row[0],
+                'title': row[1],
+                'validated_symbols': json.loads(row[2]) if row[2] else [],
+                'published_date': row[3].isoformat() if row[3] else None
+            }
+            articles.append(article)
+            
+            sentiment_scores[row[0]] = {
+                'sentiment_score': float(row[4]),
+                'confidence_score': float(row[5]),
+                'prediction': row[6]
+            }
+        
+        return {
+            'articles': articles,
+            'sentiment_scores': sentiment_scores
+        }
 
 def get_strategy_performance(strategy, days=30):
     """Get historical performance data for a strategy"""
