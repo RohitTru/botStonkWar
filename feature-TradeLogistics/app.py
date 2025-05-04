@@ -215,21 +215,30 @@ def fetch_strategy_data():
             'sentiment_scores': {}
         }
 
+def gather_dashboard_data():
+    strategy_data = fetch_strategy_data()
+    recommendations = strategy_manager.run_all_strategies(strategy_data)
+    strategies = strategy_manager.get_strategy_status()  # This is a list of dicts
+    total_recommendations = trade_db.count_total_recommendations()
+    recs_last_hour = trade_db.count_recommendations_last_hour()
+    metrics = {
+        'total_recommendations': total_recommendations,
+        'recommendations_last_hour': recs_last_hour,
+        'buy_signals': len([r for r in recommendations if r['action'] == 'buy']),
+        'sell_signals': len([r for r in recommendations if r['action'] == 'sell']),
+        'high_confidence_signals': len([r for r in recommendations if r['confidence'] >= 0.8])
+    }
+    return {
+        'metrics': metrics,
+        'strategies': strategies,
+        'recommendations': recommendations
+    }
+
 @app.route('/')
 def index():
-    # Gather all dashboard data
-    metrics_resp = get_dashboard_data()
-    if hasattr(metrics_resp, 'json'):
-        metrics = metrics_resp.json.get('metrics', {})
-        strategies = metrics_resp.json.get('strategies', [])
-        recommendations = metrics_resp.json.get('recommendations', [])
-    else:
-        metrics = metrics_resp.get_json().get('metrics', {})
-        strategies = metrics_resp.get_json().get('strategies', [])
-        recommendations = metrics_resp.get_json().get('recommendations', [])
-    # WebSocket symbols
+    data = gather_dashboard_data()
     ws_symbols = price_service.get_subscribed_symbols()
-    return render_template('index.html', metrics=metrics, strategies=strategies, recommendations=recommendations, ws_symbols=ws_symbols)
+    return render_template('index.html', metrics=data['metrics'], strategies=data['strategies'], recommendations=data['recommendations'], ws_symbols=ws_symbols)
 
 @app.route('/api/strategies')
 def get_strategies():
@@ -291,34 +300,12 @@ def run_analysis():
 
 @app.route('/api/dashboard-data')
 def get_dashboard_data():
-    print("Endpoint: /api/dashboard-data called")
     try:
-        print("Calling fetch_strategy_data() from dashboard-data endpoint.")
-        strategy_data = fetch_strategy_data()
-        print("Calling run_all_strategies() from dashboard-data endpoint.")
-        recommendations = strategy_manager.run_all_strategies(strategy_data)
-        strategies = strategy_manager.get_all_strategies()
-        total_recommendations = trade_db.count_total_recommendations()
-        recs_last_hour = trade_db.count_recommendations_last_hour()
-        metrics = {
-            'total_recommendations': total_recommendations,
-            'recommendations_last_hour': recs_last_hour,
-            'buy_signals': len([r for r in recommendations if r['action'] == 'buy']),
-            'sell_signals': len([r for r in recommendations if r['action'] == 'sell']),
-            'high_confidence_signals': len([r for r in recommendations if r['confidence'] >= 0.8])
-        }
-        return jsonify({
-            'status': 'success',
-            'recommendations': recommendations,
-            'strategies': strategies,
-            'metrics': metrics
-        })
+        data = gather_dashboard_data()
+        return jsonify(data)
     except Exception as e:
         print(f"Error in dashboard-data endpoint: {e}")
-        return jsonify({
-            'status': 'error',
-            'message': str(e)
-        }), 500
+        return jsonify({'status': 'error', 'message': str(e)}), 500
 
 @app.route('/health')
 def health():
