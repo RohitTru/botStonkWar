@@ -2,203 +2,272 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Trading Strategy Dashboard</title>
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/css/bootstrap.min.css" rel="stylesheet">
-    <link href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.7.2/font/bootstrap-icons.css" rel="stylesheet">
     <style>
-        .strategy-card {
-            transition: transform 0.2s;
-        }
-        .strategy-card:hover {
-            transform: translateY(-5px);
-        }
-        .recommendation-card {
-            border-left: 4px solid;
-            transition: opacity 0.3s;
-        }
-        .recommendation-card.buy {
-            border-left-color: #28a745;
-        }
-        .recommendation-card.sell {
-            border-left-color: #dc3545;
-        }
-        .recommendation-card.old {
-            opacity: 0.7;
-        }
-        .recommendation-card.buy.old {
-            background-color: #e8f5e9;
-        }
-        .recommendation-card.sell.old {
-            background-color: #ffebee;
-        }
-        .confidence-bar {
-            height: 4px;
-            background: #e9ecef;
-            border-radius: 2px;
-        }
-        .confidence-bar .progress {
-            height: 100%;
-            border-radius: 2px;
-        }
-        .price-box {
-            display: inline-block;
-            padding: 4px 12px;
-            border-radius: 4px;
-            background: #f8f9fa;
-            cursor: pointer;
-            position: relative;
-        }
-        .price-tooltip {
-            display: none;
-            position: absolute;
-            bottom: 100%;
-            left: 50%;
-            transform: translateX(-50%);
-            background: #333;
-            color: white;
-            padding: 4px 8px;
-            border-radius: 4px;
-            font-size: 0.875rem;
-            white-space: nowrap;
-            z-index: 1000;
-        }
-        .price-box:hover .price-tooltip {
-            display: block;
-        }
-        .timeframe-label {
-            font-size: 0.75rem;
-            padding: 2px 6px;
-            border-radius: 3px;
-            margin-left: 8px;
-        }
-        .timeframe-short {
-            background: #e3f2fd;
-            color: #1976d2;
-        }
-        .timeframe-medium {
-            background: #f3e5f5;
-            color: #7b1fa2;
-        }
-        .timeframe-long {
-            background: #e8f5e9;
-            color: #388e3c;
-        }
-        .time-separator {
-            border-bottom: 1px dashed #dee2e6;
-            margin: 20px 0;
-            position: relative;
-        }
-        .time-separator::after {
-            content: 'Older than 1 hour';
-            position: absolute;
-            top: -10px;
-            left: 50%;
-            transform: translateX(-50%);
-            background: white;
-            padding: 0 10px;
-            color: #6c757d;
-            font-size: 0.875rem;
-        }
-        #infinite-scroll-trigger {
-            height: 20px;
-            margin: 20px 0;
-        }
+        body { font-family: Arial, sans-serif; background: #f6fafb; margin: 0; padding: 0; }
+        .metrics-bar { display: flex; justify-content: center; gap: 2rem; margin: 2rem 0 1rem 0; }
+        .metric-box { background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 1rem 2rem; min-width: 160px; text-align: center; font-size: 0.95rem; }
+        .metric-label { color: #888; font-size: 0.85em; }
+        .metric-value { font-size: 1.5em; font-weight: bold; margin-top: 0.2em; }
+        .section { max-width: 1200px; margin: 0 auto 2rem auto; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px #0001; padding: 1.5rem; }
+        .section-title { font-size: 1.2em; margin-bottom: 1rem; color: #333; }
+        .ws-symbols { display: flex; flex-wrap: wrap; gap: 0.5rem; }
+        .ws-symbol { background: #e3f2fd; color: #1976d2; border-radius: 4px; padding: 0.3em 0.8em; font-size: 1em; }
+        .strategies-scroll { overflow-x: auto; white-space: nowrap; padding-bottom: 1rem; }
+        .strategy-card { display: inline-block; vertical-align: top; background: #f9f9fb; border-radius: 8px; box-shadow: 0 1px 4px #0001; margin-right: 1rem; width: 340px; min-height: 220px; padding: 1rem; margin-bottom: 1rem; position: relative; }
+        .strategy-header { display: flex; justify-content: space-between; align-items: center; }
+        .strategy-name { font-weight: bold; font-size: 1.1em; }
+        .toggle-btn { cursor: pointer; background: #eee; border: none; border-radius: 12px; padding: 0.2em 1em; font-size: 0.95em; margin-left: 0.5em; }
+        .toggle-btn.active { background: #b2f2bb; color: #155724; }
+        .toggle-btn.inactive { background: #ffe0e0; color: #721c24; }
+        .metrics-group { font-size: 0.92em; color: #444; margin-top: 0.5em; }
+        .metrics-title { font-size: 0.95em; color: #888; margin-top: 0.5em; }
+        .metrics-list { margin: 0.2em 0 0.5em 0; padding: 0; list-style: none; }
+        .metrics-list li { margin-bottom: 0.1em; }
+        .recommendations-section { display: flex; gap: 2rem; }
+        .recs-col { flex: 1; background: #f9f9fb; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; }
+        .recs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
+        .recs-title { font-weight: bold; font-size: 1.1em; }
+        .recs-filter { font-size: 0.95em; }
+        .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; }
+        .rec-card.sell { border-left-color: #e53935; }
+        .rec-symbol { font-weight: bold; font-size: 1.1em; }
+        .rec-meta { font-size: 0.92em; color: #666; margin-bottom: 0.2em; }
+        .rec-reason { font-size: 0.95em; color: #333; margin-bottom: 0.2em; }
+        .rec-confidence { font-size: 0.92em; color: #888; }
+        .rec-age-separator { border-top: 2px dashed #bbb; margin: 1em 0; text-align: center; color: #888; font-size: 0.95em; }
+        .loading { text-align: center; color: #888; margin: 1em 0; }
     </style>
 </head>
-<body class="bg-light">
-    <nav class="navbar navbar-expand-lg navbar-dark bg-dark">
-        <div class="container">
-            <a class="navbar-brand" href="#">Trading Strategy Dashboard</a>
-            <div class="d-flex align-items-center">
-                <div class="database-status me-3">
-                    <span class="badge bg-secondary" id="db-status">
-                        <i class="bi bi-database"></i> DB Status: Checking...
-                    </span>
-                </div>
-            </div>
+<body>
+    <div class="metrics-bar" id="metrics-bar">
+        <div class="metric-box">
+            <div class="metric-label">Active Strategies</div>
+            <div class="metric-value" id="active-strategies">0/0</div>
         </div>
-    </nav>
-
-    <div class="container mt-4">
-        <!-- Add metrics containers at the top of the main content -->
-        <div class="flex flex-row justify-center items-center gap-8 mb-4 text-xs">
-            <div class="bg-white overflow-hidden shadow rounded-lg p-2 w-40 text-center">
-                <dt class="text-xs font-medium text-gray-500 truncate">Active Strategies</dt>
-                <dd class="mt-1 text-lg font-semibold text-gray-900" id="active-strategies-count">0</dd>
-            </div>
-            <div class="bg-white overflow-hidden shadow rounded-lg p-2 w-40 text-center">
-                <dt class="text-xs font-medium text-gray-500 truncate">Recs in Last Hour</dt>
-                <dd class="mt-1 text-lg font-semibold text-gray-900" id="recs-last-hour">0</dd>
-            </div>
-            <div class="bg-white overflow-hidden shadow rounded-lg p-2 w-40 text-center">
-                <dt class="text-xs font-medium text-gray-500 truncate">Total Recommendations</dt>
-                <dd class="mt-1 text-lg font-semibold text-gray-900" id="total-recommendations">0</dd>
-            </div>
+        <div class="metric-box">
+            <div class="metric-label">Recs in Last Hour</div>
+            <div class="metric-value" id="recs-last-hour">0</div>
         </div>
-
-        <!-- Strategy Metrics Section -->
-        <h2 class="text-lg font-medium text-gray-900 mb-2">Strategy Metrics</h2>
-        <div class="bg-white shadow rounded-lg p-4 mb-6">
-            <div class="flex items-center space-x-2 mb-2">
-                <div id="loading-strategies" class="loading-spinner hidden"></div>
-                <div id="error-loading-strategies" class="text-red-600 text-sm hidden"></div>
-            </div>
-            <div id="strategies-container" class="flex overflow-x-auto space-x-4 pb-2" style="scroll-snap-type: x mandatory;">
-                <!-- Strategy cards will be inserted here -->
-            </div>
+        <div class="metric-box">
+            <div class="metric-label">Total Recommendations</div>
+            <div class="metric-value" id="total-recommendations">0</div>
         </div>
+    </div>
 
-        <!-- Add performance chart container -->
-        <div class="bg-white shadow rounded-lg p-6 mt-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-medium text-gray-900">Performance</h2>
-                <div class="flex items-center space-x-2">
-                    <div id="loading-performance" class="loading-spinner hidden"></div>
-                    <div id="error-loading-performance" class="text-red-600 text-sm hidden"></div>
-                </div>
-            </div>
-            <div id="performance-chart" class="h-64">
-                <!-- Performance chart will be inserted here -->
-            </div>
-        </div>
+    <div class="section">
+        <div class="section-title">WebSocket Subscribed Symbols (Live)</div>
+        <div class="ws-symbols" id="ws-symbols">Loading...</div>
+    </div>
 
-        <div class="row">
-            <!-- WebSocket Subscribed Symbols -->
-            <div class="col-12 mb-3">
-                <div class="card">
-                    <div class="card-header">
-                        <h6 class="mb-0">WebSocket Subscribed Symbols (Live)</h6>
-                    </div>
-                    <div class="card-body">
-                        <div id="ws-subscribed-symbols" class="small text-muted">Loading...</div>
-                    </div>
+    <div class="section">
+        <div class="section-title">Strategies</div>
+        <div class="strategies-scroll" id="strategies-scroll">Loading...</div>
+    </div>
+
+    <div class="section">
+        <div class="section-title">Trade Recommendations</div>
+        <div class="recommendations-section">
+            <div class="recs-col" id="buy-recs-col">
+                <div class="recs-header">
+                    <span class="recs-title">Buy Recommendations</span>
+                    <select class="recs-filter" id="buy-strategy-filter"></select>
                 </div>
+                <div id="buy-recs-list"></div>
+                <div class="loading" id="buy-recs-loading">Loading...</div>
             </div>
-            <!-- Recommendations -->
-            <div class="col-md-8">
-                <div class="card">
-                    <div class="card-header d-flex justify-content-between align-items-center">
-                        <h6 class="mb-0">Recommendations</h6>
-                        <div class="btn-group">
-                            <button class="btn btn-sm btn-outline-secondary" onclick="filterTrades('all')">All</button>
-                            <button class="btn btn-sm btn-outline-success" onclick="filterTrades('buy')">Buy</button>
-                            <button class="btn btn-sm btn-outline-danger" onclick="filterTrades('sell')">Sell</button>
-                            <select class="form-select form-select-sm ms-2" id="strategy-filter" onchange="filterByStrategy(this.value)">
-                                <option value="">All Strategies</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div class="card-body">
-                        <div id="recommendations">Loading...</div>
-                        <div id="infinite-scroll-trigger"></div>
-                    </div>
+            <div class="recs-col" id="sell-recs-col">
+                <div class="recs-header">
+                    <span class="recs-title">Sell Recommendations</span>
+                    <select class="recs-filter" id="sell-strategy-filter"></select>
                 </div>
+                <div id="sell-recs-list"></div>
+                <div class="loading" id="sell-recs-loading">Loading...</div>
             </div>
         </div>
     </div>
 
-    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
-    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <script>
+    // --- Utility Functions ---
+    function formatNumber(num) {
+        if (num === null || num === undefined) return 'N/A';
+        if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+        if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+        return num.toString();
+    }
+    function formatPercent(num) {
+        if (num === null || num === undefined) return 'N/A';
+        return num.toFixed(1) + '%';
+    }
+    function formatDateTime(dt) {
+        if (!dt) return 'Never';
+        return new Date(dt).toLocaleString();
+    }
+    function getAgeMinutes(dt) {
+        if (!dt) return 99999;
+        return (Date.now() - new Date(dt).getTime()) / 60000;
+    }
+    // --- Metrics Bar ---
+    async function updateMetricsBar() {
+        const resp = await fetch('/api/dashboard-data');
+        const data = await resp.json();
+        const metrics = data.metrics || {};
+        const strategies = data.strategies || [];
+        document.getElementById('active-strategies').textContent =
+            (strategies.filter(s => s.active).length) + '/' + strategies.length;
+        document.getElementById('recs-last-hour').textContent = metrics.recommendations_last_hour || 0;
+        document.getElementById('total-recommendations').textContent = metrics.total_recommendations || 0;
+    }
+    setInterval(updateMetricsBar, 30000);
+    updateMetricsBar();
+    // --- WebSocket Symbols ---
+    async function updateWsSymbols() {
+        const resp = await fetch('/api/ws-subscribed-symbols');
+        const data = await resp.json();
+        const el = document.getElementById('ws-symbols');
+        if (data.symbols && data.symbols.length > 0) {
+            el.innerHTML = data.symbols.map(s => `<span class="ws-symbol">${s}</span>`).join(' ');
+        } else {
+            el.innerHTML = '<span style="color:#888">No active subscriptions</span>';
+        }
+    }
+    setInterval(updateWsSymbols, 10000);
+    updateWsSymbols();
+    // --- Strategies ---
+    async function updateStrategies() {
+        const resp = await fetch('/api/strategy-status');
+        const strategies = await resp.json();
+        const scroll = document.getElementById('strategies-scroll');
+        scroll.innerHTML = '';
+        strategies.forEach(s => {
+            const card = document.createElement('div');
+            card.className = 'strategy-card';
+            card.innerHTML = `
+                <div class="strategy-header">
+                    <span class="strategy-name">${s.name}</span>
+                    <button class="toggle-btn ${s.active ? 'active' : 'inactive'}" onclick="toggleStrategy('${s.name}', ${s.active})">
+                        ${s.active ? 'On' : 'Off'}
+                    </button>
+                </div>
+                <div style="margin:0.5em 0 0.5em 0; color:#555; font-size:0.98em;">${s.description}</div>
+                <div class="metrics-group">
+                    <div class="metrics-title">Last Hour</div>
+                    <ul class="metrics-list">
+                        <li>Recs: ${s.metrics?.hourly?.recommendations_generated ?? 0}</li>
+                        <li>Articles: ${s.metrics?.hourly?.articles_processed ?? 0}</li>
+                        <li>Buy: ${s.metrics?.hourly?.buy_signals ?? 0}</li>
+                        <li>Sell: ${s.metrics?.hourly?.sell_signals ?? 0}</li>
+                        <li>Success: ${s.metrics?.hourly?.success_rate ?? 0}%</li>
+                        <li>Avg Conf: ${s.metrics?.hourly?.avg_confidence ?? 0}</li>
+                    </ul>
+                    <div class="metrics-title">All Time</div>
+                    <ul class="metrics-list">
+                        <li>Runs: ${s.metrics?.total_runs ?? 0}</li>
+                        <li>Articles: ${s.metrics?.total_articles_processed ?? 0}</li>
+                        <li>Recs: ${s.metrics?.total_recommendations ?? 0}</li>
+                        <li>Buy: ${s.metrics?.total_buy_signals ?? 0}</li>
+                        <li>Sell: ${s.metrics?.total_sell_signals ?? 0}</li>
+                    </ul>
+                </div>
+            `;
+            scroll.appendChild(card);
+        });
+    }
+    async function toggleStrategy(name, currentlyActive) {
+        await fetch('/api/strategy-activation', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ name: name, active: !currentlyActive })
+        });
+        updateStrategies();
+        updateMetricsBar();
+    }
+    setInterval(updateStrategies, 30000);
+    updateStrategies();
+    // --- Recommendations ---
+    let buyPage = 1, sellPage = 1, buyLoading = false, sellLoading = false;
+    let buyStrategyFilter = '', sellStrategyFilter = '';
+    function renderRecCard(r) {
+        const age = getAgeMinutes(r.created_at);
+        return `<div class="rec-card ${r.action}">
+            <div class="rec-symbol">${r.symbol} <span class="rec-confidence">(${(r.confidence*100).toFixed(1)}%)</span></div>
+            <div class="rec-meta">${r.strategy_name} &middot; ${formatDateTime(r.created_at)}</div>
+            <div class="rec-reason">${r.reasoning}</div>
+        </div>`;
+    }
+    function renderRecList(list, container, filter, type) {
+        container.innerHTML = '';
+        let lastWasOld = false;
+        list.forEach(r => {
+            if (filter && r.strategy_name !== filter) return;
+            const age = getAgeMinutes(r.created_at);
+            if (!lastWasOld && age > 60) {
+                container.innerHTML += '<div class="rec-age-separator">Older than 1 hour</div>';
+                lastWasOld = true;
+            }
+            container.innerHTML += renderRecCard(r);
+        });
+    }
+    async function loadRecs(type, page, filter) {
+        const resp = await fetch(`/api/recommendations?page=${page}&filter=${type}` + (filter ? `&strategy=${filter}` : ''));
+        return await resp.json();
+    }
+    async function updateBuyRecs(reset=false) {
+        if (buyLoading) return;
+        buyLoading = true;
+        if (reset) { buyPage = 1; document.getElementById('buy-recs-list').innerHTML = ''; }
+        document.getElementById('buy-recs-loading').style.display = '';
+        const recs = await loadRecs('buy', buyPage, buyStrategyFilter);
+        if (recs.length === 0 && buyPage === 1) document.getElementById('buy-recs-list').innerHTML = '<div class="loading">No buy recommendations.</div>';
+        renderRecList(recs, document.getElementById('buy-recs-list'), buyStrategyFilter, 'buy');
+        document.getElementById('buy-recs-loading').style.display = 'none';
+        buyLoading = false;
+    }
+    async function updateSellRecs(reset=false) {
+        if (sellLoading) return;
+        sellLoading = true;
+        if (reset) { sellPage = 1; document.getElementById('sell-recs-list').innerHTML = ''; }
+        document.getElementById('sell-recs-loading').style.display = '';
+        const recs = await loadRecs('sell', sellPage, sellStrategyFilter);
+        if (recs.length === 0 && sellPage === 1) document.getElementById('sell-recs-list').innerHTML = '<div class="loading">No sell recommendations.</div>';
+        renderRecList(recs, document.getElementById('sell-recs-list'), sellStrategyFilter, 'sell');
+        document.getElementById('sell-recs-loading').style.display = 'none';
+        sellLoading = false;
+    }
+    document.getElementById('buy-strategy-filter').onchange = function() {
+        buyStrategyFilter = this.value;
+        updateBuyRecs(true);
+    };
+    document.getElementById('sell-strategy-filter').onchange = function() {
+        sellStrategyFilter = this.value;
+        updateSellRecs(true);
+    };
+    // Populate strategy filters
+    async function populateStrategyFilters() {
+        const resp = await fetch('/api/strategy-status');
+        const strategies = await resp.json();
+        const buyFilter = document.getElementById('buy-strategy-filter');
+        const sellFilter = document.getElementById('sell-strategy-filter');
+        buyFilter.innerHTML = '<option value="">All Strategies</option>' + strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+        sellFilter.innerHTML = '<option value="">All Strategies</option>' + strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+    }
+    populateStrategyFilters();
+    // Infinite scroll for recommendations
+    document.getElementById('buy-recs-col').addEventListener('scroll', async function() {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !buyLoading) {
+            buyPage++;
+            await updateBuyRecs();
+        }
+    });
+    document.getElementById('sell-recs-col').addEventListener('scroll', async function() {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !sellLoading) {
+            sellPage++;
+            await updateSellRecs();
+        }
+    });
+    // Initial load
+    updateBuyRecs(true);
+    updateSellRecs(true);
+    </script>
 </body>
 </html> 

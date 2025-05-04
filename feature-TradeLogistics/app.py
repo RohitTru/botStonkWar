@@ -217,8 +217,19 @@ def fetch_strategy_data():
 
 @app.route('/')
 def index():
-    print("Endpoint: / called")
-    return render_template('index.html')
+    # Gather all dashboard data
+    metrics_resp = get_dashboard_data()
+    if hasattr(metrics_resp, 'json'):
+        metrics = metrics_resp.json.get('metrics', {})
+        strategies = metrics_resp.json.get('strategies', [])
+        recommendations = metrics_resp.json.get('recommendations', [])
+    else:
+        metrics = metrics_resp.get_json().get('metrics', {})
+        strategies = metrics_resp.get_json().get('strategies', [])
+        recommendations = metrics_resp.get_json().get('recommendations', [])
+    # WebSocket symbols
+    ws_symbols = price_service.get_subscribed_symbols()
+    return render_template('index.html', metrics=metrics, strategies=strategies, recommendations=recommendations, ws_symbols=ws_symbols)
 
 @app.route('/api/strategies')
 def get_strategies():
