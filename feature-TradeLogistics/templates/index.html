@@ -122,37 +122,29 @@
 
     <div class="container mt-4">
         <!-- Add metrics containers at the top of the main content -->
-        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="px-4 py-5 sm:p-6">
-                    <dt class="text-sm font-medium text-gray-500 truncate">Active Strategies</dt>
-                    <dd class="mt-1 text-3xl font-semibold text-gray-900" id="active-strategies-count">0</dd>
-                </div>
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-2 mb-4 text-center text-xs">
+            <div class="bg-white overflow-hidden shadow rounded-lg p-2">
+                <dt class="text-xs font-medium text-gray-500 truncate">Active Strategies</dt>
+                <dd class="mt-1 text-xl font-semibold text-gray-900" id="active-strategies-count">0</dd>
             </div>
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="px-4 py-5 sm:p-6">
-                    <dt class="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
-                    <dd class="mt-1 text-3xl font-semibold text-gray-900" id="success-rate">0%</dd>
-                </div>
+            <div class="bg-white overflow-hidden shadow rounded-lg p-2">
+                <dt class="text-xs font-medium text-gray-500 truncate">Success Rate</dt>
+                <dd class="mt-1 text-xl font-semibold text-gray-900" id="success-rate">0%</dd>
             </div>
-            <div class="bg-white overflow-hidden shadow rounded-lg">
-                <div class="px-4 py-5 sm:p-6">
-                    <dt class="text-sm font-medium text-gray-500 truncate">Total Recommendations</dt>
-                    <dd class="mt-1 text-3xl font-semibold text-gray-900" id="total-recommendations">0</dd>
-                </div>
+            <div class="bg-white overflow-hidden shadow rounded-lg p-2">
+                <dt class="text-xs font-medium text-gray-500 truncate">Total Recommendations</dt>
+                <dd class="mt-1 text-xl font-semibold text-gray-900" id="total-recommendations">0</dd>
             </div>
         </div>
 
-        <!-- Add strategy cards container -->
-        <div class="bg-white shadow rounded-lg p-6 mb-6">
-            <div class="flex justify-between items-center mb-4">
-                <h2 class="text-lg font-medium text-gray-900">Trading Strategies</h2>
-                <div class="flex items-center space-x-2">
-                    <div id="loading-strategies" class="loading-spinner hidden"></div>
-                    <div id="error-loading-strategies" class="text-red-600 text-sm hidden"></div>
-                </div>
+        <!-- Strategy Metrics Section -->
+        <h2 class="text-lg font-medium text-gray-900 mb-2">Strategy Metrics</h2>
+        <div class="bg-white shadow rounded-lg p-4 mb-6">
+            <div class="flex items-center space-x-2 mb-2">
+                <div id="loading-strategies" class="loading-spinner hidden"></div>
+                <div id="error-loading-strategies" class="text-red-600 text-sm hidden"></div>
             </div>
-            <div id="strategies-container" class="strategy-carousel overflow-y-auto max-h-[600px] pr-2 space-y-4">
+            <div id="strategies-container" class="flex overflow-x-auto space-x-4 pb-2" style="scroll-snap-type: x mandatory;">
                 <!-- Strategy cards will be inserted here -->
             </div>
         </div>

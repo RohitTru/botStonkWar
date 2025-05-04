@@ -187,26 +187,33 @@ function getHealthClass(health) {
 function createStrategyCard(strategy) {
     const metrics = strategy.metrics || {};
     const hourly = metrics.hourly || {};
-    
-    // Format metrics
+    // All-time metrics
     const totalRuns = formatNumber(metrics.total_runs || 0);
+    const totalArticles = formatNumber(metrics.total_articles_processed || 0);
     const totalRecs = formatNumber(metrics.total_recommendations || 0);
+    const totalBuy = formatNumber(metrics.total_buy_signals || 0);
+    const totalSell = formatNumber(metrics.total_sell_signals || 0);
     const allTimeSuccess = formatPercent(metrics.all_time_success_rate || 0);
-    const hourlyRecs = formatNumber(hourly.recommendations_generated || 0);
-    const hourlyArticles = formatNumber(hourly.articles_processed || 0);
-    const hourlySuccess = formatPercent(hourly.success_rate || 0);
-    const avgConfidence = formatPercent(hourly.avg_confidence * 100 || 0);
     const lastRun = formatTimestamp(metrics.last_run);
     const errorCount = metrics.error_count || 0;
     const lastError = metrics.errors;
     const lastErrorTime = metrics.last_error_time ? formatTimestamp(metrics.last_error_time) : null;
-    
+    // Hourly metrics
+    const hourlyRecs = formatNumber(hourly.recommendations_generated || 0);
+    const hourlyArticles = formatNumber(hourly.articles_processed || 0);
+    const hourlyBuy = formatNumber(hourly.buy_signals || 0);
+    const hourlySell = formatNumber(hourly.sell_signals || 0);
+    const hourlySuccess = formatPercent(hourly.success_rate || 0);
+    const avgConfidence = formatPercent(hourly.avg_confidence * 100 || 0);
+    const avgBuyConfidence = formatPercent(hourly.avg_buy_confidence * 100 || 0);
+    const avgSellConfidence = formatPercent(hourly.avg_sell_confidence * 100 || 0);
+    const execTime = hourly.execution_time_ms || 0;
     return `
-        <div class="strategy-card bg-white rounded-lg shadow-md p-4 mb-4">
+        <div class="strategy-card bg-white rounded-lg shadow-md p-6 mb-4 w-96 flex-shrink-0">
             <div class="flex justify-between items-start mb-4">
                 <div>
-                    <h3 class="text-lg font-semibold">${strategy.name}</h3>
-                    <p class="text-sm text-gray-600">${strategy.description}</p>
+                    <h3 class="text-xl font-semibold">${strategy.name}</h3>
+                    <p class="text-sm text-gray-600 mb-2">${strategy.description}</p>
                 </div>
                 <div class="flex items-center space-x-2">
                     <span class="px-2 py-1 text-sm rounded-full ${getHealthClass(metrics.health)}">
@@ -226,58 +233,37 @@ function createStrategyCard(strategy) {
                     </label>
                 </div>
             </div>
-            
-            <div class="grid grid-cols-2 gap-4 mb-4">
-                <div class="p-3 bg-gray-50 rounded-lg">
-                    <h4 class="text-sm font-medium text-gray-500 mb-2">Last Hour Performance</h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Recommendations:</span>
-                            <span class="text-sm font-medium">${hourlyRecs}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Articles Processed:</span>
-                            <span class="text-sm font-medium">${hourlyArticles}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Success Rate:</span>
-                            <span class="text-sm font-medium">${hourlySuccess}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Avg Confidence:</span>
-                            <span class="text-sm font-medium">${avgConfidence}</span>
-                        </div>
-                    </div>
-                </div>
-                
-                <div class="p-3 bg-gray-50 rounded-lg">
-                    <h4 class="text-sm font-medium text-gray-500 mb-2">All-Time Stats</h4>
-                    <div class="space-y-2">
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Total Runs:</span>
-                            <span class="text-sm font-medium">${totalRuns}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Total Recommendations:</span>
-                            <span class="text-sm font-medium">${totalRecs}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Success Rate:</span>
-                            <span class="text-sm font-medium">${allTimeSuccess}</span>
-                        </div>
-                        <div class="flex justify-between">
-                            <span class="text-sm text-gray-600">Last Run:</span>
-                            <span class="text-sm font-medium">${lastRun}</span>
-                        </div>
-                    </div>
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-500 mb-2">Last Hour</h4>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>Recs: <span class="font-semibold">${hourlyRecs}</span></div>
+                    <div>Articles: <span class="font-semibold">${hourlyArticles}</span></div>
+                    <div>Buy: <span class="font-semibold">${hourlyBuy}</span></div>
+                    <div>Sell: <span class="font-semibold">${hourlySell}</span></div>
+                    <div>Success: <span class="font-semibold">${hourlySuccess}</span></div>
+                    <div>Avg Conf: <span class="font-semibold">${avgConfidence}</span></div>
+                    <div>Avg Buy Conf: <span class="font-semibold">${avgBuyConfidence}</span></div>
+                    <div>Avg Sell Conf: <span class="font-semibold">${avgSellConfidence}</span></div>
+                    <div>Exec Time: <span class="font-semibold">${execTime}ms</span></div>
                 </div>
             </div>
-            
-            ${errorCount > 0 ? `
-                <div class="mt-4 p-3 bg-red-50 rounded-lg">
-                    <h4 class="text-sm font-medium text-red-800 mb-2">Recent Error</h4>
-                    <p class="text-sm text-red-600">${lastError}</p>
-                    <p class="text-xs text-red-500 mt-1">Occurred at: ${lastErrorTime}</p>
+            <div class="mb-4">
+                <h4 class="text-sm font-medium text-gray-500 mb-2">All Time</h4>
+                <div class="grid grid-cols-2 gap-2 text-xs">
+                    <div>Runs: <span class="font-semibold">${totalRuns}</span></div>
+                    <div>Articles: <span class="font-semibold">${totalArticles}</span></div>
+                    <div>Recs: <span class="font-semibold">${totalRecs}</span></div>
+                    <div>Buy: <span class="font-semibold">${totalBuy}</span></div>
+                    <div>Sell: <span class="font-semibold">${totalSell}</span></div>
+                    <div>Success: <span class="font-semibold">${allTimeSuccess}</span></div>
+                    <div>Last Run: <span class="font-semibold">${lastRun}</span></div>
+                </div>
+            </div>
+            ${errorCount > 0 || lastError ? `
+                <div class="mt-2 p-2 bg-red-50 rounded-lg">
+                    <h4 class="text-xs font-medium text-red-800 mb-1">Recent Error</h4>
+                    <p class="text-xs text-red-600">${lastError || ''}</p>
+                    <p class="text-xxs text-red-500 mt-1">Occurred at: ${lastErrorTime || ''}</p>
                 </div>
             ` : ''}
         </div>
