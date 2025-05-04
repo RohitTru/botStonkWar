@@ -20,27 +20,27 @@
         .toggle-btn { cursor: pointer; background: #eee; border: none; border-radius: 12px; padding: 0.2em 1em; font-size: 0.95em; margin-left: 0.5em; position: relative; overflow: hidden; transition: background 0.2s, color 0.2s, transform 0.18s cubic-bezier(.4,2,.6,1), box-shadow 0.18s; box-shadow: 0 1px 2px #0001; }
         .toggle-btn.active { background: #b2f2bb; color: #155724; }
         .toggle-btn.inactive { background: #ffe0e0; color: #721c24; }
-        .toggle-btn .toggle-label { position: relative; z-index: 1; display: block; transition: transform 0.22s cubic-bezier(.4,2,.6,1); }
-        .toggle-btn .toggle-alt { position: absolute; left: 0; right: 0; top: 100%; z-index: 0; opacity: 0; transform: skewY(12deg) scale(0.9); transition: top 0.22s cubic-bezier(.4,2,.6,1), opacity 0.22s, transform 0.22s; font-weight: bold; text-align: center; }
+        .toggle-btn .toggle-label { position: relative; z-index: 1; display: block; transition: transform 0.22s cubic-bezier(.4,2,.6,1), opacity 0.22s; }
+        .toggle-btn .toggle-alt { position: absolute; left: -100%; top: 0; height: 100%; width: 100%; z-index: 0; opacity: 0; display: flex; align-items: center; justify-content: center; font-weight: bold; text-align: center; transition: left 0.22s cubic-bezier(.4,2,.6,1), opacity 0.22s, transform 0.22s; transform: skewX(-18deg) scale(0.9); }
         .toggle-btn.active .toggle-alt { color: #721c24; background: #ffe0e0; }
         .toggle-btn.inactive .toggle-alt { color: #155724; background: #b2f2bb; }
-        .toggle-btn:hover { transform: scale(1.08) skewY(-6deg); box-shadow: 0 4px 12px #0002; }
-        .toggle-btn:hover .toggle-label { transform: translateY(-120%) skewY(12deg) scale(0.9); opacity: 0.7; }
-        .toggle-btn:hover .toggle-alt { top: 0; opacity: 1; transform: skewY(0deg) scale(1); }
+        .toggle-btn:hover { transform: scale(1.08) skewX(-8deg); box-shadow: 0 4px 12px #0002; }
+        .toggle-btn:hover .toggle-label { transform: translateX(120%) skewX(18deg) scale(0.9); opacity: 0.7; }
+        .toggle-btn:hover .toggle-alt { left: 0; opacity: 1; transform: skewX(0deg) scale(1); }
         .metrics-group { font-size: 0.92em; color: #444; margin-top: 0.5em; }
         .metrics-title { font-size: 0.95em; color: #888; margin-top: 0.5em; }
         .metrics-list { margin: 0.2em 0 0.5em 0; padding: 0; list-style: none; }
         .metrics-list li { margin-bottom: 0.1em; }
         .recommendations-section { display: flex; gap: 2rem; }
-        .recs-col { flex: 1; background: #eafaf0; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; transition: background 0.2s; }
-        #sell-recs-col { background: #faeaea; }
+        .recs-col { flex: 1; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: hidden; position: relative; transition: background 0.2s; }
+        #sell-recs-col { background: #fff; }
         .recs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
         .recs-title { font-weight: bold; font-size: 1.1em; }
         .recs-filter { font-size: 0.95em; }
-        .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; transition: background 0.2s, color 0.2s; position: relative; }
+        .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; transition: background 0.2s, color 0.2s, border-left-color 0.2s; position: relative; }
         #sell-recs-list .rec-card { border-left-color: #e53935; }
-        .rec-card.faded { background: rgba(67,160,71,0.10); color: #aaa; border-left-color: #b2dfdb; }
-        #sell-recs-list .rec-card.faded { background: rgba(229,57,53,0.10); border-left-color: #ffcdd2; }
+        .rec-card.faded { border-left: 5px solid rgba(76,175,80,0.18); background: #fafbfa; color: #aaa; }
+        #sell-recs-list .rec-card.faded { border-left: 5px solid rgba(229,57,53,0.18); background: #fbf9f9; }
         .rec-symbol { font-weight: bold; font-size: 1.1em; cursor: pointer; position: relative; }
         .rec-confidence { font-size: 0.92em; color: #888; cursor: pointer; }
         .rec-meta { font-size: 0.92em; color: #666; margin-bottom: 0.2em; cursor: pointer; }
@@ -66,6 +66,10 @@
         .ws-symbol-price { display: flex; align-items: center; gap: 0.5em; margin-right: 0.7em; }
         .ws-symbol-price .ws-symbol { margin-right: 0.2em; }
         .tooltip { position: absolute; z-index: 10; background: #222; color: #fff; padding: 0.4em 0.7em; border-radius: 6px; font-size: 0.93em; pointer-events: none; opacity: 0; transition: opacity 0.15s; white-space: pre-line; max-width: 220px; }
+        .scroll-arrow { position: absolute; left: 50%; transform: translateX(-50%); font-size: 2em; color: #bbb; opacity: 0.7; pointer-events: none; z-index: 10; animation: bounce 1.2s infinite; }
+        .scroll-arrow.down { bottom: 0.5em; }
+        .scroll-arrow.up { top: 0.5em; animation-direction: reverse; }
+        @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(10px); } }
     </style>
 </head>
 <body>
@@ -189,6 +193,16 @@
         }, { once: true });
     }
     // --- Strategies ---
+    function getRedGradient(idx, total) {
+        // 0: #e53935, 1: #ef5350, 2: #e57373, 3: #ffcdd2, 4: #ffebee, 5: #fff5f5
+        const reds = ["#e53935", "#ef5350", "#e57373", "#ffcdd2", "#ffebee", "#fff5f5"];
+        return reds[Math.min(idx, reds.length-1)];
+    }
+    function getBlueGradient(idx, total) {
+        // 0: #1565c0, 1: #42a5f5, 2: #90caf9, 3: #bbdefb, 4: #e3f2fd, 5: #f5faff
+        const blues = ["#1565c0", "#42a5f5", "#90caf9", "#bbdefb", "#e3f2fd", "#f5faff"];
+        return blues[Math.min(idx, blues.length-1)];
+    }
     async function updateStrategies() {
         const resp = await fetch('/api/strategy-status');
         const strategies = await resp.json();
@@ -197,6 +211,23 @@
         strategies.forEach(s => {
             const card = document.createElement('div');
             card.className = 'strategy-card';
+            // Last hour metrics
+            const lastHourMetrics = [
+                { label: 'Recs', value: s.metrics?.hourly?.recommendations_generated ?? 0 },
+                { label: 'Articles', value: s.metrics?.hourly?.articles_processed ?? 0 },
+                { label: 'Buy', value: s.metrics?.hourly?.buy_signals ?? 0 },
+                { label: 'Sell', value: s.metrics?.hourly?.sell_signals ?? 0 },
+                { label: 'Success', value: (s.metrics?.hourly?.success_rate ?? 0) + '%' },
+                { label: 'Avg Conf', value: s.metrics?.hourly?.avg_confidence ?? 0 }
+            ];
+            // All time metrics
+            const allTimeMetrics = [
+                { label: 'Runs', value: s.metrics?.total_runs ?? 0 },
+                { label: 'Articles', value: s.metrics?.total_articles_processed ?? 0 },
+                { label: 'Recs', value: s.metrics?.total_recommendations ?? 0 },
+                { label: 'Buy', value: s.metrics?.total_buy_signals ?? 0 },
+                { label: 'Sell', value: s.metrics?.total_sell_signals ?? 0 }
+            ];
             card.innerHTML = `
                 <div class="strategy-header">
                     <span class="strategy-name">${s.name}</span>
@@ -208,20 +239,11 @@
                 <div class="strategy-description">${s.description}</div>
                 <div class="metrics-label">Last Hour</div>
                 <div class="metrics-scroll-box">
-                    <div class="metric-pill recs">Recs: ${s.metrics?.hourly?.recommendations_generated ?? 0}</div>
-                    <div class="metric-pill articles">Articles: ${s.metrics?.hourly?.articles_processed ?? 0}</div>
-                    <div class="metric-pill buy">Buy: ${s.metrics?.hourly?.buy_signals ?? 0}</div>
-                    <div class="metric-pill sell">Sell: ${s.metrics?.hourly?.sell_signals ?? 0}</div>
-                    <div class="metric-pill success">Success: ${s.metrics?.hourly?.success_rate ?? 0}%</div>
-                    <div class="metric-pill conf">Avg Conf: ${s.metrics?.hourly?.avg_confidence ?? 0}</div>
+                    ${lastHourMetrics.map((m, i) => `<div class="metric-pill" style="background:${getRedGradient(i, lastHourMetrics.length)};color:${i>=3?'#333':'#fff'}">${m.label}: ${m.value}</div>`).join('')}
                 </div>
                 <div class="metrics-label">All Time</div>
                 <div class="metrics-scroll-box">
-                    <div class="metric-pill runs">Runs: ${s.metrics?.total_runs ?? 0}</div>
-                    <div class="metric-pill total-articles">Articles: ${s.metrics?.total_articles_processed ?? 0}</div>
-                    <div class="metric-pill total-recs">Recs: ${s.metrics?.total_recommendations ?? 0}</div>
-                    <div class="metric-pill total-buy">Buy: ${s.metrics?.total_buy_signals ?? 0}</div>
-                    <div class="metric-pill total-sell">Sell: ${s.metrics?.total_sell_signals ?? 0}</div>
+                    ${allTimeMetrics.map((m, i) => `<div class="metric-pill" style="background:${getBlueGradient(i, allTimeMetrics.length)};color:${i>=3?'#333':'#fff'}">${m.label}: ${m.value}</div>`).join('')}
                 </div>
             `;
             scroll.appendChild(card);
@@ -270,6 +292,29 @@
         const resp = await fetch(`/api/recommendations?page=${page}&filter=${type}` + (filter ? `&strategy=${filter}` : ''));
         return await resp.json();
     }
+    function showScrollArrows(colId, listId, hasMore) {
+        const col = document.getElementById(colId);
+        let downArrow = col.querySelector('.scroll-arrow.down');
+        let upArrow = col.querySelector('.scroll-arrow.up');
+        const list = document.getElementById(listId);
+        // Remove if present
+        if (downArrow) downArrow.remove();
+        if (upArrow) upArrow.remove();
+        // Down arrow if more to load
+        if (hasMore) {
+            downArrow = document.createElement('div');
+            downArrow.className = 'scroll-arrow down';
+            downArrow.innerHTML = '&#8595;';
+            col.appendChild(downArrow);
+        }
+        // Up arrow if not at top
+        if (col.scrollTop > 0) {
+            upArrow = document.createElement('div');
+            upArrow.className = 'scroll-arrow up';
+            upArrow.innerHTML = '&#8593;';
+            col.appendChild(upArrow);
+        }
+    }
     async function updateBuyRecs(reset=false) {
         if (buyLoading) return;
         buyLoading = true;
@@ -284,6 +329,7 @@
         document.getElementById('buy-recs-loading').style.display = 'none';
         buyLoading = false;
         if (recs.length < 10) buyHasMore = false;
+        showScrollArrows('buy-recs-col', 'buy-recs-list', buyHasMore);
     }
     async function updateSellRecs(reset=false) {
         if (sellLoading) return;
@@ -299,6 +345,7 @@
         document.getElementById('sell-recs-loading').style.display = 'none';
         sellLoading = false;
         if (recs.length < 10) sellHasMore = false;
+        showScrollArrows('sell-recs-col', 'sell-recs-list', sellHasMore);
     }
     document.getElementById('buy-strategy-filter').onchange = function() {
         buyStrategyFilter = this.value;
@@ -319,17 +366,23 @@
     }
     populateStrategyFilters();
     // Infinite scroll for recommendations
-    document.getElementById('buy-recs-col').addEventListener('scroll', async function() {
-        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !buyLoading && buyHasMore && buyLastCount === 10) {
+    document.getElementById('buy-recs-col').addEventListener('wheel', async function(e) {
+        if (e.deltaY > 0 && !buyLoading && buyHasMore && buyLastCount === 10) {
             buyPage++;
             await updateBuyRecs();
         }
     });
-    document.getElementById('sell-recs-col').addEventListener('scroll', async function() {
-        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !sellLoading && sellHasMore && sellLastCount === 10) {
+    document.getElementById('sell-recs-col').addEventListener('wheel', async function(e) {
+        if (e.deltaY > 0 && !sellLoading && sellHasMore && sellLastCount === 10) {
             sellPage++;
             await updateSellRecs();
         }
+    });
+    document.getElementById('buy-recs-col').addEventListener('scroll', function() {
+        showScrollArrows('buy-recs-col', 'buy-recs-list', buyHasMore);
+    });
+    document.getElementById('sell-recs-col').addEventListener('scroll', function() {
+        showScrollArrows('sell-recs-col', 'sell-recs-list', sellHasMore);
     });
     // Initial load
     updateBuyRecs(true);
