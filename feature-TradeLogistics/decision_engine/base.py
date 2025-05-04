@@ -59,7 +59,7 @@ class BaseStrategy(ABC):
         return {
             'name': self.name,
             'description': self.description,
-            'last_run': self.last_run,
+            'last_run': self.last_run.isoformat() if self.last_run else None,
             'required_data': self.get_required_data(),
             'metrics': self.get_metrics()
         }

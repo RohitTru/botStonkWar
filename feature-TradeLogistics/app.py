@@ -274,8 +274,24 @@ def ws_subscribed_symbol_prices():
 def strategy_status():
     try:
         strategies = strategy_manager.get_all_strategies()
-        app.logger.info(f"Strategy status: {json.dumps(strategies)}")
-        return jsonify({"strategies": strategies})
+        # Convert strategies to JSON-serializable format
+        serializable_strategies = []
+        for strategy in strategies:
+            strategy_dict = {
+                'name': strategy['name'],
+                'description': strategy['description'],
+                'last_run': strategy['last_run'],
+                'active': strategy['active'],
+                'required_data': strategy['required_data'],
+                'metrics': {
+                    key: value.isoformat() if isinstance(value, datetime) else value
+                    for key, value in strategy['metrics'].items()
+                }
+            }
+            serializable_strategies.append(strategy_dict)
+        
+        app.logger.info(f"Strategy status: Returning {len(serializable_strategies)} strategies")
+        return jsonify({"strategies": serializable_strategies})
     except Exception as e:
         app.logger.error(f"Error getting strategy status: {str(e)}")
         return jsonify({
