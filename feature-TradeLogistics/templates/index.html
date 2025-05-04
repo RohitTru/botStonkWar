@@ -13,13 +13,21 @@
         .section-title { font-size: 1.2em; margin-bottom: 1rem; color: #333; }
         .ws-symbols { display: flex; flex-wrap: wrap; gap: 0.5rem; }
         .ws-symbol { background: #e3f2fd; color: #1976d2; border-radius: 4px; padding: 0.3em 0.8em; font-size: 1em; }
-        .strategies-scroll { overflow-x: auto; white-space: nowrap; padding-bottom: 1rem; }
-        .strategy-card { display: inline-block; vertical-align: top; background: #f9f9fb; border-radius: 8px; box-shadow: 0 1px 4px #0001; margin-right: 1rem; width: 340px; min-height: 220px; padding: 1rem; margin-bottom: 1rem; position: relative; }
+        .strategies-scroll { display: flex; flex-wrap: nowrap; align-items: stretch; overflow-x: auto; padding-bottom: 1rem; }
+        .strategy-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; vertical-align: top; background: #f9f9fb; border-radius: 8px; box-shadow: 0 1px 4px #0001; margin-right: 1rem; width: 340px; min-height: 340px; max-height: 340px; padding: 1rem; margin-bottom: 1rem; position: relative; box-sizing: border-box; }
         .strategy-header { display: flex; justify-content: space-between; align-items: center; }
         .strategy-name { font-weight: bold; font-size: 1.1em; }
-        .toggle-btn { cursor: pointer; background: #eee; border: none; border-radius: 12px; padding: 0.2em 1em; font-size: 0.95em; margin-left: 0.5em; }
+        .toggle-btn { cursor: pointer; background: #eee; border: none; border-radius: 12px; padding: 0.2em 1em; font-size: 0.95em; margin-left: 0.5em; position: relative; overflow: hidden; transition: background 0.2s, color 0.2s; }
         .toggle-btn.active { background: #b2f2bb; color: #155724; }
         .toggle-btn.inactive { background: #ffe0e0; color: #721c24; }
+        .toggle-btn .toggle-bg { position: absolute; left: 0; top: 0; height: 100%; width: 100%; z-index: 0; transition: transform 0.2s; pointer-events: none; }
+        .toggle-btn .toggle-label { position: relative; z-index: 1; }
+        .toggle-btn:hover .toggle-bg { transform: translateX(0); opacity: 1; }
+        .toggle-btn .toggle-bg.off { background: #ffe0e0; color: #721c24; display: flex; align-items: center; justify-content: flex-end; padding-right: 1em; opacity: 0.9; }
+        .toggle-btn .toggle-bg.on { background: #b2f2bb; color: #155724; display: flex; align-items: center; justify-content: flex-start; padding-left: 1em; opacity: 0.9; }
+        .toggle-btn .toggle-bg span { font-size: 0.95em; font-weight: bold; }
+        .toggle-btn:after { content: ''; position: absolute; inset: 0; border-radius: 12px; box-shadow: 0 0 0 2px #1976d2 inset; opacity: 0; transition: opacity 0.2s; }
+        .toggle-btn:hover:after { opacity: 0.15; }
         .metrics-group { font-size: 0.92em; color: #444; margin-top: 0.5em; }
         .metrics-title { font-size: 0.95em; color: #888; margin-top: 0.5em; }
         .metrics-list { margin: 0.2em 0 0.5em 0; padding: 0; list-style: none; }
@@ -29,21 +37,34 @@
         .recs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
         .recs-title { font-weight: bold; font-size: 1.1em; }
         .recs-filter { font-size: 0.95em; }
-        .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; }
+        .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; transition: background 0.2s, color 0.2s; position: relative; }
         .rec-card.sell { border-left-color: #e53935; }
-        .rec-symbol { font-weight: bold; font-size: 1.1em; }
-        .rec-meta { font-size: 0.92em; color: #666; margin-bottom: 0.2em; }
+        .rec-card.faded { background: #f3f3f3; color: #aaa; border-left-color: #bbb; }
+        .rec-symbol { font-weight: bold; font-size: 1.1em; cursor: pointer; position: relative; }
+        .rec-confidence { font-size: 0.92em; color: #888; cursor: pointer; }
+        .rec-meta { font-size: 0.92em; color: #666; margin-bottom: 0.2em; cursor: pointer; }
         .rec-reason { font-size: 0.95em; color: #333; margin-bottom: 0.2em; }
-        .rec-confidence { font-size: 0.92em; color: #888; }
+        .rec-live-price { font-size: 0.97em; color: #1976d2; font-weight: bold; margin-left: 0.5em; cursor: pointer; }
         .rec-age-separator { border-top: 2px dashed #bbb; margin: 1em 0; text-align: center; color: #888; font-size: 0.95em; }
         .loading { text-align: center; color: #888; margin: 1em 0; }
         .strategy-description { color: #555; font-size: 0.98em; margin: 0.5em 0 0.5em 0; word-break: break-word; white-space: pre-line; overflow-wrap: break-word; max-width: 95%; }
         .metrics-scroll-box { display: flex; overflow-x: auto; gap: 0.5em; background: #f1f3f6; border-radius: 6px; padding: 0.4em 0.2em; margin-bottom: 0.4em; }
-        .metric-pill { min-width: 80px; background: #e3f2fd; color: #1976d2; border-radius: 6px; padding: 0.3em 0.7em; font-size: 0.97em; text-align: center; margin-right: 0.2em; box-shadow: 0 1px 2px #0001; }
-        .metric-pill:last-child { margin-right: 0; }
+        .metric-pill { min-width: 80px; border-radius: 6px; padding: 0.3em 0.7em; font-size: 0.97em; text-align: center; margin-right: 0.2em; box-shadow: 0 1px 2px #0001; color: #fff; font-weight: 500; }
+        .metric-pill.recs { background: #1976d2; }
+        .metric-pill.articles { background: #43a047; }
+        .metric-pill.buy { background: #4caf50; }
+        .metric-pill.sell { background: #e53935; }
+        .metric-pill.success { background: #ffb300; color: #333; }
+        .metric-pill.conf { background: #8e24aa; }
+        .metric-pill.runs { background: #0288d1; }
+        .metric-pill.total-articles { background: #388e3c; }
+        .metric-pill.total-recs { background: #1565c0; }
+        .metric-pill.total-buy { background: #388e3c; }
+        .metric-pill.total-sell { background: #c62828; }
         .metrics-label { font-size: 0.93em; color: #888; margin-bottom: 0.2em; margin-top: 0.3em; }
         .ws-symbol-price { display: flex; align-items: center; gap: 0.5em; margin-right: 0.7em; }
         .ws-symbol-price .ws-symbol { margin-right: 0.2em; }
+        .tooltip { position: absolute; z-index: 10; background: #222; color: #fff; padding: 0.4em 0.7em; border-radius: 6px; font-size: 0.93em; pointer-events: none; opacity: 0; transition: opacity 0.15s; white-space: pre-line; max-width: 220px; }
     </style>
 </head>
 <body>
@@ -145,6 +166,27 @@
     }
     setInterval(updateWsSymbols, 10000);
     updateWsSymbols();
+    // --- Tooltip logic ---
+    function showTooltip(el, text) {
+        let tooltip = document.getElementById('global-tooltip');
+        if (!tooltip) {
+            tooltip = document.createElement('div');
+            tooltip.id = 'global-tooltip';
+            tooltip.className = 'tooltip';
+            document.body.appendChild(tooltip);
+        }
+        tooltip.textContent = text;
+        tooltip.style.opacity = 1;
+        function move(e) {
+            tooltip.style.left = (e.pageX + 12) + 'px';
+            tooltip.style.top = (e.pageY + 12) + 'px';
+        }
+        el.addEventListener('mousemove', move);
+        el.addEventListener('mouseleave', () => {
+            tooltip.style.opacity = 0;
+            el.removeEventListener('mousemove', move);
+        }, { once: true });
+    }
     // --- Strategies ---
     async function updateStrategies() {
         const resp = await fetch('/api/strategy-status');
@@ -158,26 +200,27 @@
                 <div class="strategy-header">
                     <span class="strategy-name">${s.name}</span>
                     <button class="toggle-btn ${s.active ? 'active' : 'inactive'}" onclick="toggleStrategy('${s.name}', ${s.active})">
-                        ${s.active ? 'On' : 'Off'}
+                        <span class="toggle-label">${s.active ? 'On' : 'Off'}</span>
+                        <span class="toggle-bg ${s.active ? 'off' : 'on'}"><span>${s.active ? 'Off' : 'On'}</span></span>
                     </button>
                 </div>
                 <div class="strategy-description">${s.description}</div>
                 <div class="metrics-label">Last Hour</div>
                 <div class="metrics-scroll-box">
-                    <div class="metric-pill">Recs: ${s.metrics?.hourly?.recommendations_generated ?? 0}</div>
-                    <div class="metric-pill">Articles: ${s.metrics?.hourly?.articles_processed ?? 0}</div>
-                    <div class="metric-pill">Buy: ${s.metrics?.hourly?.buy_signals ?? 0}</div>
-                    <div class="metric-pill">Sell: ${s.metrics?.hourly?.sell_signals ?? 0}</div>
-                    <div class="metric-pill">Success: ${s.metrics?.hourly?.success_rate ?? 0}%</div>
-                    <div class="metric-pill">Avg Conf: ${s.metrics?.hourly?.avg_confidence ?? 0}</div>
+                    <div class="metric-pill recs">Recs: ${s.metrics?.hourly?.recommendations_generated ?? 0}</div>
+                    <div class="metric-pill articles">Articles: ${s.metrics?.hourly?.articles_processed ?? 0}</div>
+                    <div class="metric-pill buy">Buy: ${s.metrics?.hourly?.buy_signals ?? 0}</div>
+                    <div class="metric-pill sell">Sell: ${s.metrics?.hourly?.sell_signals ?? 0}</div>
+                    <div class="metric-pill success">Success: ${s.metrics?.hourly?.success_rate ?? 0}%</div>
+                    <div class="metric-pill conf">Avg Conf: ${s.metrics?.hourly?.avg_confidence ?? 0}</div>
                 </div>
                 <div class="metrics-label">All Time</div>
                 <div class="metrics-scroll-box">
-                    <div class="metric-pill">Runs: ${s.metrics?.total_runs ?? 0}</div>
-                    <div class="metric-pill">Articles: ${s.metrics?.total_articles_processed ?? 0}</div>
-                    <div class="metric-pill">Recs: ${s.metrics?.total_recommendations ?? 0}</div>
-                    <div class="metric-pill">Buy: ${s.metrics?.total_buy_signals ?? 0}</div>
-                    <div class="metric-pill">Sell: ${s.metrics?.total_sell_signals ?? 0}</div>
+                    <div class="metric-pill runs">Runs: ${s.metrics?.total_runs ?? 0}</div>
+                    <div class="metric-pill total-articles">Articles: ${s.metrics?.total_articles_processed ?? 0}</div>
+                    <div class="metric-pill total-recs">Recs: ${s.metrics?.total_recommendations ?? 0}</div>
+                    <div class="metric-pill total-buy">Buy: ${s.metrics?.total_buy_signals ?? 0}</div>
+                    <div class="metric-pill total-sell">Sell: ${s.metrics?.total_sell_signals ?? 0}</div>
                 </div>
             `;
             scroll.appendChild(card);
@@ -198,24 +241,27 @@
     let buyPage = 1, sellPage = 1, buyLoading = false, sellLoading = false;
     let buyStrategyFilter = '', sellStrategyFilter = '';
     let buyHasMore = true, sellHasMore = true;
-    function renderRecCard(r) {
+    function renderRecCard(r, faded) {
         const age = getAgeMinutes(r.created_at);
-        return `<div class="rec-card ${r.action}">
-            <div class="rec-symbol">${r.symbol} <span class="rec-confidence">(${(r.confidence*100).toFixed(1)}%)</span></div>
-            <div class="rec-meta">${r.strategy_name} &middot; ${formatDateTime(r.created_at)}</div>
+        return `<div class="rec-card ${r.action}${faded ? ' faded' : ''}">
+            <div class="rec-symbol" onmouseenter="showTooltip(this, 'Stock symbol for this trade')">${r.symbol}</div>
+            <span class="rec-confidence" onmouseenter="showTooltip(this, 'Model confidence in this recommendation')">(${(r.confidence*100).toFixed(1)}%)</span>
+            <span class="rec-live-price" onmouseenter="showTooltip(this, 'Price at the time of recommendation')">$${r.live_price ?? 'N/A'}</span>
+            <div class="rec-meta" onmouseenter="showTooltip(this, 'Strategy: ${r.strategy_name}\nTime: ${formatDateTime(r.created_at)}')">${r.strategy_name} &middot; ${formatDateTime(r.created_at)}</div>
             <div class="rec-reason">${r.reasoning}</div>
         </div>`;
     }
-    function renderRecList(list, container, filter, type) {
-        let lastWasOld = false;
-        list.forEach(r => {
+    function renderRecList(list, container, filter, type, cutoffIdx) {
+        container.innerHTML = '';
+        let faded = false;
+        list.forEach((r, idx) => {
             if (filter && r.strategy_name !== filter) return;
             const age = getAgeMinutes(r.created_at);
-            if (!lastWasOld && age > 60) {
+            if (!faded && age > 60) {
                 container.innerHTML += '<div class="rec-age-separator">Older than 1 hour</div>';
-                lastWasOld = true;
+                faded = true;
             }
-            container.innerHTML += renderRecCard(r);
+            container.innerHTML += renderRecCard(r, faded);
         });
     }
     async function loadRecs(type, page, filter) {
