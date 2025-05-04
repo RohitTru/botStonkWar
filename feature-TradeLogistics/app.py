@@ -56,7 +56,9 @@ app.logger.info('Trade Brain startup')
 
 # Register strategies
 def register_strategies():
-    app.logger.info("Registering strategies...")
+    """Register all trading strategies with proper error handling."""
+    app.logger.info("Starting strategy registration...")
+    
     strategies = [
         (ShortTermVolatileStrategy(), "Short Term Volatile"),
         (SentimentConsensusStrategy(confidence_threshold=0.8, min_articles=3, window_minutes=30), "Sentiment Consensus"),
@@ -70,31 +72,51 @@ def register_strategies():
         (SentimentDivergenceStrategy(), "Sentiment Divergence")
     ]
     
+    registered_count = 0
+    error_count = 0
+    
     for strategy, description in strategies:
         try:
-            # Get current activation state from DB, default to True if not found
-            current_state = trade_db.get_strategy_activation(strategy.name)
+            # Ensure strategy has required attributes
+            if not hasattr(strategy, 'name') or not strategy.name:
+                strategy.name = strategy.__class__.__name__
+            
+            if not hasattr(strategy, 'description') or not strategy.description:
+                strategy.description = description
+            
+            # Get current activation state from DB
+            try:
+                current_state = trade_db.get_strategy_activation(strategy.name)
+            except Exception as db_error:
+                app.logger.error(f"Database error getting activation state for {strategy.name}: {db_error}")
+                current_state = True  # Default to active if DB fails
+            
             if current_state is None:
                 current_state = True
-                trade_db.set_strategy_activation(strategy.name, current_state)
+                try:
+                    trade_db.set_strategy_activation(strategy.name, current_state)
+                except Exception as db_error:
+                    app.logger.error(f"Database error setting activation state for {strategy.name}: {db_error}")
             
-            # Update the strategy description
-            strategy.description = description
-            
-            app.logger.info(f"Registering strategy {strategy.name} ({description}) with state: {current_state}")
+            # Register the strategy
             strategy_manager.register_strategy(strategy, active=current_state)
+            app.logger.info(f"Successfully registered strategy {strategy.name} ({description}) with state: {current_state}")
+            registered_count += 1
             
         except Exception as e:
-            app.logger.error(f"Error registering strategy {strategy.__class__.__name__}: {e}")
-            # Continue with other strategies even if one fails
+            error_count += 1
+            app.logger.error(f"Error registering strategy {strategy.__class__.__name__}: {str(e)}", exc_info=True)
             continue
+    
+    app.logger.info(f"Strategy registration complete. {registered_count} registered, {error_count} failed.")
+    if error_count > 0:
+        app.logger.warning("Some strategies failed to register. Check logs for details.")
+    
+    return registered_count > 0  # Return True if at least one strategy was registered
 
 # Register strategies when app starts
-try:
-    register_strategies()
-    app.logger.info("Successfully registered all strategies")
-except Exception as e:
-    app.logger.error(f"Error during strategy registration: {e}")
+if not register_strategies():
+    app.logger.error("No strategies were registered successfully!")
 
 FETCH_WINDOW_MINUTES = 30  # Time window for live strategies
 
@@ -293,28 +315,48 @@ def strategy_status():
         
         # Get status for all strategies
         status = strategy_manager.get_strategy_status()
-        app.logger.info(f"Returning status for {len(status)} strategies")
         
-        # Validate status format
-        if not isinstance(status, list):
-            app.logger.error("Strategy status returned invalid format")
-            return jsonify({
-                'error': 'Invalid status format returned from strategy manager',
-                'status': 'error',
-                'timestamp': datetime.utcnow().isoformat()
-            }), 500
-        
-        # Ensure each status has required fields
+        # Validate and clean up each status object
+        cleaned_status = []
         for s in status:
-            if not isinstance(s, dict) or 'name' not in s:
-                app.logger.error(f"Invalid strategy status object: {s}")
-                return jsonify({
-                    'error': 'Invalid strategy status object format',
-                    'status': 'error',
-                    'timestamp': datetime.utcnow().isoformat()
-                }), 500
+            if not isinstance(s, dict):
+                app.logger.error(f"Invalid strategy status object (not a dict): {s}")
+                continue
+                
+            # Ensure required fields exist
+            cleaned = {
+                'name': s.get('name', 'Unknown'),
+                'description': s.get('description', 'No description'),
+                'active': s.get('active', False),
+                'last_run': s.get('last_run'),
+                'metrics': {
+                    'health': 'Unknown',
+                    'errors': None,
+                    'last_error_time': None,
+                    'total_runs': 0,
+                    'total_recommendations': 0,
+                    'all_time_success_rate': 0.0,
+                    'hourly': {
+                        'recommendations_generated': 0,
+                        'articles_processed': 0,
+                        'success_rate': 0.0,
+                        'avg_confidence': 0.0
+                    }
+                }
+            }
+            
+            # Copy existing metrics if they exist
+            if isinstance(s.get('metrics'), dict):
+                cleaned['metrics'].update(s['metrics'])
+                
+                # Ensure hourly metrics exist
+                if isinstance(s['metrics'].get('hourly'), dict):
+                    cleaned['metrics']['hourly'].update(s['metrics']['hourly'])
+            
+            cleaned_status.append(cleaned)
         
-        return jsonify(status)
+        app.logger.info(f"Returning status for {len(cleaned_status)} strategies")
+        return jsonify(cleaned_status)
         
     except Exception as e:
         app.logger.error(f"Error getting strategy status: {str(e)}", exc_info=True)

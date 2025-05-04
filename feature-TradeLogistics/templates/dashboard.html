@@ -24,6 +24,29 @@
         .strategy-carousel::-webkit-scrollbar-thumb:hover {
             background: #555;
         }
+        
+        /* Loading animation */
+        .loading-spinner {
+            border: 3px solid #f3f3f3;
+            border-radius: 50%;
+            border-top: 3px solid #3498db;
+            width: 24px;
+            height: 24px;
+            animation: spin 1s linear infinite;
+        }
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+        
+        /* Strategy card hover effect */
+        .strategy-card {
+            transition: all 0.2s ease-in-out;
+        }
+        .strategy-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1), 0 2px 4px -1px rgba(0, 0, 0, 0.06);
+        }
     </style>
 </head>
 <body class="bg-gray-100">
@@ -33,11 +56,13 @@
                 <div class="flex justify-between h-16">
                     <div class="flex">
                         <div class="flex-shrink-0 flex items-center">
-                            <h1 class="text-2xl font-bold text-gray-800">Trade Recommendation Engine Dashboard</h1>
+                            <h1 class="text-2xl font-bold text-gray-800">Trade Recommendation Engine</h1>
                         </div>
                     </div>
                     <div class="flex items-center">
-                        <span class="px-3 py-2 rounded-md text-sm font-medium text-gray-700">Last Updated: <span id="last-update">{{ last_update }}</span></span>
+                        <span class="px-3 py-2 rounded-md text-sm font-medium text-gray-700">
+                            Last Updated: <span id="last-update" class="text-blue-600">{{ last_update }}</span>
+                        </span>
                     </div>
                 </div>
             </div>
@@ -68,8 +93,14 @@
 
             <!-- Strategy Status -->
             <div class="bg-white shadow rounded-lg p-6 mb-6">
-                <h2 class="text-lg font-medium text-gray-900 mb-4">Active Trading Strategies</h2>
-                <div id="strategy-status" class="strategy-carousel overflow-y-auto max-h-[600px] pr-2">
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-medium text-gray-900">Trading Strategies</h2>
+                    <div class="flex items-center space-x-2">
+                        <div id="loading-strategies" class="loading-spinner hidden"></div>
+                        <div id="error-loading-strategies" class="text-red-600 text-sm hidden"></div>
+                    </div>
+                </div>
+                <div id="strategies-container" class="strategy-carousel overflow-y-auto max-h-[600px] pr-2 space-y-4">
                     <!-- Strategy cards will be inserted here -->
                 </div>
             </div>
@@ -78,7 +109,13 @@
             <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <!-- Buy Signals -->
                 <div class="bg-white shadow rounded-lg p-6">
-                    <h2 class="text-lg font-medium text-gray-900 mb-4">Recent Buy Signals</h2>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-medium text-gray-900">Recent Buy Signals</h2>
+                        <div class="flex items-center space-x-2">
+                            <div id="loading-buy-signals" class="loading-spinner hidden"></div>
+                            <div id="error-loading-buy-signals" class="text-red-600 text-sm hidden"></div>
+                        </div>
+                    </div>
                     <div id="buy-signals" class="space-y-4">
                         <!-- Buy signals will be inserted here -->
                     </div>
@@ -86,7 +123,13 @@
 
                 <!-- Sell Signals -->
                 <div class="bg-white shadow rounded-lg p-6">
-                    <h2 class="text-lg font-medium text-gray-900 mb-4">Recent Sell Signals</h2>
+                    <div class="flex justify-between items-center mb-4">
+                        <h2 class="text-lg font-medium text-gray-900">Recent Sell Signals</h2>
+                        <div class="flex items-center space-x-2">
+                            <div id="loading-sell-signals" class="loading-spinner hidden"></div>
+                            <div id="error-loading-sell-signals" class="text-red-600 text-sm hidden"></div>
+                        </div>
+                    </div>
                     <div id="sell-signals" class="space-y-4">
                         <!-- Sell signals will be inserted here -->
                     </div>
@@ -95,7 +138,13 @@
 
             <!-- Performance Metrics -->
             <div class="bg-white shadow rounded-lg p-6 mt-6">
-                <h2 class="text-lg font-medium text-gray-900 mb-4">Performance</h2>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-lg font-medium text-gray-900">Performance</h2>
+                    <div class="flex items-center space-x-2">
+                        <div id="loading-performance" class="loading-spinner hidden"></div>
+                        <div id="error-loading-performance" class="text-red-600 text-sm hidden"></div>
+                    </div>
+                </div>
                 <div id="performance-chart" class="h-64">
                     <!-- Performance chart will be inserted here -->
                 </div>

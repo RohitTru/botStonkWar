@@ -188,6 +188,19 @@ function createStrategyCard(strategy) {
     const metrics = strategy.metrics || {};
     const hourly = metrics.hourly || {};
     
+    // Format metrics
+    const totalRuns = formatNumber(metrics.total_runs || 0);
+    const totalRecs = formatNumber(metrics.total_recommendations || 0);
+    const allTimeSuccess = formatPercent(metrics.all_time_success_rate || 0);
+    const hourlyRecs = formatNumber(hourly.recommendations_generated || 0);
+    const hourlyArticles = formatNumber(hourly.articles_processed || 0);
+    const hourlySuccess = formatPercent(hourly.success_rate || 0);
+    const avgConfidence = formatPercent(hourly.avg_confidence * 100 || 0);
+    const lastRun = formatTimestamp(metrics.last_run);
+    const errorCount = metrics.error_count || 0;
+    const lastError = metrics.errors;
+    const lastErrorTime = metrics.last_error_time ? formatTimestamp(metrics.last_error_time) : null;
+    
     return `
         <div class="strategy-card bg-white rounded-lg shadow-md p-4 mb-4">
             <div class="flex justify-between items-start mb-4">
@@ -195,12 +208,13 @@ function createStrategyCard(strategy) {
                     <h3 class="text-lg font-semibold">${strategy.name}</h3>
                     <p class="text-sm text-gray-600">${strategy.description}</p>
                 </div>
-                <div class="flex items-center">
+                <div class="flex items-center space-x-2">
                     <span class="px-2 py-1 text-sm rounded-full ${getHealthClass(metrics.health)}">
                         ${metrics.health || 'Unknown'}
                     </span>
-                    <label class="relative inline-flex items-center cursor-pointer ml-4">
-                        <input type="checkbox" class="sr-only peer" ${strategy.active ? 'checked' : ''} 
+                    <label class="relative inline-flex items-center cursor-pointer">
+                        <input type="checkbox" class="sr-only peer" 
+                               ${strategy.active ? 'checked' : ''}
                                onchange="toggleStrategy('${strategy.name}', this.checked)">
                         <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 
                                   peer-focus:ring-blue-300 rounded-full peer 
@@ -214,138 +228,154 @@ function createStrategyCard(strategy) {
             </div>
             
             <div class="grid grid-cols-2 gap-4 mb-4">
-                <div class="bg-gray-50 p-3 rounded-lg">
-                    <h4 class="text-sm font-medium text-gray-700 mb-2">Last Hour Performance</h4>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <p class="text-xs text-gray-500">Articles Processed</p>
-                            <p class="font-medium">${formatNumber(hourly.articles_processed)}</p>
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-500 mb-2">Last Hour Performance</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Recommendations:</span>
+                            <span class="text-sm font-medium">${hourlyRecs}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">Recommendations</p>
-                            <p class="font-medium">${formatNumber(hourly.recommendations_generated)}</p>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Articles Processed:</span>
+                            <span class="text-sm font-medium">${hourlyArticles}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">Success Rate</p>
-                            <p class="font-medium">${formatPercent(hourly.success_rate)}</p>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Success Rate:</span>
+                            <span class="text-sm font-medium">${hourlySuccess}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">Avg Confidence</p>
-                            <p class="font-medium">${formatPercent(hourly.avg_confidence * 100)}</p>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Avg Confidence:</span>
+                            <span class="text-sm font-medium">${avgConfidence}</span>
                         </div>
                     </div>
                 </div>
                 
-                <div class="bg-gray-50 p-3 rounded-lg">
-                    <h4 class="text-sm font-medium text-gray-700 mb-2">Trading Signals</h4>
-                    <div class="grid grid-cols-2 gap-2">
-                        <div>
-                            <p class="text-xs text-gray-500">Buy Signals</p>
-                            <p class="font-medium">${formatNumber(hourly.buy_signals)} / ${formatNumber(metrics.total_buy_signals)}</p>
+                <div class="p-3 bg-gray-50 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-500 mb-2">All-Time Stats</h4>
+                    <div class="space-y-2">
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Total Runs:</span>
+                            <span class="text-sm font-medium">${totalRuns}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">Sell Signals</p>
-                            <p class="font-medium">${formatNumber(hourly.sell_signals)} / ${formatNumber(metrics.total_sell_signals)}</p>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Total Recommendations:</span>
+                            <span class="text-sm font-medium">${totalRecs}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">Buy Confidence</p>
-                            <p class="font-medium">${formatPercent(hourly.avg_buy_confidence * 100)}</p>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Success Rate:</span>
+                            <span class="text-sm font-medium">${allTimeSuccess}</span>
                         </div>
-                        <div>
-                            <p class="text-xs text-gray-500">Sell Confidence</p>
-                            <p class="font-medium">${formatPercent(hourly.avg_sell_confidence * 100)}</p>
+                        <div class="flex justify-between">
+                            <span class="text-sm text-gray-600">Last Run:</span>
+                            <span class="text-sm font-medium">${lastRun}</span>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="text-sm text-gray-600">
-                <p>Last Run: ${formatTimestamp(metrics.last_run)}</p>
-                ${metrics.errors ? `<p class="text-red-600 mt-2">Error: ${metrics.errors}</p>` : ''}
-            </div>
+            ${errorCount > 0 ? `
+                <div class="mt-4 p-3 bg-red-50 rounded-lg">
+                    <h4 class="text-sm font-medium text-red-800 mb-2">Recent Error</h4>
+                    <p class="text-sm text-red-600">${lastError}</p>
+                    <p class="text-xs text-red-500 mt-1">Occurred at: ${lastErrorTime}</p>
+                </div>
+            ` : ''}
         </div>
     `;
 }
 
-// Load and display strategies
-async function loadStrategies() {
-    const statusEl = document.getElementById('strategy-status');
-    if (!statusEl) {
-        console.error('Strategy status element not found');
-        return;
-    }
-    
-    statusEl.innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div></div>';
-    
+// Function to toggle strategy activation
+async function toggleStrategy(strategyName, active) {
     try {
-        const response = await fetch('/api/strategy-status');
+        const response = await fetch('/api/strategy-activation', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                strategy_name: strategyName,
+                active: active
+            })
+        });
+        
         if (!response.ok) {
-            throw new Error(`HTTP error! status: ${response.status}`);
+            throw new Error('Failed to update strategy activation');
         }
         
-        const data = await response.json();
-        console.log('Strategy status response:', data); // Debug log
+        // Refresh strategies after toggling
+        loadStrategies();
         
-        // Handle error response
-        if (data && data.error) {
-            throw new Error(data.error);
-        }
-        
-        // Ensure data is an array
-        const strategies = Array.isArray(data) ? data : [];
-        console.log('Processed strategies:', strategies); // Debug log
-        
-        // Update metrics only if elements exist
-        const activeStrategies = strategies.filter(s => s && s.active);
-        const activeCountEl = document.getElementById('active-strategies-count');
-        if (activeCountEl) {
-            activeCountEl.textContent = activeStrategies.length;
-        }
-        
-        const totalRecommendations = strategies.reduce((sum, s) => {
-            if (!s || !s.metrics) return sum;
-            return sum + (s.metrics.total_recommendations || 0);
-        }, 0);
-        const totalRecsEl = document.getElementById('total-recommendations');
-        if (totalRecsEl) {
-            totalRecsEl.textContent = formatNumber(totalRecommendations);
-        }
-        
-        const successRates = strategies
-            .filter(s => s && s.metrics && typeof s.metrics.all_time_success_rate === 'number')
-            .map(s => s.metrics.all_time_success_rate);
-        const avgSuccessRate = successRates.length > 0 
-            ? successRates.reduce((a, b) => a + b) / successRates.length 
-            : 0;
-        const successRateEl = document.getElementById('success-rate');
-        if (successRateEl) {
-            successRateEl.textContent = formatPercent(avgSuccessRate);
-        }
-        
-        if (strategies.length === 0) {
-            statusEl.innerHTML = '<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">No strategies found</div>';
-        } else {
-            statusEl.innerHTML = strategies
-                .filter(s => s && s.name) // Only process valid strategy objects
-                .map(createStrategyCard)
-                .join('');
-        }
     } catch (error) {
-        console.error('Error loading strategies:', error);
-        statusEl.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
-            <strong class="font-bold">Error loading strategies!</strong>
-            <span class="block sm:inline"> ${error.message}</span>
-        </div>`;
+        console.error('Error toggling strategy:', error);
+        // Revert the checkbox state
+        const checkbox = document.querySelector(`input[type="checkbox"][onchange*="${strategyName}"]`);
+        if (checkbox) {
+            checkbox.checked = !active;
+        }
     }
 }
 
-// Load strategies immediately and refresh every minute
-loadStrategies();
-setInterval(loadStrategies, 60000);
+// Load strategies function
+async function loadStrategies() {
+    const strategiesContainer = document.getElementById('strategies-container');
+    const loadingElement = document.getElementById('loading-strategies');
+    const errorElement = document.getElementById('error-loading-strategies');
+    
+    if (!strategiesContainer || !loadingElement || !errorElement) {
+        console.error('Required DOM elements not found');
+        return;
+    }
+    
+    try {
+        loadingElement.classList.remove('hidden');
+        errorElement.classList.add('hidden');
+        
+        const response = await fetch('/api/strategy-status');
+        if (!response.ok) {
+            throw new Error('Failed to fetch strategy status');
+        }
+        
+        const strategies = await response.json();
+        
+        // Update active strategies count
+        const activeCount = strategies.filter(s => s.active).length;
+        const activeCountElement = document.getElementById('active-strategies-count');
+        if (activeCountElement) {
+            activeCountElement.textContent = activeCount;
+        }
+        
+        // Calculate total metrics
+        const totalRecs = strategies.reduce((sum, s) => sum + (s.metrics?.total_recommendations || 0), 0);
+        const totalRecsElement = document.getElementById('total-recommendations');
+        if (totalRecsElement) {
+            totalRecsElement.textContent = formatNumber(totalRecs);
+        }
+        
+        // Calculate average success rate
+        const activeStrategies = strategies.filter(s => s.active && s.metrics?.all_time_success_rate);
+        const avgSuccess = activeStrategies.length > 0
+            ? activeStrategies.reduce((sum, s) => sum + (s.metrics.all_time_success_rate || 0), 0) / activeStrategies.length
+            : 0;
+        const successRateElement = document.getElementById('success-rate');
+        if (successRateElement) {
+            successRateElement.textContent = formatPercent(avgSuccess);
+        }
+        
+        // Render strategy cards
+        strategiesContainer.innerHTML = strategies.map(createStrategyCard).join('');
+        
+    } catch (error) {
+        console.error('Error loading strategies:', error);
+        errorElement.classList.remove('hidden');
+        errorElement.textContent = 'Error loading strategies. Please try again.';
+    } finally {
+        loadingElement.classList.add('hidden');
+    }
+}
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {
     loadStrategies();
-    // Refresh strategies every 30 seconds
-    setInterval(loadStrategies, 30000);
+    // Refresh strategies every minute
+    setInterval(loadStrategies, 60000);
 }); 
