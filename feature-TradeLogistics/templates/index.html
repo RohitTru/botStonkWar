@@ -44,19 +44,9 @@
         .tooltip { position: absolute; z-index: 10; background: #222; color: #fff; padding: 0.4em 0.7em; border-radius: 6px; font-size: 0.93em; pointer-events: none; opacity: 0; transition: opacity 0.15s; white-space: pre-line; max-width: 220px; }
         .scroll-arrow { display: none !important; }
         .recommendations-section { display: flex; gap: 2rem; flex-direction: row; align-items: flex-start; }
-        .recs-col { flex: 1; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; transition: background 0.2s; scrollbar-width: thin; scrollbar-color: #888 #f1f3f6; }
-        .recs-col::-webkit-scrollbar { width: 8px; background: #f1f3f6; }
-        .recs-col::-webkit-scrollbar-thumb { background: #bbb; border-radius: 6px; }
-        .recs-col:hover::-webkit-scrollbar-thumb { background: #888; }
-        .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; transition: background 0.2s, color 0.2s, border-left-color 0.2s; position: relative; opacity: 1; transform: translateY(0); }
-        #sell-recs-list .rec-card { border-left-color: #e53935; }
-        .rec-card.faded { border-left: 5px solid rgba(76,175,80,0.18); background: #fafbfa; color: #aaa; }
-        #sell-recs-list .rec-card.faded { border-left: 5px solid rgba(229,57,53,0.18); background: #fbf9f9; }
-        .rec-card.animate-in { animation: slideInUp 0.5s cubic-bezier(.4,2,.6,1); }
-        @keyframes slideInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
-        .load-more-btn { display: block; margin: 0.7em auto 0 auto; padding: 0.5em 1.5em; border-radius: 6px; border: none; background: #1976d2; color: #fff; font-size: 1em; font-weight: 500; cursor: pointer; box-shadow: 0 1px 4px #0001; transition: background 0.18s; }
-        .load-more-btn:hover { background: #1565c0; }
-        .recs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
+        .recs-col { display: flex; flex-direction: column; }
+        .recs-header { flex: 0 0 auto; position: relative; z-index: 2; background: #fff; border-radius: 8px 8px 0 0; box-shadow: none; margin-bottom: 0.5em; }
+        .recs-scroll-list { flex: 1 1 auto; overflow-y: auto; min-height: 0; max-height: 520px; }
         .recs-title {
             font-weight: bold;
             font-size: 1.35em;
@@ -134,7 +124,7 @@
                     <span class="recs-title"><span class="icon">&#x1F4B5;</span> Buy Recommendations</span>
                     <select class="recs-filter" id="buy-strategy-filter"></select>
                 </div>
-                <div id="buy-recs-list"></div>
+                <div class="recs-scroll-list"><div id="buy-recs-list"></div></div>
                 <div class="loading" id="buy-recs-loading">Loading...</div>
             </div>
             <div class="recs-col" id="sell-recs-col">
@@ -142,7 +132,7 @@
                     <span class="recs-title"><span class="icon">&#x1F4C9;</span> Sell Recommendations</span>
                     <select class="recs-filter" id="sell-strategy-filter"></select>
                 </div>
-                <div id="sell-recs-list"></div>
+                <div class="recs-scroll-list"><div id="sell-recs-list"></div></div>
                 <div class="loading" id="sell-recs-loading">Loading...</div>
             </div>
         </div>
@@ -308,24 +298,23 @@
             <div class="rec-reason">${r.reasoning}</div>
         </div>`;
     }
-    function renderRecList(list, container, filter, type, cutoffIdx) {
-        container.innerHTML = '';
+    function renderRecList(list, container, filter, type) {
+        // Split into two groups: recent (≤1hr) and old (>1hr)
+        let htmlRecent = '', htmlOld = '';
         let faded = false;
-        let firstOldIdx = -1;
         list.forEach((r, idx) => {
             if (filter && r.strategy_name !== filter) return;
             const age = getAgeMinutes(r.created_at);
-            if (firstOldIdx === -1 && age > 60) firstOldIdx = idx;
-        });
-        list.forEach((r, idx) => {
-            if (filter && r.strategy_name !== filter) return;
-            const age = getAgeMinutes(r.created_at);
-            if (firstOldIdx !== -1 && idx === firstOldIdx) {
-                container.innerHTML += '<div class="rec-age-separator">Older than 1 hour</div>';
-                faded = true;
+            if (age > 60) {
+                htmlOld += renderRecCard(r, true);
+            } else {
+                htmlRecent += renderRecCard(r, false);
             }
-            container.innerHTML += renderRecCard(r, faded);
         });
+        container.innerHTML = htmlRecent;
+        if (htmlOld) {
+            container.innerHTML += '<div class="rec-age-separator">Older than 1 hour</div>' + htmlOld;
+        }
     }
     async function loadRecs(type, page, filter) {
         const resp = await fetch(`/api/recommendations?page=${page}&filter=${type}` + (filter ? `&strategy=${filter}` : ''));
