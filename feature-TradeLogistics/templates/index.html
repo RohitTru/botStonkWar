@@ -37,6 +37,13 @@
         .rec-confidence { font-size: 0.92em; color: #888; }
         .rec-age-separator { border-top: 2px dashed #bbb; margin: 1em 0; text-align: center; color: #888; font-size: 0.95em; }
         .loading { text-align: center; color: #888; margin: 1em 0; }
+        .strategy-description { color: #555; font-size: 0.98em; margin: 0.5em 0 0.5em 0; word-break: break-word; white-space: pre-line; overflow-wrap: break-word; max-width: 95%; }
+        .metrics-scroll-box { display: flex; overflow-x: auto; gap: 0.5em; background: #f1f3f6; border-radius: 6px; padding: 0.4em 0.2em; margin-bottom: 0.4em; }
+        .metric-pill { min-width: 80px; background: #e3f2fd; color: #1976d2; border-radius: 6px; padding: 0.3em 0.7em; font-size: 0.97em; text-align: center; margin-right: 0.2em; box-shadow: 0 1px 2px #0001; }
+        .metric-pill:last-child { margin-right: 0; }
+        .metrics-label { font-size: 0.93em; color: #888; margin-bottom: 0.2em; margin-top: 0.3em; }
+        .ws-symbol-price { display: flex; align-items: center; gap: 0.5em; margin-right: 0.7em; }
+        .ws-symbol-price .ws-symbol { margin-right: 0.2em; }
     </style>
 </head>
 <body>
@@ -120,13 +127,18 @@
     }
     setInterval(updateMetricsBar, 30000);
     updateMetricsBar();
-    // --- WebSocket Symbols ---
+    // --- WebSocket Symbols with Prices ---
     async function updateWsSymbols() {
         const resp = await fetch('/api/ws-subscribed-symbols');
         const data = await resp.json();
+        const priceResp = await fetch('/api/ws-subscribed-symbol-prices');
+        const priceData = await priceResp.json();
         const el = document.getElementById('ws-symbols');
         if (data.symbols && data.symbols.length > 0) {
-            el.innerHTML = data.symbols.map(s => `<span class="ws-symbol">${s}</span>`).join(' ');
+            el.innerHTML = data.symbols.map(s => {
+                const price = priceData[s] && priceData[s].price !== undefined ? priceData[s].price : 'N/A';
+                return `<span class="ws-symbol-price"><span class="ws-symbol">${s}</span><span style="color:#333;font-size:0.98em;">$${price}</span></span>`;
+            }).join(' ');
         } else {
             el.innerHTML = '<span style="color:#888">No active subscriptions</span>';
         }
@@ -149,25 +161,23 @@
                         ${s.active ? 'On' : 'Off'}
                     </button>
                 </div>
-                <div style="margin:0.5em 0 0.5em 0; color:#555; font-size:0.98em;">${s.description}</div>
-                <div class="metrics-group">
-                    <div class="metrics-title">Last Hour</div>
-                    <ul class="metrics-list">
-                        <li>Recs: ${s.metrics?.hourly?.recommendations_generated ?? 0}</li>
-                        <li>Articles: ${s.metrics?.hourly?.articles_processed ?? 0}</li>
-                        <li>Buy: ${s.metrics?.hourly?.buy_signals ?? 0}</li>
-                        <li>Sell: ${s.metrics?.hourly?.sell_signals ?? 0}</li>
-                        <li>Success: ${s.metrics?.hourly?.success_rate ?? 0}%</li>
-                        <li>Avg Conf: ${s.metrics?.hourly?.avg_confidence ?? 0}</li>
-                    </ul>
-                    <div class="metrics-title">All Time</div>
-                    <ul class="metrics-list">
-                        <li>Runs: ${s.metrics?.total_runs ?? 0}</li>
-                        <li>Articles: ${s.metrics?.total_articles_processed ?? 0}</li>
-                        <li>Recs: ${s.metrics?.total_recommendations ?? 0}</li>
-                        <li>Buy: ${s.metrics?.total_buy_signals ?? 0}</li>
-                        <li>Sell: ${s.metrics?.total_sell_signals ?? 0}</li>
-                    </ul>
+                <div class="strategy-description">${s.description}</div>
+                <div class="metrics-label">Last Hour</div>
+                <div class="metrics-scroll-box">
+                    <div class="metric-pill">Recs: ${s.metrics?.hourly?.recommendations_generated ?? 0}</div>
+                    <div class="metric-pill">Articles: ${s.metrics?.hourly?.articles_processed ?? 0}</div>
+                    <div class="metric-pill">Buy: ${s.metrics?.hourly?.buy_signals ?? 0}</div>
+                    <div class="metric-pill">Sell: ${s.metrics?.hourly?.sell_signals ?? 0}</div>
+                    <div class="metric-pill">Success: ${s.metrics?.hourly?.success_rate ?? 0}%</div>
+                    <div class="metric-pill">Avg Conf: ${s.metrics?.hourly?.avg_confidence ?? 0}</div>
+                </div>
+                <div class="metrics-label">All Time</div>
+                <div class="metrics-scroll-box">
+                    <div class="metric-pill">Runs: ${s.metrics?.total_runs ?? 0}</div>
+                    <div class="metric-pill">Articles: ${s.metrics?.total_articles_processed ?? 0}</div>
+                    <div class="metric-pill">Recs: ${s.metrics?.total_recommendations ?? 0}</div>
+                    <div class="metric-pill">Buy: ${s.metrics?.total_buy_signals ?? 0}</div>
+                    <div class="metric-pill">Sell: ${s.metrics?.total_sell_signals ?? 0}</div>
                 </div>
             `;
             scroll.appendChild(card);
@@ -184,9 +194,10 @@
     }
     setInterval(updateStrategies, 30000);
     updateStrategies();
-    // --- Recommendations ---
+    // --- Recommendations Infinite Scroll ---
     let buyPage = 1, sellPage = 1, buyLoading = false, sellLoading = false;
     let buyStrategyFilter = '', sellStrategyFilter = '';
+    let buyHasMore = true, sellHasMore = true;
     function renderRecCard(r) {
         const age = getAgeMinutes(r.created_at);
         return `<div class="rec-card ${r.action}">
@@ -196,7 +207,6 @@
         </div>`;
     }
     function renderRecList(list, container, filter, type) {
-        container.innerHTML = '';
         let lastWasOld = false;
         list.forEach(r => {
             if (filter && r.strategy_name !== filter) return;
@@ -215,24 +225,26 @@
     async function updateBuyRecs(reset=false) {
         if (buyLoading) return;
         buyLoading = true;
-        if (reset) { buyPage = 1; document.getElementById('buy-recs-list').innerHTML = ''; }
+        if (reset) { buyPage = 1; buyHasMore = true; document.getElementById('buy-recs-list').innerHTML = ''; }
         document.getElementById('buy-recs-loading').style.display = '';
         const recs = await loadRecs('buy', buyPage, buyStrategyFilter);
         if (recs.length === 0 && buyPage === 1) document.getElementById('buy-recs-list').innerHTML = '<div class="loading">No buy recommendations.</div>';
         renderRecList(recs, document.getElementById('buy-recs-list'), buyStrategyFilter, 'buy');
         document.getElementById('buy-recs-loading').style.display = 'none';
         buyLoading = false;
+        if (recs.length < 10) buyHasMore = false;
     }
     async function updateSellRecs(reset=false) {
         if (sellLoading) return;
         sellLoading = true;
-        if (reset) { sellPage = 1; document.getElementById('sell-recs-list').innerHTML = ''; }
+        if (reset) { sellPage = 1; sellHasMore = true; document.getElementById('sell-recs-list').innerHTML = ''; }
         document.getElementById('sell-recs-loading').style.display = '';
         const recs = await loadRecs('sell', sellPage, sellStrategyFilter);
         if (recs.length === 0 && sellPage === 1) document.getElementById('sell-recs-list').innerHTML = '<div class="loading">No sell recommendations.</div>';
         renderRecList(recs, document.getElementById('sell-recs-list'), sellStrategyFilter, 'sell');
         document.getElementById('sell-recs-loading').style.display = 'none';
         sellLoading = false;
+        if (recs.length < 10) sellHasMore = false;
     }
     document.getElementById('buy-strategy-filter').onchange = function() {
         buyStrategyFilter = this.value;
@@ -254,13 +266,13 @@
     populateStrategyFilters();
     // Infinite scroll for recommendations
     document.getElementById('buy-recs-col').addEventListener('scroll', async function() {
-        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !buyLoading) {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !buyLoading && buyHasMore) {
             buyPage++;
             await updateBuyRecs();
         }
     });
     document.getElementById('sell-recs-col').addEventListener('scroll', async function() {
-        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !sellLoading) {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !sellLoading && sellHasMore) {
             sellPage++;
             await updateSellRecs();
         }
