@@ -17,29 +17,30 @@
         .strategy-card { display: flex; flex-direction: column; justify-content: flex-start; align-items: stretch; vertical-align: top; background: #f9f9fb; border-radius: 8px; box-shadow: 0 1px 4px #0001; margin-right: 1rem; width: 340px; min-height: 340px; max-height: 340px; padding: 1rem; margin-bottom: 1rem; position: relative; box-sizing: border-box; }
         .strategy-header { display: flex; justify-content: space-between; align-items: center; }
         .strategy-name { font-weight: bold; font-size: 1.1em; }
-        .toggle-btn { cursor: pointer; background: #eee; border: none; border-radius: 12px; padding: 0.2em 1em; font-size: 0.95em; margin-left: 0.5em; position: relative; overflow: hidden; transition: background 0.2s, color 0.2s; }
+        .toggle-btn { cursor: pointer; background: #eee; border: none; border-radius: 12px; padding: 0.2em 1em; font-size: 0.95em; margin-left: 0.5em; position: relative; overflow: hidden; transition: background 0.2s, color 0.2s, transform 0.18s cubic-bezier(.4,2,.6,1), box-shadow 0.18s; box-shadow: 0 1px 2px #0001; }
         .toggle-btn.active { background: #b2f2bb; color: #155724; }
         .toggle-btn.inactive { background: #ffe0e0; color: #721c24; }
-        .toggle-btn .toggle-bg { position: absolute; left: 0; top: 0; height: 100%; width: 100%; z-index: 0; transition: transform 0.2s; pointer-events: none; }
-        .toggle-btn .toggle-label { position: relative; z-index: 1; }
-        .toggle-btn:hover .toggle-bg { transform: translateX(0); opacity: 1; }
-        .toggle-btn .toggle-bg.off { background: #ffe0e0; color: #721c24; display: flex; align-items: center; justify-content: flex-end; padding-right: 1em; opacity: 0.9; }
-        .toggle-btn .toggle-bg.on { background: #b2f2bb; color: #155724; display: flex; align-items: center; justify-content: flex-start; padding-left: 1em; opacity: 0.9; }
-        .toggle-btn .toggle-bg span { font-size: 0.95em; font-weight: bold; }
-        .toggle-btn:after { content: ''; position: absolute; inset: 0; border-radius: 12px; box-shadow: 0 0 0 2px #1976d2 inset; opacity: 0; transition: opacity 0.2s; }
-        .toggle-btn:hover:after { opacity: 0.15; }
+        .toggle-btn .toggle-label { position: relative; z-index: 1; display: block; transition: transform 0.22s cubic-bezier(.4,2,.6,1); }
+        .toggle-btn .toggle-alt { position: absolute; left: 0; right: 0; top: 100%; z-index: 0; opacity: 0; transform: skewY(12deg) scale(0.9); transition: top 0.22s cubic-bezier(.4,2,.6,1), opacity 0.22s, transform 0.22s; font-weight: bold; text-align: center; }
+        .toggle-btn.active .toggle-alt { color: #721c24; background: #ffe0e0; }
+        .toggle-btn.inactive .toggle-alt { color: #155724; background: #b2f2bb; }
+        .toggle-btn:hover { transform: scale(1.08) skewY(-6deg); box-shadow: 0 4px 12px #0002; }
+        .toggle-btn:hover .toggle-label { transform: translateY(-120%) skewY(12deg) scale(0.9); opacity: 0.7; }
+        .toggle-btn:hover .toggle-alt { top: 0; opacity: 1; transform: skewY(0deg) scale(1); }
         .metrics-group { font-size: 0.92em; color: #444; margin-top: 0.5em; }
         .metrics-title { font-size: 0.95em; color: #888; margin-top: 0.5em; }
         .metrics-list { margin: 0.2em 0 0.5em 0; padding: 0; list-style: none; }
         .metrics-list li { margin-bottom: 0.1em; }
         .recommendations-section { display: flex; gap: 2rem; }
-        .recs-col { flex: 1; background: #f9f9fb; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; }
+        .recs-col { flex: 1; background: #eafaf0; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; transition: background 0.2s; }
+        #sell-recs-col { background: #faeaea; }
         .recs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
         .recs-title { font-weight: bold; font-size: 1.1em; }
         .recs-filter { font-size: 0.95em; }
         .rec-card { background: #fff; border-radius: 6px; box-shadow: 0 1px 2px #0001; margin-bottom: 0.7em; padding: 0.7em 1em; border-left: 5px solid #4caf50; transition: background 0.2s, color 0.2s; position: relative; }
-        .rec-card.sell { border-left-color: #e53935; }
-        .rec-card.faded { background: #f3f3f3; color: #aaa; border-left-color: #bbb; }
+        #sell-recs-list .rec-card { border-left-color: #e53935; }
+        .rec-card.faded { background: rgba(67,160,71,0.10); color: #aaa; border-left-color: #b2dfdb; }
+        #sell-recs-list .rec-card.faded { background: rgba(229,57,53,0.10); border-left-color: #ffcdd2; }
         .rec-symbol { font-weight: bold; font-size: 1.1em; cursor: pointer; position: relative; }
         .rec-confidence { font-size: 0.92em; color: #888; cursor: pointer; }
         .rec-meta { font-size: 0.92em; color: #666; margin-bottom: 0.2em; cursor: pointer; }
@@ -49,17 +50,17 @@
         .loading { text-align: center; color: #888; margin: 1em 0; }
         .strategy-description { color: #555; font-size: 0.98em; margin: 0.5em 0 0.5em 0; word-break: break-word; white-space: pre-line; overflow-wrap: break-word; max-width: 95%; }
         .metrics-scroll-box { display: flex; overflow-x: auto; gap: 0.5em; background: #f1f3f6; border-radius: 6px; padding: 0.4em 0.2em; margin-bottom: 0.4em; }
-        .metric-pill { min-width: 80px; border-radius: 6px; padding: 0.3em 0.7em; font-size: 0.97em; text-align: center; margin-right: 0.2em; box-shadow: 0 1px 2px #0001; color: #fff; font-weight: 500; }
+        .metric-pill { height: 2.1em; display: flex; align-items: center; border-radius: 6px; padding: 0 1em; font-size: 0.97em; text-align: center; margin-right: 0.2em; box-shadow: 0 1px 2px #0001; color: #fff; font-weight: 500; white-space: nowrap; }
         .metric-pill.recs { background: #1976d2; }
-        .metric-pill.articles { background: #43a047; }
-        .metric-pill.buy { background: #4caf50; }
+        .metric-pill.articles { background: #00bcd4; }
+        .metric-pill.buy { background: #43a047; }
         .metric-pill.sell { background: #e53935; }
         .metric-pill.success { background: #ffb300; color: #333; }
         .metric-pill.conf { background: #8e24aa; }
         .metric-pill.runs { background: #0288d1; }
-        .metric-pill.total-articles { background: #388e3c; }
+        .metric-pill.total-articles { background: #009688; }
         .metric-pill.total-recs { background: #1565c0; }
-        .metric-pill.total-buy { background: #388e3c; }
+        .metric-pill.total-buy { background: #7cb342; }
         .metric-pill.total-sell { background: #c62828; }
         .metrics-label { font-size: 0.93em; color: #888; margin-bottom: 0.2em; margin-top: 0.3em; }
         .ws-symbol-price { display: flex; align-items: center; gap: 0.5em; margin-right: 0.7em; }
@@ -201,7 +202,7 @@
                     <span class="strategy-name">${s.name}</span>
                     <button class="toggle-btn ${s.active ? 'active' : 'inactive'}" onclick="toggleStrategy('${s.name}', ${s.active})">
                         <span class="toggle-label">${s.active ? 'On' : 'Off'}</span>
-                        <span class="toggle-bg ${s.active ? 'off' : 'on'}"><span>${s.active ? 'Off' : 'On'}</span></span>
+                        <span class="toggle-alt">${s.active ? 'Off' : 'On'}</span>
                     </button>
                 </div>
                 <div class="strategy-description">${s.description}</div>
@@ -241,6 +242,7 @@
     let buyPage = 1, sellPage = 1, buyLoading = false, sellLoading = false;
     let buyStrategyFilter = '', sellStrategyFilter = '';
     let buyHasMore = true, sellHasMore = true;
+    let buyLastCount = 0, sellLastCount = 0;
     function renderRecCard(r, faded) {
         const age = getAgeMinutes(r.created_at);
         return `<div class="rec-card ${r.action}${faded ? ' faded' : ''}">
@@ -271,11 +273,14 @@
     async function updateBuyRecs(reset=false) {
         if (buyLoading) return;
         buyLoading = true;
-        if (reset) { buyPage = 1; buyHasMore = true; document.getElementById('buy-recs-list').innerHTML = ''; }
+        if (reset) { buyPage = 1; buyHasMore = true; buyLastCount = 0; document.getElementById('buy-recs-list').innerHTML = ''; }
         document.getElementById('buy-recs-loading').style.display = '';
         const recs = await loadRecs('buy', buyPage, buyStrategyFilter);
         if (recs.length === 0 && buyPage === 1) document.getElementById('buy-recs-list').innerHTML = '<div class="loading">No buy recommendations.</div>';
-        renderRecList(recs, document.getElementById('buy-recs-list'), buyStrategyFilter, 'buy');
+        if (recs.length > 0) {
+            renderRecList(recs, document.getElementById('buy-recs-list'), buyStrategyFilter, 'buy');
+            buyLastCount = recs.length;
+        }
         document.getElementById('buy-recs-loading').style.display = 'none';
         buyLoading = false;
         if (recs.length < 10) buyHasMore = false;
@@ -283,11 +288,14 @@
     async function updateSellRecs(reset=false) {
         if (sellLoading) return;
         sellLoading = true;
-        if (reset) { sellPage = 1; sellHasMore = true; document.getElementById('sell-recs-list').innerHTML = ''; }
+        if (reset) { sellPage = 1; sellHasMore = true; sellLastCount = 0; document.getElementById('sell-recs-list').innerHTML = ''; }
         document.getElementById('sell-recs-loading').style.display = '';
         const recs = await loadRecs('sell', sellPage, sellStrategyFilter);
         if (recs.length === 0 && sellPage === 1) document.getElementById('sell-recs-list').innerHTML = '<div class="loading">No sell recommendations.</div>';
-        renderRecList(recs, document.getElementById('sell-recs-list'), sellStrategyFilter, 'sell');
+        if (recs.length > 0) {
+            renderRecList(recs, document.getElementById('sell-recs-list'), sellStrategyFilter, 'sell');
+            sellLastCount = recs.length;
+        }
         document.getElementById('sell-recs-loading').style.display = 'none';
         sellLoading = false;
         if (recs.length < 10) sellHasMore = false;
@@ -312,13 +320,13 @@
     populateStrategyFilters();
     // Infinite scroll for recommendations
     document.getElementById('buy-recs-col').addEventListener('scroll', async function() {
-        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !buyLoading && buyHasMore) {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !buyLoading && buyHasMore && buyLastCount === 10) {
             buyPage++;
             await updateBuyRecs();
         }
     });
     document.getElementById('sell-recs-col').addEventListener('scroll', async function() {
-        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !sellLoading && sellHasMore) {
+        if (this.scrollTop + this.clientHeight >= this.scrollHeight - 10 && !sellLoading && sellHasMore && sellLastCount === 10) {
             sellPage++;
             await updateSellRecs();
         }
