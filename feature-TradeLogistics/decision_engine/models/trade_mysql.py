@@ -151,4 +151,14 @@ class TradeRecommendationMySQL:
                 )
                 conn.commit()
             except Exception as e:
-                print(f"[MySQL] Error updating live data: {e}") 
+                print(f"[MySQL] Error updating live data: {e}")
+
+    def count_total_recommendations(self):
+        with self.engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM trade_recommendations"))
+            return result.scalar() or 0
+
+    def count_recommendations_last_hour(self):
+        with self.engine.connect() as conn:
+            result = conn.execute(text("SELECT COUNT(*) FROM trade_recommendations WHERE created_at >= NOW() - INTERVAL 1 HOUR"))
+            return result.scalar() or 0 

@@ -287,8 +287,11 @@ def get_dashboard_data():
         print("Calling run_all_strategies() from dashboard-data endpoint.")
         recommendations = strategy_manager.run_all_strategies(strategy_data)
         strategies = strategy_manager.get_all_strategies()
+        total_recommendations = trade_db.count_total_recommendations()
+        recs_last_hour = trade_db.count_recommendations_last_hour()
         metrics = {
-            'total_recommendations': len(recommendations),
+            'total_recommendations': total_recommendations,
+            'recommendations_last_hour': recs_last_hour,
             'buy_signals': len([r for r in recommendations if r['action'] == 'buy']),
             'sell_signals': len([r for r in recommendations if r['action'] == 'sell']),
             'high_confidence_signals': len([r for r in recommendations if r['confidence'] >= 0.8])

@@ -316,12 +316,11 @@ async function loadStrategies() {
         loadingElement.classList.remove('hidden');
         errorElement.classList.add('hidden');
         
-        const response = await fetch('/api/strategy-status');
-        if (!response.ok) {
-            throw new Error('Failed to fetch strategy status');
-        }
-        
-        const strategies = await response.json();
+        // Fetch dashboard data for metrics
+        const dashboardResp = await fetch('/api/dashboard-data');
+        const dashboardData = await dashboardResp.json();
+        const metrics = dashboardData.metrics || {};
+        const strategies = dashboardData.strategies || [];
         
         // Update active strategies count
         const activeCount = strategies.filter(s => s.active).length;
@@ -329,24 +328,16 @@ async function loadStrategies() {
         if (activeCountElement) {
             activeCountElement.textContent = activeCount;
         }
-        
-        // Calculate total metrics
-        const totalRecs = strategies.reduce((sum, s) => sum + (s.metrics?.total_recommendations || 0), 0);
+        // Update recommendations in last hour
+        const recsLastHourElement = document.getElementById('recs-last-hour');
+        if (recsLastHourElement) {
+            recsLastHourElement.textContent = metrics.recommendations_last_hour || 0;
+        }
+        // Update total recommendations
         const totalRecsElement = document.getElementById('total-recommendations');
         if (totalRecsElement) {
-            totalRecsElement.textContent = formatNumber(totalRecs);
+            totalRecsElement.textContent = formatNumber(metrics.total_recommendations || 0);
         }
-        
-        // Calculate average success rate
-        const activeStrategies = strategies.filter(s => s.active && s.metrics?.all_time_success_rate);
-        const avgSuccess = activeStrategies.length > 0
-            ? activeStrategies.reduce((sum, s) => sum + (s.metrics.all_time_success_rate || 0), 0) / activeStrategies.length
-            : 0;
-        const successRateElement = document.getElementById('success-rate');
-        if (successRateElement) {
-            successRateElement.textContent = formatPercent(avgSuccess);
-        }
-        
         // Render strategy cards
         strategiesContainer.innerHTML = strategies.map(createStrategyCard).join('');
         
