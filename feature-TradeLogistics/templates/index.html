@@ -46,6 +46,7 @@
         .scroll-arrow.down { bottom: 0.2em; }
         .scroll-arrow.up { top: 0.2em; animation-direction: reverse; }
         @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(10px); } }
+        .recommendations-section { display: flex; gap: 2rem; flex-direction: row; align-items: flex-start; }
         .recs-col { flex: 1; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; transition: background 0.2s; scrollbar-width: thin; scrollbar-color: #888 #f1f3f6; }
         .recs-col::-webkit-scrollbar { width: 8px; background: #f1f3f6; }
         .recs-col::-webkit-scrollbar-thumb { background: #bbb; border-radius: 6px; }
@@ -250,6 +251,9 @@
     }
     setInterval(updateStrategies, 30000);
     updateStrategies();
+    // --- Recommendations Persistent Arrays ---
+    let buyRecs = [];
+    let sellRecs = [];
     // --- Recommendations Infinite Scroll ---
     let buyPage = 1, sellPage = 1, buyLoading = false, sellLoading = false;
     let buyStrategyFilter = '', sellStrategyFilter = '';
@@ -315,13 +319,19 @@
         if (buyLoading) return;
         buyLoading = true;
         const listEl = document.getElementById('buy-recs-list');
-        let prevCount = listEl.querySelectorAll('.rec-card').length;
-        if (reset) { buyPage = 1; buyHasMore = true; buyLastCount = 0; listEl.innerHTML = ''; prevCount = 0; }
+        let prevCount = buyRecs.length;
+        if (reset) {
+            buyPage = 1; buyHasMore = true; buyLastCount = 0;
+            listEl.innerHTML = '';
+            prevCount = 0;
+            buyRecs = [];
+        }
         document.getElementById('buy-recs-loading').style.display = '';
         const recs = await loadRecs('buy', buyPage, buyStrategyFilter);
         if (recs.length === 0 && buyPage === 1) listEl.innerHTML = '<div class="loading">No buy recommendations.</div>';
         if (recs.length > 0) {
-            renderRecList(recs, listEl, buyStrategyFilter, 'buy');
+            buyRecs = buyRecs.concat(recs);
+            renderRecList(buyRecs, listEl, buyStrategyFilter, 'buy');
             buyLastCount = recs.length;
             animateNewCards(listEl, prevCount);
         }
@@ -346,13 +356,19 @@
         if (sellLoading) return;
         sellLoading = true;
         const listEl = document.getElementById('sell-recs-list');
-        let prevCount = listEl.querySelectorAll('.rec-card').length;
-        if (reset) { sellPage = 1; sellHasMore = true; sellLastCount = 0; listEl.innerHTML = ''; prevCount = 0; }
+        let prevCount = sellRecs.length;
+        if (reset) {
+            sellPage = 1; sellHasMore = true; sellLastCount = 0;
+            listEl.innerHTML = '';
+            prevCount = 0;
+            sellRecs = [];
+        }
         document.getElementById('sell-recs-loading').style.display = '';
         const recs = await loadRecs('sell', sellPage, sellStrategyFilter);
         if (recs.length === 0 && sellPage === 1) listEl.innerHTML = '<div class="loading">No sell recommendations.</div>';
         if (recs.length > 0) {
-            renderRecList(recs, listEl, sellStrategyFilter, 'sell');
+            sellRecs = sellRecs.concat(recs);
+            renderRecList(sellRecs, listEl, sellStrategyFilter, 'sell');
             sellLastCount = recs.length;
             animateNewCards(listEl, prevCount);
         }
