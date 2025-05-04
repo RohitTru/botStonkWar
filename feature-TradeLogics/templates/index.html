@@ -1,15 +1,155 @@
+<!-- Strategy Status Section -->
+<div class="row mb-4">
+    <div class="col-12">
+        <div class="card">
+            <div class="card-header d-flex justify-content-between align-items-center">
+                <h5 class="mb-0">Strategy Status</h5>
+                <div class="strategy-metrics">
+                    <span class="badge bg-primary" id="active-strategies-count">0 Active</span>
+                    <span class="badge bg-secondary" id="total-strategies-count">0 Total</span>
+                </div>
+            </div>
+            <div class="card-body p-0">
+                <div class="strategy-carousel" id="strategy-status">
+                    Loading...
+                </div>
+            </div>
+        </div>
+    </div>
+</div>
+
+<style>
+.strategy-carousel {
+    display: flex;
+    overflow-x: auto;
+    padding: 1rem;
+    scroll-behavior: smooth;
+    gap: 1rem;
+    min-height: 400px;
+}
+
+.strategy-card {
+    flex: 0 0 400px;
+    border: 1px solid rgba(0,0,0,.125);
+    border-radius: 8px;
+    padding: 1rem;
+    background: white;
+    transition: all 0.3s ease;
+}
+
+.strategy-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+    transform: translateY(-2px);
+}
+
+.strategy-card.active {
+    border-color: #28a745;
+}
+
+.strategy-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 1rem;
+}
+
+.strategy-description {
+    color: #6c757d;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    min-height: 40px;
+}
+
+.metrics-section {
+    background: #f8f9fa;
+    border-radius: 6px;
+    padding: 1rem;
+}
+
+.metrics-title {
+    font-size: 0.9rem;
+    color: #495057;
+    margin-bottom: 0.5rem;
+}
+
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 0.75rem;
+}
+
+.metric-item {
+    background: white;
+    padding: 0.75rem;
+    border-radius: 4px;
+    border: 1px solid rgba(0,0,0,.05);
+}
+
+.metric-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+
+.metric-value {
+    display: block;
+    font-weight: 600;
+    font-size: 1rem;
+}
+
+.strategy-footer {
+    display: flex;
+    justify-content: space-between;
+    margin-top: 1rem;
+    padding-top: 0.5rem;
+    border-top: 1px solid rgba(0,0,0,.05);
+}
+
+.strategy-metrics {
+    display: flex;
+    gap: 0.5rem;
+}
+
+/* Custom scrollbar for strategy carousel */
+.strategy-carousel::-webkit-scrollbar {
+    height: 8px;
+}
+
+.strategy-carousel::-webkit-scrollbar-track {
+    background: #f1f1f1;
+    border-radius: 4px;
+}
+
+.strategy-carousel::-webkit-scrollbar-thumb {
+    background: #888;
+    border-radius: 4px;
+}
+
+.strategy-carousel::-webkit-scrollbar-thumb:hover {
+    background: #555;
+}
+</style>
+
+<script>
+let allStrategies = [];
+
 async function loadStrategies() {
     try {
         const resp = await fetch('/api/strategy-status');
         const data = await resp.json();
         allStrategies = data.strategies;
         
-        // Update strategy status toggles
+        // Update strategy counts
+        const activeCount = data.strategies.filter(s => s.active).length;
+        document.getElementById('active-strategies-count').textContent = `${activeCount} Active`;
+        document.getElementById('total-strategies-count').textContent = `${data.strategies.length} Total`;
+        
+        // Update strategy status cards
         const statusEl = document.getElementById('strategy-status');
         if (data.strategies && data.strategies.length > 0) {
             statusEl.innerHTML = data.strategies.map(s => 
-                `<div class="card mb-3 strategy-metrics-card">
-                    <div class="card-header">
+                `<div class="strategy-card ${s.active ? 'active' : ''}">
+                    <div class="strategy-header">
                         <div class="form-check form-switch">
                             <input class="form-check-input" type="checkbox" id="strategy-${s.name}" 
                                 ${s.active ? 'checked' : ''} 
@@ -18,56 +158,69 @@ async function loadStrategies() {
                                 <strong>${s.name}</strong>
                             </label>
                         </div>
+                        <span class="badge ${s.active ? 'bg-success' : 'bg-secondary'}">${s.active ? 'Active' : 'Inactive'}</span>
                     </div>
-                    <div class="card-body">
-                        <p class="text-muted small mb-2">${s.description}</p>
+                    
+                    <div class="strategy-description">
+                        ${s.description}
+                    </div>
+                    
+                    <div class="metrics-section">
+                        <h6 class="metrics-title">Performance Metrics</h6>
                         <div class="metrics-grid">
                             <div class="metric-item">
-                                <span class="metric-label">Total Runs</span>
-                                <span class="metric-value">${s.metrics.total_runs}</span>
-                            </div>
-                            <div class="metric-item">
                                 <span class="metric-label">Success Rate</span>
-                                <span class="metric-value">${s.metrics.success_rate}%</span>
+                                <span class="metric-value">${s.metrics?.success_rate || 0}%</span>
                             </div>
                             <div class="metric-item">
-                                <span class="metric-label">Articles (Total/Current)</span>
-                                <span class="metric-value">${s.metrics.total_articles_processed}/${s.metrics.articles_processed}</span>
+                                <span class="metric-label">Total Runs</span>
+                                <span class="metric-value">${s.metrics?.total_runs || 0}</span>
                             </div>
                             <div class="metric-item">
-                                <span class="metric-label">Recommendations (Total/Current)</span>
-                                <span class="metric-value">${s.metrics.total_recommendations}/${s.metrics.recommendations_generated}</span>
+                                <span class="metric-label">Articles Processed</span>
+                                <span class="metric-value">${s.metrics?.total_articles_processed || 0}</span>
                             </div>
                             <div class="metric-item">
-                                <span class="metric-label">Signals (Buy/Sell)</span>
-                                <span class="metric-value">
-                                    <span class="text-success">${s.metrics.buy_signals}</span>/
-                                    <span class="text-danger">${s.metrics.sell_signals}</span>
-                                </span>
+                                <span class="metric-label">Current Articles</span>
+                                <span class="metric-value">${s.metrics?.articles_processed || 0}</span>
+                            </div>
+                        </div>
+                        
+                        <h6 class="metrics-title mt-3">Trading Signals</h6>
+                        <div class="metrics-grid">
+                            <div class="metric-item">
+                                <span class="metric-label">Buy Signals</span>
+                                <span class="metric-value text-success">${s.metrics?.buy_signals || 0}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Sell Signals</span>
+                                <span class="metric-value text-danger">${s.metrics?.sell_signals || 0}</span>
                             </div>
                             <div class="metric-item">
                                 <span class="metric-label">Avg Confidence</span>
-                                <span class="metric-value">${s.metrics.avg_confidence}</span>
+                                <span class="metric-value">${s.metrics?.avg_confidence || 0}</span>
                             </div>
                             <div class="metric-item">
-                                <span class="metric-label">Last Run</span>
-                                <span class="metric-value">${s.metrics.last_run ? new Date(s.metrics.last_run).toLocaleString() : 'Never'}</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Execution Time</span>
-                                <span class="metric-value">${s.metrics.execution_time_ms}ms</span>
+                                <span class="metric-label">Total Recommendations</span>
+                                <span class="metric-value">${s.metrics?.total_recommendations || 0}</span>
                             </div>
                         </div>
-                        ${s.metrics.errors ? 
-                            `<div class="alert alert-danger mt-2 mb-0 py-1 px-2 small">
-                                Last Error: ${s.metrics.errors}
+                        
+                        <div class="strategy-footer">
+                            <small class="text-muted">Last Run: ${s.metrics?.last_run ? new Date(s.metrics.last_run).toLocaleString() : 'Never'}</small>
+                            <small class="text-muted">Execution Time: ${s.metrics?.execution_time_ms || 0}ms</small>
+                        </div>
+                        
+                        ${s.metrics?.errors ? 
+                            `<div class="alert alert-danger mt-2 mb-0 py-1 px-2">
+                                <strong>Error:</strong> ${s.metrics.errors}
                                 <br><small>${new Date(s.metrics.last_error_time).toLocaleString()}</small>
                             </div>` : ''}
                     </div>
                 </div>`
             ).join('');
         } else {
-            statusEl.innerHTML = '<div class="alert alert-warning">No strategies found</div>';
+            statusEl.innerHTML = '<div class="alert alert-warning m-3">No strategies found</div>';
         }
 
         // Update strategy filter dropdown
@@ -77,7 +230,7 @@ async function loadStrategies() {
     } catch (error) {
         console.error('Error loading strategies:', error);
         const statusEl = document.getElementById('strategy-status');
-        statusEl.innerHTML = '<div class="alert alert-danger">Error loading strategies</div>';
+        statusEl.innerHTML = '<div class="alert alert-danger m-3">Error loading strategies</div>';
     }
 }
 
@@ -102,32 +255,8 @@ async function toggleStrategy(name, active) {
     }
 }
 
-<style>
-.strategy-metrics-card {
-    border: 1px solid rgba(0,0,0,.125);
-    transition: all 0.3s ease;
-}
-.strategy-metrics-card:hover {
-    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
-}
-.metrics-grid {
-    display: grid;
-    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
-    gap: 0.5rem;
-}
-.metric-item {
-    padding: 0.5rem;
-    background: #f8f9fa;
-    border-radius: 4px;
-}
-.metric-label {
-    display: block;
-    font-size: 0.75rem;
-    color: #6c757d;
-}
-.metric-value {
-    display: block;
-    font-weight: 500;
-    font-size: 0.875rem;
-}
-</style> 
+// Initialize strategies on load
+document.addEventListener('DOMContentLoaded', loadStrategies);
+// Refresh strategies every 30 seconds
+setInterval(loadStrategies, 30000);
+</script> 
