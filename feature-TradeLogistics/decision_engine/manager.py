@@ -2,80 +2,85 @@ from typing import List, Dict, Any, Type
 import time
 from .base import BaseStrategy
 from .models.recommendation import TradeRecommendation
+from datetime import datetime
+import logging
 
 class StrategyManager:
-    """Manages and coordinates all trading strategies."""
+    """Manages the lifecycle and execution of trading strategies."""
     
     def __init__(self, trade_db):
         self.strategies: Dict[str, BaseStrategy] = {}
-        self.recommendations: List[Dict[str, Any]] = []
+        self.active_strategies: Dict[str, bool] = {}
         self.trade_db = trade_db
+        self.logger = logging.getLogger(__name__)
     
     def register_strategy(self, strategy: BaseStrategy, active: bool = True):
-        """Register a new strategy with the manager."""
+        """Register a new strategy."""
         self.strategies[strategy.name] = strategy
-        # Set activation state in DB if not already present
-        if self.trade_db.get_strategy_activation(strategy.name) != active:
-            self.trade_db.set_strategy_activation(strategy.name, active)
-    
-    def set_active(self, name: str, is_active: bool):
-        self.trade_db.set_strategy_activation(name, is_active)
-    
-    def get_active(self, name: str) -> bool:
-        return self.trade_db.get_strategy_activation(name)
+        self.active_strategies[strategy.name] = active
+        self.logger.info(f"Registered strategy {strategy.name} (active={active})")
     
     def get_strategy(self, name: str) -> BaseStrategy:
         """Get a strategy by name."""
         return self.strategies.get(name)
     
-    def get_all_strategies(self) -> List[Dict[str, Any]]:
-        """Get status of all registered strategies."""
-        activation = self.trade_db.get_all_strategy_activation()
-        strategies = []
-        for strategy in self.strategies.values():
-            try:
-                status = strategy.get_status()
-                status['active'] = activation.get(strategy.name, True)
-                strategies.append(status)
-            except Exception as e:
-                print(f"Error getting status for strategy {strategy.name}: {str(e)}")
-        return strategies
+    def get_all_strategies(self) -> List[BaseStrategy]:
+        """Get all registered strategies."""
+        return list(self.strategies.values())
+    
+    def get_active_strategies(self) -> List[BaseStrategy]:
+        """Get all active strategies."""
+        return [s for name, s in self.strategies.items() if self.active_strategies.get(name, False)]
+    
+    def set_strategy_active(self, name: str, active: bool):
+        """Set whether a strategy is active."""
+        if name in self.strategies:
+            self.active_strategies[name] = active
+            self.trade_db.set_strategy_activation(name, active)
+            self.logger.info(f"Set strategy {name} active={active}")
+    
+    def run_strategy(self, strategy: BaseStrategy, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+        """Run a single strategy."""
+        try:
+            recommendations = strategy.analyze(data)
+            return recommendations
+        except Exception as e:
+            self.logger.error(f"Error running strategy {strategy.name}: {e}")
+            return []
     
     def run_all_strategies(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
-        print("StrategyManager: Running all strategies synchronously.")
+        """Run all active strategies."""
         all_recommendations = []
-        activation = self.trade_db.get_all_strategy_activation()
-        
-        for name, strategy in self.strategies.items():
-            if not activation.get(name, True):
-                continue
-                
+        for strategy in self.get_active_strategies():
             try:
-                start_time = time.time()
-                recommendations = strategy.analyze(data)
-                
-                # Update metrics with results
-                strategy.update_metrics(
-                    start_time=start_time,
-                    recommendations=recommendations,
-                    articles=data.get('articles', [])
-                )
-                
+                recommendations = self.run_strategy(strategy, data)
                 all_recommendations.extend(recommendations)
             except Exception as e:
-                print(f"Error running strategy {strategy.name}: {str(e)}")
-                # Update metrics with error
-                strategy.update_metrics(
-                    start_time=time.time(),
-                    recommendations=[],
-                    articles=[],
-                    error=str(e)
-                )
-                
-        all_recommendations.sort(key=lambda x: x['confidence'], reverse=True)
-        self.recommendations = all_recommendations
-        print(f"StrategyManager: Total recommendations generated: {len(all_recommendations)}")
+                self.logger.error(f"Error running strategy {strategy.name}: {e}")
         return all_recommendations
+    
+    def get_strategy_status(self) -> List[Dict[str, Any]]:
+        """Get status of all strategies."""
+        status = []
+        for strategy in self.get_all_strategies():
+            try:
+                strategy_status = strategy.get_status()
+                strategy_status['active'] = self.active_strategies.get(strategy.name, False)
+                status.append(strategy_status)
+            except Exception as e:
+                self.logger.error(f"Error getting status for strategy {strategy.name}: {e}")
+                status.append({
+                    'name': strategy.name,
+                    'description': getattr(strategy, 'description', 'Unknown'),
+                    'active': self.active_strategies.get(strategy.name, False),
+                    'last_run': None,
+                    'metrics': {
+                        'health': 'Error',
+                        'errors': f"Error getting status: {e}",
+                        'last_error_time': datetime.utcnow().isoformat()
+                    }
+                })
+        return status
     
     def get_recommendations(self, 
                           min_confidence: float = 0.0,

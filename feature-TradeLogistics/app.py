@@ -231,27 +231,19 @@ def get_live_price():
     return jsonify(live_data)
 
 @app.route('/api/strategy-activation', methods=['POST'])
-def set_strategy_activation():
-    data = request.json
-    name = data.get('name')
-    active = data.get('active')
-    app.logger.info(f"Setting strategy {name} activation to {active}")
-    
+def strategy_activation():
+    """Set strategy activation state."""
     try:
-        strategy_manager.set_active(name, active)
-        current_state = strategy_manager.get_active(name)
-        app.logger.info(f"Strategy {name} activation set to {current_state}")
-        return jsonify({
-            "status": "success",
-            "name": name,
-            "active": current_state
-        })
+        data = request.json
+        name = data.get('name')
+        active = data.get('active')
+        if name is None or active is None:
+            return jsonify({'error': 'Missing name or active state'}), 400
+        strategy_manager.set_strategy_active(name, active)
+        return jsonify({'status': 'success'})
     except Exception as e:
-        app.logger.error(f"Error setting strategy activation: {str(e)}")
-        return jsonify({
-            "status": "error",
-            "message": str(e)
-        }), 500
+        app.logger.error(f"Error setting strategy activation: {e}")
+        return jsonify({'error': str(e)}), 500
 
 @app.route('/api/strategy-activation', methods=['GET'])
 def get_strategy_activation():
@@ -272,19 +264,17 @@ def ws_subscribed_symbol_prices():
 
 @app.route('/api/strategy-status')
 def strategy_status():
-    """Get the status of all registered strategies with their metrics."""
+    """Get status of all strategies."""
     try:
-        strategies = strategy_manager.get_all_strategies()
-        return jsonify({
-            'status': 'success',
-            'strategies': strategies
-        })
+        status = strategy_manager.get_strategy_status()
+        app.logger.info(f"Returning status for {len(status)} strategies")
+        return jsonify(status)
     except Exception as e:
-        app.logger.error(f"Error in strategy_status: {str(e)}")
+        app.logger.error(f"Error getting strategy status: {e}")
         return jsonify({
+            'error': str(e),
             'status': 'error',
-            'message': str(e),
-            'strategies': []
+            'timestamp': datetime.utcnow().isoformat()
         }), 500
 
 @app.route('/api/db-health')

@@ -1,7 +1,9 @@
 from ..base import BaseStrategy
 from ..models.recommendation import TradeRecommendation
 from datetime import datetime, timedelta
-import os, requests
+import os
+import requests
+import time
 from collections import defaultdict, deque
 from decision_engine.alpaca_ws_price_service import price_service
 
@@ -20,6 +22,9 @@ class SentimentMomentumStrategy(BaseStrategy):
         self.alpaca_key = os.getenv('ALPACA_KEY')
         self.alpaca_secret = os.getenv('ALPACA_SECRET')
         self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
+
+    def get_required_data(self):
+        return ['articles', 'sentiment_scores']
 
     def fetch_live_price(self, symbol):
         ws_price = price_service.get_price(symbol)
@@ -91,34 +96,40 @@ class SentimentMomentumStrategy(BaseStrategy):
                 'data_source': 'rest_api'
             }
 
-    def get_required_data(self):
-        return ['articles', 'sentiment_scores']
-
     def analyze(self, data):
+        start_time = time.time()
         recommendations = []
         articles = data.get('articles', [])
         sentiment_scores = data.get('sentiment_scores', {})
         now = datetime.utcnow()
-        for article in articles:
-            article_id = article['id']
-            sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
-                continue
-            symbols = article.get('validated_symbols', [])
-            for symbol in symbols:
-                live_data = self.fetch_live_price(symbol)
-                price = live_data.get('price') if isinstance(live_data, dict) else None
-                if price is None:
+        error = None
+        try:
+            for article in articles:
+                article_id = article['id']
+                sentiment = sentiment_scores.get(article_id)
+                if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                     continue
-                recommendation = TradeRecommendation(
-                    symbol=symbol,
-                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
-                    confidence=sentiment['confidence_score'],
-                    reasoning=f"Momentum: {sentiment['prediction']} momentum detected for {symbol}.",
-                    timeframe='short_term',
-                    metadata={'live_data': live_data},
-                    strategy_name=self.name,
-                    created_at=now
-                )
-                recommendations.append(recommendation.to_dict())
+                symbols = article.get('validated_symbols', [])
+                for symbol in symbols:
+                    live_data = self.fetch_live_price(symbol)
+                    price = live_data.get('price') if isinstance(live_data, dict) else None
+                    if price is None:
+                        continue
+                    recommendation = TradeRecommendation(
+                        symbol=symbol,
+                        action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                        confidence=sentiment['confidence_score'],
+                        reasoning=f"Momentum: {sentiment['prediction']} momentum detected for {symbol}.",
+                        timeframe='short_term',
+                        metadata={'live_data': live_data},
+                        strategy_name=self.name,
+                        created_at=now
+                    )
+                    recommendations.append(recommendation.to_dict())
+        except Exception as e:
+            error = str(e)
+            print(f"[Momentum] Error analyzing data: {e}")
+        
+        # Update metrics after analysis
+        self.update_metrics(start_time, recommendations, articles, error)
         return recommendations 

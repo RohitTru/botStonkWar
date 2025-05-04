@@ -1,7 +1,9 @@
 from ..base import BaseStrategy
 from ..models.recommendation import TradeRecommendation
 from datetime import datetime, timedelta
-import os, requests
+import os
+import requests
+import time
 from collections import defaultdict
 from decision_engine.alpaca_ws_price_service import price_service
 
@@ -20,6 +22,9 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
         self.alpaca_key = os.getenv('ALPACA_KEY')
         self.alpaca_secret = os.getenv('ALPACA_SECRET')
         self.alpaca_url = 'https://data.alpaca.markets/v2/stocks'
+
+    def get_required_data(self):
+        return ['articles', 'sentiment_scores']
 
     def fetch_live_price(self, symbol):
         ws_price = price_service.get_price(symbol)
@@ -72,45 +77,51 @@ class VolumeSpikeSentimentStrategy(BaseStrategy):
                 'data_source': 'rest_api'
             }
 
-    def get_required_data(self):
-        return ['articles', 'sentiment_scores']
-
     def analyze(self, data):
+        start_time = time.time()
         recommendations = []
         articles = data.get('articles', [])
         sentiment_scores = data.get('sentiment_scores', {})
         now = datetime.utcnow()
-        for article in articles:
-            article_id = article['id']
-            sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
-                continue
-            symbols = article.get('validated_symbols', [])
-            for symbol in symbols:
-                price_data = self.fetch_live_price(symbol)
-                last_volume = price_data.get('real_time_volume') or price_data.get('last_volume')
-                avg_volume = price_data.get('avg_volume')
-                if last_volume is None or avg_volume is None:
+        error = None
+        try:
+            for article in articles:
+                article_id = article['id']
+                sentiment = sentiment_scores.get(article_id)
+                if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                     continue
-                try:
-                    reasoning = f"Volume spike: {last_volume} vs avg {avg_volume:.0f} (factor {self.spike_factor}x)"
-                except Exception:
-                    reasoning = f"Volume spike: last_volume or avg_volume N/A"
-                if last_volume > self.spike_factor * avg_volume:
-                    recommendation = TradeRecommendation(
-                        symbol=symbol,
-                        action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
-                        confidence=sentiment['confidence_score'],
-                        reasoning=reasoning,
-                        timeframe='short_term',
-                        metadata={
-                            'last_volume': last_volume,
-                            'avg_volume': avg_volume,
-                            'real_time_volume': price_data.get('real_time_volume'),
-                            'live_data': price_data
-                        },
-                        strategy_name=self.name,
-                        created_at=now
-                    )
-                    recommendations.append(recommendation.to_dict())
+                symbols = article.get('validated_symbols', [])
+                for symbol in symbols:
+                    price_data = self.fetch_live_price(symbol)
+                    last_volume = price_data.get('real_time_volume') or price_data.get('last_volume')
+                    avg_volume = price_data.get('avg_volume')
+                    if last_volume is None or avg_volume is None:
+                        continue
+                    try:
+                        reasoning = f"Volume spike: {last_volume} vs avg {avg_volume:.0f} (factor {self.spike_factor}x)"
+                    except Exception:
+                        reasoning = f"Volume spike: last_volume or avg_volume N/A"
+                    if last_volume > self.spike_factor * avg_volume:
+                        recommendation = TradeRecommendation(
+                            symbol=symbol,
+                            action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                            confidence=sentiment['confidence_score'],
+                            reasoning=reasoning,
+                            timeframe='short_term',
+                            metadata={
+                                'last_volume': last_volume,
+                                'avg_volume': avg_volume,
+                                'real_time_volume': price_data.get('real_time_volume'),
+                                'live_data': price_data
+                            },
+                            strategy_name=self.name,
+                            created_at=now
+                        )
+                        recommendations.append(recommendation.to_dict())
+        except Exception as e:
+            error = str(e)
+            print(f"[VolumeSpike] Error analyzing data: {e}")
+        
+        # Update metrics after analysis
+        self.update_metrics(start_time, recommendations, articles, error)
         return recommendations 

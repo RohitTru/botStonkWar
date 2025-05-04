@@ -60,12 +60,15 @@ class BaseStrategy(ABC):
             self._reset_hourly_metrics()
             return
         
-        start_time = datetime.fromisoformat(self.metrics['hourly']['start_time'])
-        if datetime.utcnow() - start_time > timedelta(hours=1):
+        try:
+            start_time = datetime.fromisoformat(self.metrics['hourly']['start_time'])
+            if datetime.utcnow() - start_time > timedelta(hours=1):
+                self._reset_hourly_metrics()
+        except (ValueError, TypeError):
             self._reset_hourly_metrics()
     
     @abstractmethod
-    async def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
+    def analyze(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         """
         Analyze the provided data and generate trading recommendations.
         
@@ -98,74 +101,97 @@ class BaseStrategy(ABC):
     
     def update_metrics(self, start_time: float, recommendations: List[Dict[str, Any]], articles: List[Dict[str, Any]], error: str = None):
         """Update strategy metrics after each run."""
-        self._check_hourly_metrics()
-        
-        # Update run statistics
-        self.metrics['total_runs'] += 1
-        self.metrics['last_run'] = datetime.utcnow().isoformat()
-        execution_time = int((time.time() - start_time) * 1000)
-        
-        # Update article metrics
-        articles_count = len(articles) if articles else 0
-        self.metrics['total_articles_processed'] += articles_count
-        self.metrics['hourly']['articles_processed'] += articles_count
-        
-        # Update recommendation metrics
-        recs_count = len(recommendations)
-        self.metrics['total_recommendations'] += recs_count
-        self.metrics['hourly']['recommendations_generated'] += recs_count
-        
-        # Calculate buy/sell signals
-        buy_signals = len([r for r in recommendations if r['action'] == 'buy'])
-        sell_signals = len([r for r in recommendations if r['action'] == 'sell'])
-        
-        self.metrics['total_buy_signals'] += buy_signals
-        self.metrics['total_sell_signals'] += sell_signals
-        self.metrics['hourly']['buy_signals'] += buy_signals
-        self.metrics['hourly']['sell_signals'] += sell_signals
-        
-        # Calculate confidence metrics
-        if recommendations:
-            all_conf = [r['confidence'] for r in recommendations]
-            buy_conf = [r['confidence'] for r in recommendations if r['action'] == 'buy']
-            sell_conf = [r['confidence'] for r in recommendations if r['action'] == 'sell']
+        try:
+            self._check_hourly_metrics()
             
-            self.metrics['hourly']['avg_confidence'] = round(sum(all_conf) / len(all_conf), 2)
-            if buy_conf:
-                self.metrics['hourly']['avg_buy_confidence'] = round(sum(buy_conf) / len(buy_conf), 2)
-            if sell_conf:
-                self.metrics['hourly']['avg_sell_confidence'] = round(sum(sell_conf) / len(sell_conf), 2)
-        
-        # Update success rates
-        hourly_success = recs_count > 0
-        total_success = self.metrics['total_recommendations'] > 0
-        
-        self.metrics['hourly']['success_rate'] = round((hourly_success / self.metrics['total_runs']) * 100, 2)
-        self.metrics['all_time_success_rate'] = round((total_success / self.metrics['total_runs']) * 100, 2)
-        
-        # Update execution time
-        self.metrics['hourly']['execution_time_ms'] = execution_time
-        
-        # Update health status
-        if error:
+            # Update run statistics
+            self.metrics['total_runs'] += 1
+            self.metrics['last_run'] = datetime.utcnow().isoformat()
+            execution_time = int((time.time() - start_time) * 1000)
+            
+            # Update article metrics
+            articles_count = len(articles) if articles else 0
+            self.metrics['total_articles_processed'] += articles_count
+            self.metrics['hourly']['articles_processed'] += articles_count
+            
+            # Update recommendation metrics
+            recs_count = len(recommendations)
+            self.metrics['total_recommendations'] += recs_count
+            self.metrics['hourly']['recommendations_generated'] += recs_count
+            
+            # Calculate buy/sell signals
+            buy_signals = len([r for r in recommendations if r.get('action') == 'buy'])
+            sell_signals = len([r for r in recommendations if r.get('action') == 'sell'])
+            
+            self.metrics['total_buy_signals'] += buy_signals
+            self.metrics['total_sell_signals'] += sell_signals
+            self.metrics['hourly']['buy_signals'] += buy_signals
+            self.metrics['hourly']['sell_signals'] += sell_signals
+            
+            # Calculate confidence metrics
+            if recommendations:
+                all_conf = [r.get('confidence', 0) for r in recommendations]
+                buy_conf = [r.get('confidence', 0) for r in recommendations if r.get('action') == 'buy']
+                sell_conf = [r.get('confidence', 0) for r in recommendations if r.get('action') == 'sell']
+                
+                if all_conf:
+                    self.metrics['hourly']['avg_confidence'] = round(sum(all_conf) / len(all_conf), 2)
+                if buy_conf:
+                    self.metrics['hourly']['avg_buy_confidence'] = round(sum(buy_conf) / len(buy_conf), 2)
+                if sell_conf:
+                    self.metrics['hourly']['avg_sell_confidence'] = round(sum(sell_conf) / len(sell_conf), 2)
+            
+            # Update success rates (avoid division by zero)
+            if self.metrics['total_runs'] > 0:
+                hourly_success = recs_count > 0
+                total_success = self.metrics['total_recommendations'] > 0
+                
+                self.metrics['hourly']['success_rate'] = round((hourly_success / self.metrics['total_runs']) * 100, 2)
+                self.metrics['all_time_success_rate'] = round((total_success / self.metrics['total_runs']) * 100, 2)
+            
+            # Update execution time
+            self.metrics['hourly']['execution_time_ms'] = execution_time
+            
+            # Update health status
+            if error:
+                self.metrics['health'] = 'Error'
+                self.metrics['errors'] = error
+                self.metrics['last_error_time'] = datetime.utcnow().isoformat()
+            elif recs_count > 0 or articles_count > 0:
+                self.metrics['health'] = 'Healthy'
+            else:
+                self.metrics['health'] = 'Idle'
+        except Exception as e:
+            # If anything goes wrong while updating metrics, set error state
             self.metrics['health'] = 'Error'
-            self.metrics['errors'] = error
+            self.metrics['errors'] = f"Error updating metrics: {str(e)}"
             self.metrics['last_error_time'] = datetime.utcnow().isoformat()
-        elif recs_count > 0 or articles_count > 0:
-            self.metrics['health'] = 'Healthy'
-        else:
-            self.metrics['health'] = 'Idle'
     
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the strategy."""
-        self._check_hourly_metrics()  # Ensure hourly metrics are current
-        return {
-            'name': self.name,
-            'description': self.description,
-            'last_run': self.metrics['last_run'],
-            'required_data': self.get_required_data(),
-            'metrics': self.metrics
-        }
+        try:
+            self._check_hourly_metrics()  # Ensure hourly metrics are current
+            return {
+                'name': self.name,
+                'description': self.description,
+                'last_run': self.metrics['last_run'],
+                'required_data': self.get_required_data(),
+                'metrics': self.metrics
+            }
+        except Exception as e:
+            # Return a valid status even if there's an error
+            return {
+                'name': self.name,
+                'description': self.description,
+                'last_run': None,
+                'required_data': [],
+                'metrics': {
+                    'health': 'Error',
+                    'errors': f"Error getting status: {str(e)}",
+                    'last_error_time': datetime.utcnow().isoformat(),
+                    'hourly': self._reset_hourly_metrics()
+                }
+            }
 
     def get_metrics(self) -> Dict[str, Any]:
         """Return the latest metrics for this strategy."""

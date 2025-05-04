@@ -155,115 +155,113 @@ function filterRecommendations(action) {
     });
 }
 
-// Utility function to format numbers
+// Utility functions for formatting
 function formatNumber(num) {
-    if (num === undefined || num === null) return 'N/A';
-    return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
+    if (num === null || num === undefined) return 'N/A';
+    if (num >= 1000000) return (num / 1000000).toFixed(1) + 'M';
+    if (num >= 1000) return (num / 1000).toFixed(1) + 'K';
+    return num.toString();
 }
 
-// Format timestamp to relative time
-function formatRelativeTime(timestamp) {
+function formatPercent(num) {
+    if (num === null || num === undefined) return 'N/A';
+    return num.toFixed(1) + '%';
+}
+
+function formatTimestamp(timestamp) {
     if (!timestamp) return 'Never';
     const date = new Date(timestamp);
-    const now = new Date();
-    const diff = Math.floor((now - date) / 1000); // difference in seconds
+    return date.toLocaleString();
+}
 
-    if (diff < 60) return 'Just now';
-    if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-    if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-    return date.toLocaleDateString();
+function getHealthClass(health) {
+    switch (health?.toLowerCase()) {
+        case 'healthy': return 'bg-green-100 text-green-800';
+        case 'idle': return 'bg-yellow-100 text-yellow-800';
+        case 'error': return 'bg-red-100 text-red-800';
+        default: return 'bg-gray-100 text-gray-800';
+    }
 }
 
 // Create a strategy card
 function createStrategyCard(strategy) {
-    const healthClass = {
-        'Healthy': 'bg-green-100 text-green-800',
-        'Error': 'bg-red-100 text-red-800',
-        'Idle': 'bg-yellow-100 text-yellow-800',
-        'Unknown': 'bg-gray-100 text-gray-800'
-    }[strategy.metrics.health] || 'bg-gray-100 text-gray-800';
-
+    const metrics = strategy.metrics || {};
+    const hourly = metrics.hourly || {};
+    
     return `
-        <div class="strategy-card ${strategy.metrics.health === 'Healthy' ? 'active' : ''}">
-            <div class="strategy-header">
+        <div class="strategy-card bg-white rounded-lg shadow-md p-4 mb-4">
+            <div class="flex justify-between items-start mb-4">
                 <div>
-                    <h3 class="text-lg font-semibold text-gray-900">${strategy.name}</h3>
-                    <span class="px-2 py-1 text-xs rounded-full ${healthClass}">${strategy.metrics.health}</span>
+                    <h3 class="text-lg font-semibold">${strategy.name}</h3>
+                    <p class="text-sm text-gray-600">${strategy.description}</p>
                 </div>
-                <div class="text-right">
-                    <span class="text-sm text-gray-500">Last Run</span>
-                    <p class="text-sm font-medium">${formatRelativeTime(strategy.metrics.last_run)}</p>
+                <div class="flex items-center">
+                    <span class="px-2 py-1 text-sm rounded-full ${getHealthClass(metrics.health)}">
+                        ${metrics.health || 'Unknown'}
+                    </span>
+                    <label class="relative inline-flex items-center cursor-pointer ml-4">
+                        <input type="checkbox" class="sr-only peer" ${strategy.active ? 'checked' : ''} 
+                               onchange="toggleStrategy('${strategy.name}', this.checked)">
+                        <div class="w-11 h-6 bg-gray-200 peer-focus:outline-none peer-focus:ring-4 
+                                  peer-focus:ring-blue-300 rounded-full peer 
+                                  peer-checked:after:translate-x-full peer-checked:after:border-white 
+                                  after:content-[''] after:absolute after:top-[2px] after:left-[2px] 
+                                  after:bg-white after:border-gray-300 after:border after:rounded-full 
+                                  after:h-5 after:w-5 after:transition-all peer-checked:bg-blue-600">
+                        </div>
+                    </label>
                 </div>
             </div>
             
-            <div class="strategy-description">
-                <p>${strategy.description}</p>
-            </div>
-            
-            <div class="metrics-section">
-                <!-- Last Hour Performance -->
-                <div class="metrics-block">
-                    <div class="metrics-block-header">
-                        <h4 class="metrics-title">Last Hour Performance</h4>
-                        <span class="time-badge">Past 60 min</span>
-                    </div>
-                    <div class="metrics-grid">
-                        <div class="metric-item">
-                            <span class="metric-label">Recommendations</span>
-                            <strong class="metric-value">${strategy.metrics.hourly.recommendations_generated}</strong>
+            <div class="grid grid-cols-2 gap-4 mb-4">
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">Last Hour Performance</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-xs text-gray-500">Articles Processed</p>
+                            <p class="font-medium">${formatNumber(hourly.articles_processed)}</p>
                         </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Success Rate</span>
-                            <strong class="metric-value">${formatNumber(strategy.metrics.hourly.success_rate)}%</strong>
+                        <div>
+                            <p class="text-xs text-gray-500">Recommendations</p>
+                            <p class="font-medium">${formatNumber(hourly.recommendations_generated)}</p>
                         </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Avg Confidence</span>
-                            <strong class="metric-value">${formatNumber(strategy.metrics.hourly.avg_confidence * 100)}%</strong>
+                        <div>
+                            <p class="text-xs text-gray-500">Success Rate</p>
+                            <p class="font-medium">${formatPercent(hourly.success_rate)}</p>
                         </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Articles Processed</span>
-                            <strong class="metric-value">${strategy.metrics.hourly.articles_processed}</strong>
+                        <div>
+                            <p class="text-xs text-gray-500">Avg Confidence</p>
+                            <p class="font-medium">${formatPercent(hourly.avg_confidence * 100)}</p>
                         </div>
                     </div>
                 </div>
                 
-                <!-- Trading Signals -->
-                <div class="metrics-block">
-                    <div class="metrics-block-header">
-                        <h4 class="metrics-title">Trading Signals</h4>
-                        <span class="time-badge">Hourly / Total</span>
-                    </div>
-                    <div class="metrics-grid">
-                        <div class="metric-item">
-                            <span class="metric-label">Buy Signals</span>
-                            <strong class="metric-value">${strategy.metrics.hourly.buy_signals}</strong>
-                            <span class="metric-trend">Total: ${strategy.metrics.total_buy_signals}</span>
+                <div class="bg-gray-50 p-3 rounded-lg">
+                    <h4 class="text-sm font-medium text-gray-700 mb-2">Trading Signals</h4>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <p class="text-xs text-gray-500">Buy Signals</p>
+                            <p class="font-medium">${formatNumber(hourly.buy_signals)} / ${formatNumber(metrics.total_buy_signals)}</p>
                         </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Sell Signals</span>
-                            <strong class="metric-value">${strategy.metrics.hourly.sell_signals}</strong>
-                            <span class="metric-trend">Total: ${strategy.metrics.total_sell_signals}</span>
+                        <div>
+                            <p class="text-xs text-gray-500">Sell Signals</p>
+                            <p class="font-medium">${formatNumber(hourly.sell_signals)} / ${formatNumber(metrics.total_sell_signals)}</p>
                         </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Buy Confidence</span>
-                            <strong class="metric-value">${formatNumber(strategy.metrics.hourly.avg_buy_confidence * 100)}%</strong>
+                        <div>
+                            <p class="text-xs text-gray-500">Buy Confidence</p>
+                            <p class="font-medium">${formatPercent(hourly.avg_buy_confidence * 100)}</p>
                         </div>
-                        <div class="metric-item">
-                            <span class="metric-label">Sell Confidence</span>
-                            <strong class="metric-value">${formatNumber(strategy.metrics.hourly.avg_sell_confidence * 100)}%</strong>
+                        <div>
+                            <p class="text-xs text-gray-500">Sell Confidence</p>
+                            <p class="font-medium">${formatPercent(hourly.avg_sell_confidence * 100)}</p>
                         </div>
                     </div>
                 </div>
             </div>
             
-            <div class="strategy-footer">
-                <div class="footer-stats">
-                    <span>Total Runs: ${strategy.metrics.total_runs}</span>
-                    <span>All-time Success: ${formatNumber(strategy.metrics.all_time_success_rate)}%</span>
-                    ${strategy.metrics.errors ? 
-                        `<span class="text-red-500">Last Error: ${formatRelativeTime(strategy.metrics.last_error_time)}</span>` : 
-                        ''}
-                </div>
+            <div class="text-sm text-gray-600">
+                <p>Last Run: ${formatTimestamp(metrics.last_run)}</p>
+                ${metrics.errors ? `<p class="text-red-600 mt-2">Error: ${metrics.errors}</p>` : ''}
             </div>
         </div>
     `;
@@ -271,52 +269,36 @@ function createStrategyCard(strategy) {
 
 // Load and display strategies
 async function loadStrategies() {
+    const statusEl = document.getElementById('strategy-status');
+    statusEl.innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div></div>';
+    
     try {
         const response = await fetch('/api/strategy-status');
-        if (!response.ok) throw new Error('Failed to fetch strategies');
+        const strategies = await response.json();
         
-        const data = await response.json();
-        if (data.status !== 'success') {
-            throw new Error(data.message || 'Failed to load strategies');
+        if (!Array.isArray(strategies)) {
+            throw new Error('Invalid response format');
         }
         
-        const strategies = data.strategies || [];
+        const activeStrategies = strategies.filter(s => s.active);
+        document.getElementById('active-strategies-count').textContent = activeStrategies.length;
         
-        // Update counts
-        document.getElementById('active-strategies-count').textContent = 
-            `${strategies.filter(s => s.metrics.health === 'Healthy').length} Active`;
-        document.getElementById('total-strategies-count').textContent = 
-            `${strategies.length} Total`;
+        const totalRecommendations = strategies.reduce((sum, s) => sum + (s.metrics?.total_recommendations || 0), 0);
+        document.getElementById('total-recommendations').textContent = formatNumber(totalRecommendations);
         
-        // Update strategy carousel
-        const carousel = document.getElementById('strategy-status');
-        if (!carousel) {
-            console.error('Strategy carousel element not found');
-            return;
-        }
+        const avgSuccessRate = strategies.reduce((sum, s) => sum + (s.metrics?.all_time_success_rate || 0), 0) / strategies.length;
+        document.getElementById('success-rate').textContent = formatPercent(avgSuccessRate);
         
-        if (strategies.length === 0) {
-            carousel.innerHTML = '<p class="text-gray-500">No strategies available</p>';
-            return;
-        }
-        
-        carousel.innerHTML = strategies
-            .sort((a, b) => {
-                // Sort by health status (Healthy first, then Idle, then Error)
-                const healthOrder = { 'Healthy': 0, 'Idle': 1, 'Error': 2, 'Unknown': 3 };
-                return healthOrder[a.metrics.health] - healthOrder[b.metrics.health];
-            })
-            .map(createStrategyCard)
-            .join('');
-            
+        statusEl.innerHTML = strategies.map(createStrategyCard).join('');
     } catch (error) {
         console.error('Error loading strategies:', error);
-        const carousel = document.getElementById('strategy-status');
-        if (carousel) {
-            carousel.innerHTML = '<p class="text-red-500">Error loading strategies. Please try again later.</p>';
-        }
+        statusEl.innerHTML = '<div class="alert alert-danger">Error loading strategies</div>';
     }
 }
+
+// Load strategies immediately and refresh every minute
+loadStrategies();
+setInterval(loadStrategies, 60000);
 
 // Initialize dashboard
 document.addEventListener('DOMContentLoaded', () => {

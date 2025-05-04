@@ -5,6 +5,7 @@ from datetime import datetime, timedelta
 import os
 import requests
 from decision_engine.alpaca_ws_price_service import price_service
+import time
 
 class ShortTermVolatileStrategy(BaseStrategy):
     """
@@ -99,38 +100,47 @@ class ShortTermVolatileStrategy(BaseStrategy):
             }
 
     def analyze(self, data: dict) -> list:
+        start_time = time.time()
         recommendations = []
         articles = data.get('articles', [])
         sentiment_scores = data.get('sentiment_scores', {})
         now = datetime.utcnow()
-        for article in articles:
-            article_id = article['id']
-            sentiment = sentiment_scores.get(article_id)
-            if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
-                continue
-            symbols = article.get('validated_symbols', [])
-            for symbol in symbols:
-                live_data = self.fetch_live_price(symbol)
-                # Defensive: check live_data is a dict and has price
-                price = live_data.get('price') if isinstance(live_data, dict) else None
-                if price is None:
+        error = None
+        try:
+            for article in articles:
+                article_id = article['id']
+                sentiment = sentiment_scores.get(article_id)
+                if not sentiment or sentiment.get('confidence_score', 0) < self.confidence_threshold:
                     continue
-                recommendation = TradeRecommendation(
-                    symbol=symbol,
-                    action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
-                    confidence=sentiment['confidence_score'],
-                    reasoning=f"High confidence {sentiment['prediction']} signal from recent article",
-                    timeframe='short_term',
-                    metadata={
-                        'article_id': article_id,
-                        'sentiment_score': sentiment.get('sentiment_score'),
-                        'confidence_score': sentiment.get('confidence_score'),
-                        'article_title': article.get('title'),
-                        'live_data': live_data
-                    },
-                    strategy_name=self.name,
-                    created_at=now,
-                    trade_time=now
-                )
-                recommendations.append(recommendation.to_dict())
+                symbols = article.get('validated_symbols', [])
+                for symbol in symbols:
+                    live_data = self.fetch_live_price(symbol)
+                    # Defensive: check live_data is a dict and has price
+                    price = live_data.get('price') if isinstance(live_data, dict) else None
+                    if price is None:
+                        continue
+                    recommendation = TradeRecommendation(
+                        symbol=symbol,
+                        action='buy' if sentiment['prediction'] == 'bullish' else 'sell',
+                        confidence=sentiment['confidence_score'],
+                        reasoning=f"High confidence {sentiment['prediction']} signal from recent article",
+                        timeframe='short_term',
+                        metadata={
+                            'article_id': article_id,
+                            'sentiment_score': sentiment.get('sentiment_score'),
+                            'confidence_score': sentiment.get('confidence_score'),
+                            'article_title': article.get('title'),
+                            'live_data': live_data
+                        },
+                        strategy_name=self.name,
+                        created_at=now,
+                        trade_time=now
+                    )
+                    recommendations.append(recommendation.to_dict())
+        except Exception as e:
+            error = str(e)
+            print(f"[ShortTerm] Error analyzing data: {e}")
+        
+        # Update metrics after analysis
+        self.update_metrics(start_time, recommendations, articles, error)
         return recommendations 

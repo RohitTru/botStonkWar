@@ -7,6 +7,24 @@
     <link href="https://cdn.jsdelivr.net/npm/tailwindcss@2.2.19/dist/tailwind.min.css" rel="stylesheet">
     <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
     <script src="https://cdn.plot.ly/plotly-latest.min.js"></script>
+    <style>
+        /* Custom scrollbar for strategy carousel */
+        .strategy-carousel::-webkit-scrollbar {
+            width: 8px;
+            height: 8px;
+        }
+        .strategy-carousel::-webkit-scrollbar-track {
+            background: #f1f1f1;
+            border-radius: 4px;
+        }
+        .strategy-carousel::-webkit-scrollbar-thumb {
+            background: #888;
+            border-radius: 4px;
+        }
+        .strategy-carousel::-webkit-scrollbar-thumb:hover {
+            background: #555;
+        }
+    </style>
 </head>
 <body class="bg-gray-100">
     <div class="min-h-screen">
@@ -27,159 +45,64 @@
 
         <main class="max-w-7xl mx-auto py-6 sm:px-6 lg:px-8">
             <!-- System Status -->
-            <div class="bg-white shadow rounded-lg p-6 mb-6">
-                <div class="grid grid-cols-1 md:grid-cols-4 gap-4">
-                    <div class="p-4 bg-blue-50 rounded-lg">
-                        <h3 class="text-lg font-semibold text-blue-800">Active Strategies</h3>
-                        <p class="text-3xl font-bold text-blue-600" id="active-strategies-count">0</p>
+            <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Active Strategies</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="active-strategies-count">0</dd>
                     </div>
-                    <div class="p-4 bg-green-50 rounded-lg">
-                        <h3 class="text-lg font-semibold text-green-800">Success Rate</h3>
-                        <p class="text-3xl font-bold text-green-600" id="success-rate">0%</p>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="success-rate">0%</dd>
                     </div>
-                    <div class="p-4 bg-purple-50 rounded-lg">
-                        <h3 class="text-lg font-semibold text-purple-800">Total Recommendations</h3>
-                        <p class="text-3xl font-bold text-purple-600" id="total-recommendations">0</p>
-                    </div>
-                    <div class="p-4 bg-yellow-50 rounded-lg">
-                        <h3 class="text-lg font-semibold text-yellow-800">Total Strategies</h3>
-                        <p class="text-3xl font-bold text-yellow-600" id="total-strategies-count">0</p>
+                </div>
+                <div class="bg-white overflow-hidden shadow rounded-lg">
+                    <div class="px-4 py-5 sm:p-6">
+                        <dt class="text-sm font-medium text-gray-500 truncate">Total Recommendations</dt>
+                        <dd class="mt-1 text-3xl font-semibold text-gray-900" id="total-recommendations">0</dd>
                     </div>
                 </div>
             </div>
 
-            <!-- Active Strategies -->
+            <!-- Strategy Status -->
             <div class="bg-white shadow rounded-lg p-6 mb-6">
-                <div class="flex justify-between items-center mb-4">
-                    <h2 class="text-xl font-bold text-gray-800">Trading Strategies</h2>
-                </div>
-                
-                <div class="strategy-carousel" id="strategy-status">
-                    <p class="text-gray-500">Loading strategies...</p>
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Active Trading Strategies</h2>
+                <div id="strategy-status" class="strategy-carousel overflow-y-auto max-h-[600px] pr-2">
+                    <!-- Strategy cards will be inserted here -->
                 </div>
             </div>
 
-            <!-- Recent Recommendations -->
-            <div class="grid grid-cols-1 md:grid-cols-2 gap-6 mb-6">
+            <!-- Recent Signals -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                <!-- Buy Signals -->
                 <div class="bg-white shadow rounded-lg p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Buy Signals</h2>
-                    <div class="space-y-4" id="buy-signals">
-                        <p class="text-gray-500">Loading buy signals...</p>
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Recent Buy Signals</h2>
+                    <div id="buy-signals" class="space-y-4">
+                        <!-- Buy signals will be inserted here -->
                     </div>
                 </div>
+
+                <!-- Sell Signals -->
                 <div class="bg-white shadow rounded-lg p-6">
-                    <h2 class="text-xl font-bold text-gray-800 mb-4">Recent Sell Signals</h2>
-                    <div class="space-y-4" id="sell-signals">
-                        <p class="text-gray-500">Loading sell signals...</p>
+                    <h2 class="text-lg font-medium text-gray-900 mb-4">Recent Sell Signals</h2>
+                    <div id="sell-signals" class="space-y-4">
+                        <!-- Sell signals will be inserted here -->
                     </div>
                 </div>
             </div>
 
             <!-- Performance Metrics -->
-            <div class="bg-white shadow rounded-lg p-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Strategy Performance</h2>
-                <div id="performance-chart" class="h-96"></div>
+            <div class="bg-white shadow rounded-lg p-6 mt-6">
+                <h2 class="text-lg font-medium text-gray-900 mb-4">Performance</h2>
+                <div id="performance-chart" class="h-64">
+                    <!-- Performance chart will be inserted here -->
+                </div>
             </div>
         </main>
     </div>
 
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
-    <style>
-    .strategy-carousel {
-        display: flex;
-        overflow-x: auto;
-        gap: 1rem;
-        padding: 0.5rem;
-        scroll-behavior: smooth;
-        min-height: 400px;
-    }
-
-    .strategy-card {
-        flex: 0 0 400px;
-        @apply bg-white rounded-lg border border-gray-200;
-        transition: all 0.3s ease;
-    }
-
-    .strategy-card:hover {
-        @apply shadow-lg transform -translate-y-1;
-    }
-
-    .strategy-card.active {
-        @apply border-green-500;
-    }
-
-    .strategy-header {
-        @apply flex justify-between items-center p-4 border-b border-gray-100;
-    }
-
-    .strategy-description {
-        @apply p-4 text-sm text-gray-600 border-b border-gray-100;
-    }
-
-    .metrics-section {
-        @apply p-4 space-y-4;
-    }
-
-    .metrics-block {
-        @apply bg-gray-50 rounded-lg p-4;
-    }
-
-    .metrics-block-header {
-        @apply flex justify-between items-center mb-3;
-    }
-
-    .metrics-title {
-        @apply text-sm font-semibold text-gray-700;
-    }
-
-    .time-badge {
-        @apply text-xs px-2 py-1 bg-gray-200 rounded text-gray-600;
-    }
-
-    .metrics-grid {
-        @apply grid grid-cols-2 gap-3;
-    }
-
-    .metric-item {
-        @apply bg-white p-3 rounded border border-gray-100;
-    }
-
-    .metric-label {
-        @apply block text-xs text-gray-500;
-    }
-
-    .metric-value {
-        @apply block text-sm font-semibold mt-1;
-    }
-
-    .metric-trend {
-        @apply text-xs text-gray-500 mt-1;
-    }
-
-    .strategy-footer {
-        @apply p-4 border-t border-gray-100;
-    }
-
-    .footer-stats {
-        @apply flex justify-between text-xs text-gray-500;
-    }
-
-    /* Custom scrollbar */
-    .strategy-carousel::-webkit-scrollbar {
-        height: 8px;
-    }
-
-    .strategy-carousel::-webkit-scrollbar-track {
-        @apply bg-gray-100 rounded-full;
-    }
-
-    .strategy-carousel::-webkit-scrollbar-thumb {
-        @apply bg-gray-300 rounded-full;
-    }
-
-    .strategy-carousel::-webkit-scrollbar-thumb:hover {
-        @apply bg-gray-400;
-    }
-    </style>
 </body>
 </html> 
