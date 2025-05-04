@@ -58,7 +58,7 @@ app.logger.info('Trade Brain startup')
 def register_strategies():
     app.logger.info("Registering strategies...")
     strategies = [
-        (ShortTermVolatileStrategy(confidence_threshold=0.8), "Short Term Volatile"),
+        (ShortTermVolatileStrategy(), "Short Term Volatile"),
         (SentimentConsensusStrategy(confidence_threshold=0.8, min_articles=3, window_minutes=30), "Sentiment Consensus"),
         (SentimentReversalStrategy(confidence_threshold=0.8, lookback=10, cluster=2), "Sentiment Reversal"),
         (ObscureStockDetectorStrategy(), "Obscure Stock Detector"),
@@ -72,15 +72,14 @@ def register_strategies():
     
     for strategy, description in strategies:
         try:
-            # Set the strategy name and description
-            strategy.name = strategy.__class__.__name__
-            strategy.description = description
-            
             # Get current activation state from DB, default to True if not found
             current_state = trade_db.get_strategy_activation(strategy.name)
             if current_state is None:
                 current_state = True
                 trade_db.set_strategy_activation(strategy.name, current_state)
+            
+            # Update the strategy description
+            strategy.description = description
             
             app.logger.info(f"Registering strategy {strategy.name} ({description}) with state: {current_state}")
             strategy_manager.register_strategy(strategy, active=current_state)

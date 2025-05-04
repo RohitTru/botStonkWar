@@ -6,9 +6,9 @@ import time
 class BaseStrategy(ABC):
     """Base class for all trading decision strategies."""
     
-    def __init__(self, name: str, description: str):
-        self.name = name
-        self.description = description
+    def __init__(self, name: str = None, description: str = None):
+        self.name = name or self.__class__.__name__
+        self.description = description or "No description provided"
         self.last_run = None
         # Initialize metrics dictionary first
         self.metrics = {
