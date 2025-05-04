@@ -275,34 +275,16 @@ def strategy_status():
     """Get the status of all registered strategies with their metrics."""
     try:
         strategies = strategy_manager.get_all_strategies()
-        serializable_strategies = []
-        
-        for strategy in strategies:
-            # Get the strategy's status
-            status = strategy.get_status()
-            
-            # Convert datetime objects to ISO format strings
-            if status['metrics']['last_run']:
-                status['metrics']['last_run'] = status['metrics']['last_run']
-            
-            if status['metrics']['last_error_time']:
-                status['metrics']['last_error_time'] = status['metrics']['last_error_time']
-            
-            if status['metrics']['hourly']['start_time']:
-                status['metrics']['hourly']['start_time'] = status['metrics']['hourly']['start_time']
-            
-            serializable_strategies.append(status)
-        
-        app.logger.info(f"Returning status for {len(serializable_strategies)} strategies")
         return jsonify({
             'status': 'success',
-            'strategies': serializable_strategies
+            'strategies': strategies
         })
     except Exception as e:
         app.logger.error(f"Error in strategy_status: {str(e)}")
         return jsonify({
             'status': 'error',
-            'message': str(e)
+            'message': str(e),
+            'strategies': []
         }), 500
 
 @app.route('/api/db-health')

@@ -157,6 +157,7 @@ function filterRecommendations(action) {
 
 // Utility function to format numbers
 function formatNumber(num) {
+    if (num === undefined || num === null) return 'N/A';
     return new Intl.NumberFormat('en-US', { maximumFractionDigits: 2 }).format(num);
 }
 
@@ -275,6 +276,10 @@ async function loadStrategies() {
         if (!response.ok) throw new Error('Failed to fetch strategies');
         
         const data = await response.json();
+        if (data.status !== 'success') {
+            throw new Error(data.message || 'Failed to load strategies');
+        }
+        
         const strategies = data.strategies || [];
         
         // Update counts
@@ -285,6 +290,11 @@ async function loadStrategies() {
         
         // Update strategy carousel
         const carousel = document.getElementById('strategy-status');
+        if (!carousel) {
+            console.error('Strategy carousel element not found');
+            return;
+        }
+        
         if (strategies.length === 0) {
             carousel.innerHTML = '<p class="text-gray-500">No strategies available</p>';
             return;
@@ -301,8 +311,10 @@ async function loadStrategies() {
             
     } catch (error) {
         console.error('Error loading strategies:', error);
-        document.getElementById('strategy-status').innerHTML = 
-            '<p class="text-red-500">Error loading strategies. Please try again later.</p>';
+        const carousel = document.getElementById('strategy-status');
+        if (carousel) {
+            carousel.innerHTML = '<p class="text-red-500">Error loading strategies. Please try again later.</p>';
+        }
     }
 }
 

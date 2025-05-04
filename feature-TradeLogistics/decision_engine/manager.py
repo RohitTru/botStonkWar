@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Type
+import time
 from .base import BaseStrategy
 from .models.recommendation import TradeRecommendation
 
@@ -30,24 +31,47 @@ class StrategyManager:
     def get_all_strategies(self) -> List[Dict[str, Any]]:
         """Get status of all registered strategies."""
         activation = self.trade_db.get_all_strategy_activation()
-        return [
-            {**strategy.get_status(), "active": activation.get(strategy.name, True)}
-            for strategy in self.strategies.values()
-        ]
+        strategies = []
+        for strategy in self.strategies.values():
+            try:
+                status = strategy.get_status()
+                status['active'] = activation.get(strategy.name, True)
+                strategies.append(status)
+            except Exception as e:
+                print(f"Error getting status for strategy {strategy.name}: {str(e)}")
+        return strategies
     
     def run_all_strategies(self, data: Dict[str, Any]) -> List[Dict[str, Any]]:
         print("StrategyManager: Running all strategies synchronously.")
         all_recommendations = []
         activation = self.trade_db.get_all_strategy_activation()
+        
         for name, strategy in self.strategies.items():
             if not activation.get(name, True):
                 continue
+                
             try:
+                start_time = time.time()
                 recommendations = strategy.analyze(data)
-                strategy.update_last_run()
+                
+                # Update metrics with results
+                strategy.update_metrics(
+                    start_time=start_time,
+                    recommendations=recommendations,
+                    articles=data.get('articles', [])
+                )
+                
                 all_recommendations.extend(recommendations)
             except Exception as e:
                 print(f"Error running strategy {strategy.name}: {str(e)}")
+                # Update metrics with error
+                strategy.update_metrics(
+                    start_time=time.time(),
+                    recommendations=[],
+                    articles=[],
+                    error=str(e)
+                )
+                
         all_recommendations.sort(key=lambda x: x['confidence'], reverse=True)
         self.recommendations = all_recommendations
         print(f"StrategyManager: Total recommendations generated: {len(all_recommendations)}")
