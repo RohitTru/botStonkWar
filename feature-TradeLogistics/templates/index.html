@@ -121,6 +121,56 @@
     </nav>
 
     <div class="container mt-4">
+        <!-- Add metrics containers at the top of the main content -->
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Active Strategies</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-gray-900" id="active-strategies-count">0</dd>
+                </div>
+            </div>
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Success Rate</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-gray-900" id="success-rate">0%</dd>
+                </div>
+            </div>
+            <div class="bg-white overflow-hidden shadow rounded-lg">
+                <div class="px-4 py-5 sm:p-6">
+                    <dt class="text-sm font-medium text-gray-500 truncate">Total Recommendations</dt>
+                    <dd class="mt-1 text-3xl font-semibold text-gray-900" id="total-recommendations">0</dd>
+                </div>
+            </div>
+        </div>
+
+        <!-- Add strategy cards container -->
+        <div class="bg-white shadow rounded-lg p-6 mb-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-medium text-gray-900">Trading Strategies</h2>
+                <div class="flex items-center space-x-2">
+                    <div id="loading-strategies" class="loading-spinner hidden"></div>
+                    <div id="error-loading-strategies" class="text-red-600 text-sm hidden"></div>
+                </div>
+            </div>
+            <div id="strategies-container" class="strategy-carousel overflow-y-auto max-h-[600px] pr-2 space-y-4">
+                <!-- Strategy cards will be inserted here -->
+            </div>
+        </div>
+
+        <!-- Add performance chart container -->
+        <div class="bg-white shadow rounded-lg p-6 mt-6">
+            <div class="flex justify-between items-center mb-4">
+                <h2 class="text-lg font-medium text-gray-900">Performance</h2>
+                <div class="flex items-center space-x-2">
+                    <div id="loading-performance" class="loading-spinner hidden"></div>
+                    <div id="error-loading-performance" class="text-red-600 text-sm hidden"></div>
+                </div>
+            </div>
+            <div id="performance-chart" class="h-64">
+                <!-- Performance chart will be inserted here -->
+            </div>
+        </div>
+
         <div class="row">
             <!-- WebSocket Subscribed Symbols -->
             <div class="col-12 mb-3">
@@ -168,6 +218,7 @@
     </div>
 
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.1.3/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
     <script>
         let allRecommendations = [];
         let allStrategies = [];
