@@ -10,7 +10,7 @@ class BaseStrategy(ABC):
         self.name = name
         self.description = description
         self.last_run = None
-        self._reset_hourly_metrics()
+        # Initialize metrics dictionary first
         self.metrics = {
             'last_run': None,
             'total_runs': 0,
@@ -22,7 +22,7 @@ class BaseStrategy(ABC):
             'health': 'Unknown',
             'errors': None,
             'last_error_time': None,
-            # Hourly metrics
+            # Initialize hourly metrics with default values
             'hourly': {
                 'start_time': None,
                 'recommendations_generated': 0,
@@ -36,6 +36,8 @@ class BaseStrategy(ABC):
                 'execution_time_ms': 0
             }
         }
+        # Now call _reset_hourly_metrics after metrics is initialized
+        self._reset_hourly_metrics()
     
     def _reset_hourly_metrics(self):
         """Reset hourly metrics when they expire."""
