@@ -8,13 +8,66 @@ async function loadStrategies() {
         const statusEl = document.getElementById('strategy-status');
         if (data.strategies && data.strategies.length > 0) {
             statusEl.innerHTML = data.strategies.map(s => 
-                `<div class="form-check form-switch">
-                    <input class="form-check-input" type="checkbox" id="strategy-${s.name}" 
-                        ${s.active ? 'checked' : ''} 
-                        onchange="toggleStrategy('${s.name}', this.checked)">
-                    <label class="form-check-label" for="strategy-${s.name}">${s.name}</label>
+                `<div class="card mb-3 strategy-metrics-card">
+                    <div class="card-header">
+                        <div class="form-check form-switch">
+                            <input class="form-check-input" type="checkbox" id="strategy-${s.name}" 
+                                ${s.active ? 'checked' : ''} 
+                                onchange="toggleStrategy('${s.name}', this.checked)">
+                            <label class="form-check-label" for="strategy-${s.name}">
+                                <strong>${s.name}</strong>
+                            </label>
+                        </div>
+                    </div>
+                    <div class="card-body">
+                        <p class="text-muted small mb-2">${s.description}</p>
+                        <div class="metrics-grid">
+                            <div class="metric-item">
+                                <span class="metric-label">Total Runs</span>
+                                <span class="metric-value">${s.metrics.total_runs}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Success Rate</span>
+                                <span class="metric-value">${s.metrics.success_rate}%</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Articles (Total/Current)</span>
+                                <span class="metric-value">${s.metrics.total_articles_processed}/${s.metrics.articles_processed}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Recommendations (Total/Current)</span>
+                                <span class="metric-value">${s.metrics.total_recommendations}/${s.metrics.recommendations_generated}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Signals (Buy/Sell)</span>
+                                <span class="metric-value">
+                                    <span class="text-success">${s.metrics.buy_signals}</span>/
+                                    <span class="text-danger">${s.metrics.sell_signals}</span>
+                                </span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Avg Confidence</span>
+                                <span class="metric-value">${s.metrics.avg_confidence}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Last Run</span>
+                                <span class="metric-value">${s.metrics.last_run ? new Date(s.metrics.last_run).toLocaleString() : 'Never'}</span>
+                            </div>
+                            <div class="metric-item">
+                                <span class="metric-label">Execution Time</span>
+                                <span class="metric-value">${s.metrics.execution_time_ms}ms</span>
+                            </div>
+                        </div>
+                        ${s.metrics.errors ? 
+                            `<div class="alert alert-danger mt-2 mb-0 py-1 px-2 small">
+                                Last Error: ${s.metrics.errors}
+                                <br><small>${new Date(s.metrics.last_error_time).toLocaleString()}</small>
+                            </div>` : ''}
+                    </div>
                 </div>`
             ).join('');
+        } else {
+            statusEl.innerHTML = '<div class="alert alert-warning">No strategies found</div>';
         }
 
         // Update strategy filter dropdown
@@ -23,6 +76,8 @@ async function loadStrategies() {
             data.strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
     } catch (error) {
         console.error('Error loading strategies:', error);
+        const statusEl = document.getElementById('strategy-status');
+        statusEl.innerHTML = '<div class="alert alert-danger">Error loading strategies</div>';
     }
 }
 
@@ -45,4 +100,34 @@ async function toggleStrategy(name, active) {
         // On error, revert the checkbox
         document.getElementById(`strategy-${name}`).checked = !active;
     }
-} 
+}
+
+<style>
+.strategy-metrics-card {
+    border: 1px solid rgba(0,0,0,.125);
+    transition: all 0.3s ease;
+}
+.strategy-metrics-card:hover {
+    box-shadow: 0 0.5rem 1rem rgba(0,0,0,.15);
+}
+.metrics-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 0.5rem;
+}
+.metric-item {
+    padding: 0.5rem;
+    background: #f8f9fa;
+    border-radius: 4px;
+}
+.metric-label {
+    display: block;
+    font-size: 0.75rem;
+    color: #6c757d;
+}
+.metric-value {
+    display: block;
+    font-weight: 500;
+    font-size: 0.875rem;
+}
+</style> 
