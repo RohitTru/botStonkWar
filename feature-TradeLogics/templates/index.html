@@ -25,16 +25,18 @@
     padding: 1rem;
     scroll-behavior: smooth;
     gap: 1rem;
-    min-height: 400px;
+    min-height: 500px;
 }
 
 .strategy-card {
-    flex: 0 0 400px;
+    flex: 0 0 450px;
     border: 1px solid rgba(0,0,0,.125);
     border-radius: 8px;
-    padding: 1rem;
+    padding: 1.25rem;
     background: white;
     transition: all 0.3s ease;
+    display: flex;
+    flex-direction: column;
 }
 
 .strategy-card:hover {
@@ -51,25 +53,51 @@
     justify-content: space-between;
     align-items: center;
     margin-bottom: 1rem;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0,0,0,.1);
 }
 
 .strategy-description {
     color: #6c757d;
     font-size: 0.9rem;
     margin-bottom: 1rem;
-    min-height: 40px;
+    padding-bottom: 1rem;
+    border-bottom: 1px solid rgba(0,0,0,.1);
 }
 
 .metrics-section {
+    flex-grow: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 1rem;
+}
+
+.metrics-block {
     background: #f8f9fa;
     border-radius: 6px;
     padding: 1rem;
 }
 
+.metrics-block-header {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    margin-bottom: 0.75rem;
+}
+
 .metrics-title {
     font-size: 0.9rem;
+    font-weight: 600;
     color: #495057;
-    margin-bottom: 0.5rem;
+    margin: 0;
+}
+
+.time-badge {
+    font-size: 0.75rem;
+    padding: 0.25rem 0.5rem;
+    background: #e9ecef;
+    border-radius: 4px;
+    color: #6c757d;
 }
 
 .metrics-grid {
@@ -97,20 +125,31 @@
     font-size: 1rem;
 }
 
-.strategy-footer {
-    display: flex;
-    justify-content: space-between;
-    margin-top: 1rem;
-    padding-top: 0.5rem;
-    border-top: 1px solid rgba(0,0,0,.05);
+.metric-trend {
+    font-size: 0.75rem;
+    margin-top: 0.25rem;
 }
 
-.strategy-metrics {
+.trend-up { color: #28a745; }
+.trend-down { color: #dc3545; }
+
+.strategy-footer {
+    margin-top: auto;
+    padding-top: 1rem;
+    border-top: 1px solid rgba(0,0,0,.1);
     display: flex;
+    flex-direction: column;
     gap: 0.5rem;
 }
 
-/* Custom scrollbar for strategy carousel */
+.footer-stats {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+    color: #6c757d;
+}
+
+/* Custom scrollbar */
 .strategy-carousel::-webkit-scrollbar {
     height: 8px;
 }
@@ -166,51 +205,72 @@ async function loadStrategies() {
                     </div>
                     
                     <div class="metrics-section">
-                        <h6 class="metrics-title">Performance Metrics</h6>
-                        <div class="metrics-grid">
-                            <div class="metric-item">
-                                <span class="metric-label">Success Rate</span>
-                                <span class="metric-value">${s.metrics?.success_rate || 0}%</span>
+                        <div class="metrics-block">
+                            <div class="metrics-block-header">
+                                <h6 class="metrics-title">Last Hour Performance</h6>
+                                <span class="time-badge">Past 60 min</span>
                             </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Total Runs</span>
-                                <span class="metric-value">${s.metrics?.total_runs || 0}</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Articles Processed</span>
-                                <span class="metric-value">${s.metrics?.total_articles_processed || 0}</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Current Articles</span>
-                                <span class="metric-value">${s.metrics?.articles_processed || 0}</span>
-                            </div>
-                        </div>
-                        
-                        <h6 class="metrics-title mt-3">Trading Signals</h6>
-                        <div class="metrics-grid">
-                            <div class="metric-item">
-                                <span class="metric-label">Buy Signals</span>
-                                <span class="metric-value text-success">${s.metrics?.buy_signals || 0}</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Sell Signals</span>
-                                <span class="metric-value text-danger">${s.metrics?.sell_signals || 0}</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Avg Confidence</span>
-                                <span class="metric-value">${s.metrics?.avg_confidence || 0}</span>
-                            </div>
-                            <div class="metric-item">
-                                <span class="metric-label">Total Recommendations</span>
-                                <span class="metric-value">${s.metrics?.total_recommendations || 0}</span>
+                            <div class="metrics-grid">
+                                <div class="metric-item">
+                                    <span class="metric-label">Recommendations</span>
+                                    <span class="metric-value">${s.metrics?.recommendations_generated || 0}</span>
+                                    <div class="metric-trend">
+                                        Total: ${s.metrics?.total_recommendations || 0}
+                                    </div>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Articles Analyzed</span>
+                                    <span class="metric-value">${s.metrics?.articles_processed || 0}</span>
+                                    <div class="metric-trend">
+                                        Total: ${s.metrics?.total_articles_processed || 0}
+                                    </div>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Success Rate</span>
+                                    <span class="metric-value">${s.metrics?.success_rate || 0}%</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Avg Confidence</span>
+                                    <span class="metric-value">${s.metrics?.avg_confidence || 0}</span>
+                                </div>
                             </div>
                         </div>
-                        
-                        <div class="strategy-footer">
-                            <small class="text-muted">Last Run: ${s.metrics?.last_run ? new Date(s.metrics.last_run).toLocaleString() : 'Never'}</small>
-                            <small class="text-muted">Execution Time: ${s.metrics?.execution_time_ms || 0}ms</small>
+
+                        <div class="metrics-block">
+                            <div class="metrics-block-header">
+                                <h6 class="metrics-title">Trading Signals</h6>
+                                <span class="time-badge">Last Hour</span>
+                            </div>
+                            <div class="metrics-grid">
+                                <div class="metric-item">
+                                    <span class="metric-label">Buy Signals</span>
+                                    <span class="metric-value text-success">${s.metrics?.buy_signals || 0}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Sell Signals</span>
+                                    <span class="metric-value text-danger">${s.metrics?.sell_signals || 0}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Avg Buy Confidence</span>
+                                    <span class="metric-value">${s.metrics?.avg_buy_confidence || 0}</span>
+                                </div>
+                                <div class="metric-item">
+                                    <span class="metric-label">Avg Sell Confidence</span>
+                                    <span class="metric-value">${s.metrics?.avg_sell_confidence || 0}</span>
+                                </div>
+                            </div>
                         </div>
-                        
+                    </div>
+                    
+                    <div class="strategy-footer">
+                        <div class="footer-stats">
+                            <span>Last Run: ${s.metrics?.last_run ? new Date(s.metrics.last_run).toLocaleString() : 'Never'}</span>
+                            <span>Execution Time: ${s.metrics?.execution_time_ms || 0}ms</span>
+                        </div>
+                        <div class="footer-stats">
+                            <span>Total Runs: ${s.metrics?.total_runs || 0}</span>
+                            <span>Health: ${s.metrics?.health || 'Unknown'}</span>
+                        </div>
                         ${s.metrics?.errors ? 
                             `<div class="alert alert-danger mt-2 mb-0 py-1 px-2">
                                 <strong>Error:</strong> ${s.metrics.errors}
@@ -260,3 +320,4 @@ document.addEventListener('DOMContentLoaded', loadStrategies);
 // Refresh strategies every 30 seconds
 setInterval(loadStrategies, 30000);
 </script> 
+</style> 
