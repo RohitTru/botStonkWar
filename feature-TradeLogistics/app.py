@@ -121,43 +121,98 @@ if not register_strategies():
 FETCH_WINDOW_MINUTES = 30  # Time window for live strategies
 
 def fetch_strategy_data():
-    with engine.connect() as conn:
-        window_start = (datetime.utcnow() - timedelta(minutes=FETCH_WINDOW_MINUTES)).strftime('%Y-%m-%d %H:%M:%S')
-        query = text("""
-            SELECT 
-                a.id,
-                a.title,
-                a.validated_symbols,
-                a.published_date,
-                sa.sentiment_score,
-                sa.confidence_score,
-                sa.prediction
-            FROM sentiment_analysis sa
-            JOIN articles a ON a.id = sa.article_id
-            WHERE a.is_analyzed = TRUE
-              AND a.published_date >= :window_start
-            ORDER BY a.published_date DESC
-        """)
-        result = conn.execute(query, {'window_start': window_start})
-        articles = []
-        sentiment_scores = {}
-        for row in result:
-            article = {
-                'id': row[0],
-                'title': row[1],
-                'validated_symbols': json.loads(row[2]) if row[2] else [],
-                'published_date': row[3].isoformat() if row[3] else None
+    """Fetch recent articles and sentiment data for strategy analysis."""
+    try:
+        with engine.connect() as conn:
+            window_start = (datetime.utcnow() - timedelta(minutes=FETCH_WINDOW_MINUTES)).strftime('%Y-%m-%d %H:%M:%S')
+            
+            # First check if we have any articles in the table
+            count_query = text("SELECT COUNT(*) FROM articles")
+            total_articles = conn.execute(count_query).scalar()
+            app.logger.info(f"Total articles in database: {total_articles}")
+            
+            # Check sentiment analysis table
+            sa_count_query = text("SELECT COUNT(*) FROM sentiment_analysis")
+            total_sa = conn.execute(sa_count_query).scalar()
+            app.logger.info(f"Total sentiment analyses in database: {total_sa}")
+            
+            # Get recent articles with sentiment
+            query = text("""
+                SELECT 
+                    a.id,
+                    a.title,
+                    a.validated_symbols,
+                    a.published_date,
+                    sa.sentiment_score,
+                    sa.confidence_score,
+                    sa.prediction
+                FROM sentiment_analysis sa
+                JOIN articles a ON a.id = sa.article_id
+                WHERE a.is_analyzed = TRUE
+                  AND a.published_date >= :window_start
+                ORDER BY a.published_date DESC
+            """)
+            
+            # Log the query parameters
+            app.logger.info(f"Fetching articles from {window_start} to now")
+            
+            result = conn.execute(query, {'window_start': window_start})
+            articles = []
+            sentiment_scores = {}
+            
+            for row in result:
+                try:
+                    article = {
+                        'id': row[0],
+                        'title': row[1],
+                        'validated_symbols': json.loads(row[2]) if row[2] else [],
+                        'published_date': row[3].isoformat() if row[3] else None
+                    }
+                    articles.append(article)
+                    sentiment_scores[row[0]] = {
+                        'sentiment_score': float(row[4]) if row[4] is not None else 0.0,
+                        'confidence_score': float(row[5]) if row[5] is not None else 0.0,
+                        'prediction': row[6]
+                    }
+                except Exception as e:
+                    app.logger.error(f"Error processing row {row}: {str(e)}")
+                    continue
+            
+            # Check recent articles
+            recent_query = text("""
+                SELECT COUNT(*)
+                FROM articles
+                WHERE published_date >= :window_start
+            """)
+            recent_count = conn.execute(recent_query, {'window_start': window_start}).scalar()
+            app.logger.info(f"Total articles in time window: {recent_count}")
+            
+            # Check analyzed articles
+            analyzed_query = text("""
+                SELECT COUNT(*)
+                FROM articles a
+                JOIN sentiment_analysis sa ON a.id = sa.article_id
+                WHERE a.published_date >= :window_start
+                  AND a.is_analyzed = TRUE
+            """)
+            analyzed_count = conn.execute(analyzed_query, {'window_start': window_start}).scalar()
+            app.logger.info(f"Analyzed articles in time window: {analyzed_count}")
+            
+            app.logger.info(f"Fetched {len(articles)} articles with sentiment scores from DB")
+            if len(articles) == 0:
+                app.logger.warning("No articles found with sentiment analysis in the time window")
+            
+            return {
+                'articles': articles,
+                'sentiment_scores': sentiment_scores
             }
-            articles.append(article)
-            sentiment_scores[row[0]] = {
-                'sentiment_score': float(row[4]),
-                'confidence_score': float(row[5]),
-                'prediction': row[6]
-            }
-        print(f"Fetched {len(articles)} articles from DB for strategy analysis (window: {window_start} to now).")
+            
+    except Exception as e:
+        app.logger.error(f"Error fetching strategy data: {str(e)}", exc_info=True)
+        # Return empty data rather than failing
         return {
-            'articles': articles,
-            'sentiment_scores': sentiment_scores
+            'articles': [],
+            'sentiment_scores': {}
         }
 
 @app.route('/')
@@ -308,13 +363,21 @@ def strategy_status():
     """Get status of all strategies."""
     try:
         # First check if we have any strategies registered
+        app.logger.info("Fetching strategy status - checking registered strategies")
         all_strategies = strategy_manager.get_all_strategies()
         if not all_strategies:
             app.logger.warning("No strategies found in strategy manager")
             return jsonify([])
         
+        app.logger.info(f"Found {len(all_strategies)} registered strategies")
+        
         # Get status for all strategies
         status = strategy_manager.get_strategy_status()
+        app.logger.info(f"Retrieved status for {len(status)} strategies")
+        
+        # Log each strategy's status
+        for s in status:
+            app.logger.info(f"Strategy {s.get('name', 'Unknown')}: active={s.get('active', False)}, health={s.get('metrics', {}).get('health', 'Unknown')}")
         
         # Validate and clean up each status object
         cleaned_status = []
@@ -329,42 +392,16 @@ def strategy_status():
                 'description': s.get('description', 'No description'),
                 'active': s.get('active', False),
                 'last_run': s.get('last_run'),
-                'metrics': {
-                    'health': 'Unknown',
-                    'errors': None,
-                    'last_error_time': None,
-                    'total_runs': 0,
-                    'total_recommendations': 0,
-                    'all_time_success_rate': 0.0,
-                    'hourly': {
-                        'recommendations_generated': 0,
-                        'articles_processed': 0,
-                        'success_rate': 0.0,
-                        'avg_confidence': 0.0
-                    }
-                }
+                'metrics': s.get('metrics', {})
             }
-            
-            # Copy existing metrics if they exist
-            if isinstance(s.get('metrics'), dict):
-                cleaned['metrics'].update(s['metrics'])
-                
-                # Ensure hourly metrics exist
-                if isinstance(s['metrics'].get('hourly'), dict):
-                    cleaned['metrics']['hourly'].update(s['metrics']['hourly'])
-            
             cleaned_status.append(cleaned)
         
-        app.logger.info(f"Returning status for {len(cleaned_status)} strategies")
+        app.logger.info(f"Returning {len(cleaned_status)} cleaned strategy status objects")
         return jsonify(cleaned_status)
         
     except Exception as e:
-        app.logger.error(f"Error getting strategy status: {str(e)}", exc_info=True)
-        return jsonify({
-            'error': str(e),
-            'status': 'error',
-            'timestamp': datetime.utcnow().isoformat()
-        }), 500
+        app.logger.error(f"Error in strategy_status endpoint: {str(e)}", exc_info=True)
+        return jsonify([])
 
 @app.route('/api/db-health')
 def check_db_health():

@@ -2,6 +2,7 @@ from abc import ABC, abstractmethod
 from typing import List, Dict, Any
 from datetime import datetime, timedelta
 import time
+import logging
 
 class BaseStrategy(ABC):
     """Base class for all trading decision strategies."""
@@ -38,6 +39,7 @@ class BaseStrategy(ABC):
         }
         # Now call _reset_hourly_metrics after metrics is initialized
         self._reset_hourly_metrics()
+        self.logger = logging.getLogger(__name__)
     
     def _reset_hourly_metrics(self):
         """Reset hourly metrics when they expire."""
@@ -170,15 +172,19 @@ class BaseStrategy(ABC):
     def get_status(self) -> Dict[str, Any]:
         """Get the current status of the strategy."""
         try:
+            self.logger.info(f"Getting status for strategy {self.name}")
             self._check_hourly_metrics()  # Ensure hourly metrics are current
-            return {
+            status = {
                 'name': self.name,
                 'description': self.description,
                 'last_run': self.metrics['last_run'],
                 'required_data': self.get_required_data(),
                 'metrics': self.metrics
             }
+            self.logger.info(f"Successfully retrieved status for {self.name}")
+            return status
         except Exception as e:
+            self.logger.error(f"Error getting status for {self.name}: {str(e)}", exc_info=True)
             # Return a valid status even if there's an error
             return {
                 'name': self.name,

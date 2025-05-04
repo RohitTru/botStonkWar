@@ -179,13 +179,13 @@
         async function loadStrategies() {
             try {
                 const resp = await fetch('/api/strategy-status');
-                const data = await resp.json();
-                allStrategies = data.strategies;
+                const strategies = await resp.json();
+                allStrategies = strategies;
                 
                 // Update strategy status toggles
                 const statusEl = document.getElementById('strategy-status');
-                if (data.strategies && data.strategies.length > 0) {
-                    statusEl.innerHTML = data.strategies.map(s => 
+                if (strategies && strategies.length > 0) {
+                    statusEl.innerHTML = strategies.map(s => 
                         `<div class="form-check form-switch mb-2">
                             <input class="form-check-input" type="checkbox" id="strategy-${s.name}" 
                                 ${s.active ? 'checked' : ''} 
@@ -204,7 +204,7 @@
                 // Update strategy filter dropdown
                 const filterEl = document.getElementById('strategy-filter');
                 filterEl.innerHTML = '<option value="">All Strategies</option>' + 
-                    data.strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
+                    strategies.map(s => `<option value="${s.name}">${s.name}</option>`).join('');
             } catch (error) {
                 console.error('Error loading strategies:', error);
                 const statusEl = document.getElementById('strategy-status');
