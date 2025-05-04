@@ -272,31 +272,37 @@ def ws_subscribed_symbol_prices():
 
 @app.route('/api/strategy-status')
 def strategy_status():
+    """Get the status of all registered strategies with their metrics."""
     try:
         strategies = strategy_manager.get_all_strategies()
-        # Convert strategies to JSON-serializable format
         serializable_strategies = []
-        for strategy in strategies:
-            strategy_dict = {
-                'name': strategy['name'],
-                'description': strategy['description'],
-                'last_run': strategy['last_run'],
-                'active': strategy['active'],
-                'required_data': strategy['required_data'],
-                'metrics': {
-                    key: value.isoformat() if isinstance(value, datetime) else value
-                    for key, value in strategy['metrics'].items()
-                }
-            }
-            serializable_strategies.append(strategy_dict)
         
-        app.logger.info(f"Strategy status: Returning {len(serializable_strategies)} strategies")
-        return jsonify({"strategies": serializable_strategies})
-    except Exception as e:
-        app.logger.error(f"Error getting strategy status: {str(e)}")
+        for strategy in strategies:
+            # Get the strategy's status
+            status = strategy.get_status()
+            
+            # Convert datetime objects to ISO format strings
+            if status['metrics']['last_run']:
+                status['metrics']['last_run'] = status['metrics']['last_run']
+            
+            if status['metrics']['last_error_time']:
+                status['metrics']['last_error_time'] = status['metrics']['last_error_time']
+            
+            if status['metrics']['hourly']['start_time']:
+                status['metrics']['hourly']['start_time'] = status['metrics']['hourly']['start_time']
+            
+            serializable_strategies.append(status)
+        
+        app.logger.info(f"Returning status for {len(serializable_strategies)} strategies")
         return jsonify({
-            "status": "error",
-            "message": str(e)
+            'status': 'success',
+            'strategies': serializable_strategies
+        })
+    except Exception as e:
+        app.logger.error(f"Error in strategy_status: {str(e)}")
+        return jsonify({
+            'status': 'error',
+            'message': str(e)
         }), 500
 
 @app.route('/api/db-health')

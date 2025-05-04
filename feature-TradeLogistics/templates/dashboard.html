@@ -50,39 +50,16 @@
 
             <!-- Active Strategies -->
             <div class="bg-white shadow rounded-lg p-6 mb-6">
-                <h2 class="text-xl font-bold text-gray-800 mb-4">Active Trading Strategies</h2>
-                <div class="overflow-x-auto">
-                    <table class="min-w-full divide-y divide-gray-200">
-                        <thead class="bg-gray-50">
-                            <tr>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Strategy</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Status</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Success Rate</th>
-                                <th class="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Last Signal</th>
-                            </tr>
-                        </thead>
-                        <tbody class="bg-white divide-y divide-gray-200">
-                            {% for strategy in strategies %}
-                            <tr>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <div class="text-sm font-medium text-gray-900">{{ strategy.name }}</div>
-                                    <div class="text-sm text-gray-500">{{ strategy.description }}</div>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap">
-                                    <span class="px-2 inline-flex text-xs leading-5 font-semibold rounded-full {{ strategy.status_class }}">
-                                        {{ strategy.status }}
-                                    </span>
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ strategy.success_rate }}%
-                                </td>
-                                <td class="px-6 py-4 whitespace-nowrap text-sm text-gray-500">
-                                    {{ strategy.last_signal }}
-                                </td>
-                            </tr>
-                            {% endfor %}
-                        </tbody>
-                    </table>
+                <div class="flex justify-between items-center mb-4">
+                    <h2 class="text-xl font-bold text-gray-800">Active Trading Strategies</h2>
+                    <div class="flex gap-2">
+                        <span class="px-3 py-1 bg-blue-100 text-blue-800 rounded-full text-sm font-medium" id="active-strategies-count">0 Active</span>
+                        <span class="px-3 py-1 bg-gray-100 text-gray-800 rounded-full text-sm font-medium" id="total-strategies-count">0 Total</span>
+                    </div>
+                </div>
+                
+                <div class="strategy-carousel" id="strategy-status">
+                    Loading...
                 </div>
             </div>
 
@@ -139,5 +116,232 @@
     </div>
 
     <script src="{{ url_for('static', filename='js/dashboard.js') }}"></script>
+    <style>
+    .strategy-carousel {
+        display: flex;
+        overflow-x: auto;
+        gap: 1rem;
+        padding: 0.5rem;
+        scroll-behavior: smooth;
+        min-height: 400px;
+    }
+
+    .strategy-card {
+        flex: 0 0 400px;
+        @apply bg-white rounded-lg border border-gray-200;
+        transition: all 0.3s ease;
+    }
+
+    .strategy-card:hover {
+        @apply shadow-lg transform -translate-y-1;
+    }
+
+    .strategy-card.active {
+        @apply border-green-500;
+    }
+
+    .strategy-header {
+        @apply flex justify-between items-center p-4 border-b border-gray-100;
+    }
+
+    .strategy-description {
+        @apply p-4 text-sm text-gray-600 border-b border-gray-100;
+    }
+
+    .metrics-section {
+        @apply p-4 space-y-4;
+    }
+
+    .metrics-block {
+        @apply bg-gray-50 rounded-lg p-4;
+    }
+
+    .metrics-block-header {
+        @apply flex justify-between items-center mb-3;
+    }
+
+    .metrics-title {
+        @apply text-sm font-semibold text-gray-700;
+    }
+
+    .time-badge {
+        @apply text-xs px-2 py-1 bg-gray-200 rounded text-gray-600;
+    }
+
+    .metrics-grid {
+        @apply grid grid-cols-2 gap-3;
+    }
+
+    .metric-item {
+        @apply bg-white p-3 rounded border border-gray-100;
+    }
+
+    .metric-label {
+        @apply block text-xs text-gray-500;
+    }
+
+    .metric-value {
+        @apply block text-sm font-semibold mt-1;
+    }
+
+    .metric-trend {
+        @apply text-xs text-gray-500 mt-1;
+    }
+
+    .strategy-footer {
+        @apply p-4 border-t border-gray-100;
+    }
+
+    .footer-stats {
+        @apply flex justify-between text-xs text-gray-500;
+    }
+
+    /* Custom scrollbar */
+    .strategy-carousel::-webkit-scrollbar {
+        @apply h-2;
+    }
+
+    .strategy-carousel::-webkit-scrollbar-track {
+        @apply bg-gray-100 rounded;
+    }
+
+    .strategy-carousel::-webkit-scrollbar-thumb {
+        @apply bg-gray-400 rounded;
+    }
+
+    .strategy-carousel::-webkit-scrollbar-thumb:hover {
+        @apply bg-gray-500;
+    }
+    </style>
+
+    <script>
+    let allStrategies = [];
+
+    async function loadStrategies() {
+        try {
+            const resp = await fetch('/api/strategy-status');
+            const data = await resp.json();
+            allStrategies = data.strategies;
+            
+            // Update strategy counts
+            const activeCount = data.strategies.filter(s => s.active).length;
+            document.getElementById('active-strategies-count').textContent = `${activeCount} Active`;
+            document.getElementById('total-strategies-count').textContent = `${data.strategies.length} Total`;
+            
+            // Update strategy status cards
+            const statusEl = document.getElementById('strategy-status');
+            if (data.strategies && data.strategies.length > 0) {
+                statusEl.innerHTML = data.strategies.map(s => 
+                    `<div class="strategy-card ${s.active ? 'active' : ''}">
+                        <div class="strategy-header">
+                            <div class="flex items-center gap-2">
+                                <div class="form-check form-switch">
+                                    <input type="checkbox" class="form-check-input" id="strategy-${s.name}" 
+                                        ${s.active ? 'checked' : ''} 
+                                        onchange="toggleStrategy('${s.name}', this.checked)">
+                                    <label class="form-check-label font-medium" for="strategy-${s.name}">
+                                        ${s.name}
+                                    </label>
+                                </div>
+                            </div>
+                            <span class="px-2 py-1 text-xs font-medium rounded-full ${s.active ? 'bg-green-100 text-green-800' : 'bg-gray-100 text-gray-800'}">
+                                ${s.active ? 'Active' : 'Inactive'}
+                            </span>
+                        </div>
+                        
+                        <div class="strategy-description">
+                            ${s.description}
+                        </div>
+                        
+                        <div class="metrics-section">
+                            <div class="metrics-block">
+                                <div class="metrics-block-header">
+                                    <h6 class="metrics-title">Last Hour Performance</h6>
+                                    <span class="time-badge">Past 60 min</span>
+                                </div>
+                                <div class="metrics-grid">
+                                    <div class="metric-item">
+                                        <span class="metric-label">Recommendations</span>
+                                        <span class="metric-value">${s.metrics?.hourly?.recommendations_generated || 0}</span>
+                                        <div class="metric-trend">
+                                            Total: ${s.metrics?.total_recommendations || 0}
+                                        </div>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Articles Analyzed</span>
+                                        <span class="metric-value">${s.metrics?.hourly?.articles_processed || 0}</span>
+                                        <div class="metric-trend">
+                                            Total: ${s.metrics?.total_articles_processed || 0}
+                                        </div>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Success Rate</span>
+                                        <span class="metric-value">${s.metrics?.hourly?.success_rate || 0}%</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Avg Confidence</span>
+                                        <span class="metric-value">${s.metrics?.hourly?.avg_confidence || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+
+                            <div class="metrics-block">
+                                <div class="metrics-block-header">
+                                    <h6 class="metrics-title">Trading Signals</h6>
+                                    <span class="time-badge">Last Hour</span>
+                                </div>
+                                <div class="metrics-grid">
+                                    <div class="metric-item">
+                                        <span class="metric-label">Buy Signals</span>
+                                        <span class="metric-value text-green-600">${s.metrics?.hourly?.buy_signals || 0}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Sell Signals</span>
+                                        <span class="metric-value text-red-600">${s.metrics?.hourly?.sell_signals || 0}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Avg Buy Confidence</span>
+                                        <span class="metric-value">${s.metrics?.hourly?.avg_buy_confidence || 0}</span>
+                                    </div>
+                                    <div class="metric-item">
+                                        <span class="metric-label">Avg Sell Confidence</span>
+                                        <span class="metric-value">${s.metrics?.hourly?.avg_sell_confidence || 0}</span>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <div class="strategy-footer">
+                            <div class="footer-stats">
+                                <span>Last Run: ${s.metrics?.last_run ? new Date(s.metrics.last_run).toLocaleString() : 'Never'}</span>
+                                <span>Execution Time: ${s.metrics?.hourly?.execution_time_ms || 0}ms</span>
+                            </div>
+                            <div class="footer-stats mt-2">
+                                <span>Total Runs: ${s.metrics?.total_runs || 0}</span>
+                                <span>Health: ${s.metrics?.health || 'Unknown'}</span>
+                            </div>
+                            ${s.metrics?.errors ? 
+                                `<div class="mt-2 p-2 bg-red-50 text-red-700 text-xs rounded">
+                                    <strong>Error:</strong> ${s.metrics.errors}
+                                    <br><small>${new Date(s.metrics.last_error_time).toLocaleString()}</small>
+                                </div>` : ''}
+                        </div>
+                    </div>`
+                ).join('');
+            } else {
+                statusEl.innerHTML = '<div class="p-4 text-amber-700 bg-amber-50 rounded">No strategies found</div>';
+            }
+        } catch (error) {
+            console.error('Error loading strategies:', error);
+            const statusEl = document.getElementById('strategy-status');
+            statusEl.innerHTML = '<div class="p-4 text-red-700 bg-red-50 rounded">Error loading strategies</div>';
+        }
+    }
+
+    // Initialize strategies on load
+    document.addEventListener('DOMContentLoaded', loadStrategies);
+    // Refresh strategies every 30 seconds
+    setInterval(loadStrategies, 30000);
+    </script>
 </body>
 </html> 
