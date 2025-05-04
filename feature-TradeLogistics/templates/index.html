@@ -42,10 +42,7 @@
         .ws-symbol-price { display: flex; align-items: center; gap: 0.5em; margin-right: 0.7em; }
         .ws-symbol-price .ws-symbol { margin-right: 0.2em; }
         .tooltip { position: absolute; z-index: 10; background: #222; color: #fff; padding: 0.4em 0.7em; border-radius: 6px; font-size: 0.93em; pointer-events: none; opacity: 0; transition: opacity 0.15s; white-space: pre-line; max-width: 220px; }
-        .scroll-arrow { position: absolute; left: 50%; transform: translateX(-50%); font-size: 2.2em; color: #333; opacity: 0.85; pointer-events: none; z-index: 10; animation: bounce 1.2s infinite; text-shadow: 0 2px 8px #fff, 0 0 8px #1976d2; filter: drop-shadow(0 0 6px #fff); }
-        .scroll-arrow.down { bottom: 0.2em; }
-        .scroll-arrow.up { top: 0.2em; animation-direction: reverse; }
-        @keyframes bounce { 0%, 100% { transform: translateX(-50%) translateY(0); } 50% { transform: translateX(-50%) translateY(10px); } }
+        .scroll-arrow { display: none !important; }
         .recommendations-section { display: flex; gap: 2rem; flex-direction: row; align-items: flex-start; }
         .recs-col { flex: 1; background: #fff; border-radius: 8px; box-shadow: 0 1px 4px #0001; padding: 1rem; min-height: 400px; max-height: 600px; overflow-y: auto; position: relative; transition: background 0.2s; scrollbar-width: thin; scrollbar-color: #888 #f1f3f6; }
         .recs-col::-webkit-scrollbar { width: 8px; background: #f1f3f6; }
@@ -59,6 +56,48 @@
         @keyframes slideInUp { from { opacity: 0; transform: translateY(40px); } to { opacity: 1; transform: translateY(0); } }
         .load-more-btn { display: block; margin: 0.7em auto 0 auto; padding: 0.5em 1.5em; border-radius: 6px; border: none; background: #1976d2; color: #fff; font-size: 1em; font-weight: 500; cursor: pointer; box-shadow: 0 1px 4px #0001; transition: background 0.18s; }
         .load-more-btn:hover { background: #1565c0; }
+        .recs-header { display: flex; justify-content: space-between; align-items: center; margin-bottom: 0.5em; }
+        .recs-title {
+            font-weight: bold;
+            font-size: 1.35em;
+            letter-spacing: 0.01em;
+            display: flex;
+            align-items: center;
+            gap: 0.4em;
+            color: #1976d2;
+            text-shadow: 0 2px 8px #e3f2fd;
+        }
+        #sell-recs-col .recs-title { color: #e53935; text-shadow: 0 2px 8px #ffcdd2; }
+        .recs-title .icon { font-size: 1.2em; }
+        .recs-filter {
+            font-size: 1em;
+            padding: 0.3em 1.2em 0.3em 0.7em;
+            border-radius: 6px;
+            border: 1px solid #b0bec5;
+            background: linear-gradient(90deg, #f1f3f6 80%, #e3f2fd 100%);
+            color: #1976d2;
+            box-shadow: 0 1px 4px #0001;
+            outline: none;
+            transition: border 0.18s, box-shadow 0.18s;
+            margin-left: 0.5em;
+        }
+        #sell-recs-col .recs-filter { color: #e53935; background: linear-gradient(90deg, #f1f3f6 80%, #ffcdd2 100%); }
+        .recs-filter:focus { border: 1.5px solid #1976d2; box-shadow: 0 2px 8px #e3f2fd; }
+        #sell-recs-col .recs-filter:focus { border: 1.5px solid #e53935; box-shadow: 0 2px 8px #ffcdd2; }
+        .rec-age-separator {
+            position: sticky;
+            top: 0;
+            z-index: 2;
+            background: linear-gradient(90deg, #fff 80%, #f1f3f6 100%);
+            border-top: 2px dashed #bbb;
+            margin: 0.5em 0 0.5em 0;
+            text-align: center;
+            color: #888;
+            font-size: 0.98em;
+            font-weight: 500;
+            padding: 0.3em 0;
+            box-shadow: 0 2px 8px #0001;
+        }
     </style>
 </head>
 <body>
@@ -92,7 +131,7 @@
         <div class="recommendations-section">
             <div class="recs-col" id="buy-recs-col">
                 <div class="recs-header">
-                    <span class="recs-title">Buy Recommendations</span>
+                    <span class="recs-title"><span class="icon">&#x1F4B5;</span> Buy Recommendations</span>
                     <select class="recs-filter" id="buy-strategy-filter"></select>
                 </div>
                 <div id="buy-recs-list"></div>
@@ -100,7 +139,7 @@
             </div>
             <div class="recs-col" id="sell-recs-col">
                 <div class="recs-header">
-                    <span class="recs-title">Sell Recommendations</span>
+                    <span class="recs-title"><span class="icon">&#x1F4C9;</span> Sell Recommendations</span>
                     <select class="recs-filter" id="sell-strategy-filter"></select>
                 </div>
                 <div id="sell-recs-list"></div>
@@ -272,10 +311,16 @@
     function renderRecList(list, container, filter, type, cutoffIdx) {
         container.innerHTML = '';
         let faded = false;
+        let firstOldIdx = -1;
         list.forEach((r, idx) => {
             if (filter && r.strategy_name !== filter) return;
             const age = getAgeMinutes(r.created_at);
-            if (!faded && age > 60) {
+            if (firstOldIdx === -1 && age > 60) firstOldIdx = idx;
+        });
+        list.forEach((r, idx) => {
+            if (filter && r.strategy_name !== filter) return;
+            const age = getAgeMinutes(r.created_at);
+            if (firstOldIdx !== -1 && idx === firstOldIdx) {
                 container.innerHTML += '<div class="rec-age-separator">Older than 1 hour</div>';
                 faded = true;
             }
