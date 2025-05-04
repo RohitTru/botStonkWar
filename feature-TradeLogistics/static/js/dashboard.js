@@ -270,29 +270,72 @@ function createStrategyCard(strategy) {
 // Load and display strategies
 async function loadStrategies() {
     const statusEl = document.getElementById('strategy-status');
+    if (!statusEl) {
+        console.error('Strategy status element not found');
+        return;
+    }
+    
     statusEl.innerHTML = '<div class="text-center py-4"><div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500 mx-auto"></div></div>';
     
     try {
         const response = await fetch('/api/strategy-status');
-        const strategies = await response.json();
-        
-        if (!Array.isArray(strategies)) {
-            throw new Error('Invalid response format');
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
         
-        const activeStrategies = strategies.filter(s => s.active);
-        document.getElementById('active-strategies-count').textContent = activeStrategies.length;
+        const data = await response.json();
+        console.log('Strategy status response:', data); // Debug log
         
-        const totalRecommendations = strategies.reduce((sum, s) => sum + (s.metrics?.total_recommendations || 0), 0);
-        document.getElementById('total-recommendations').textContent = formatNumber(totalRecommendations);
+        // Handle error response
+        if (data && data.error) {
+            throw new Error(data.error);
+        }
         
-        const avgSuccessRate = strategies.reduce((sum, s) => sum + (s.metrics?.all_time_success_rate || 0), 0) / strategies.length;
-        document.getElementById('success-rate').textContent = formatPercent(avgSuccessRate);
+        // Ensure data is an array
+        const strategies = Array.isArray(data) ? data : [];
+        console.log('Processed strategies:', strategies); // Debug log
         
-        statusEl.innerHTML = strategies.map(createStrategyCard).join('');
+        // Update metrics only if elements exist
+        const activeStrategies = strategies.filter(s => s && s.active);
+        const activeCountEl = document.getElementById('active-strategies-count');
+        if (activeCountEl) {
+            activeCountEl.textContent = activeStrategies.length;
+        }
+        
+        const totalRecommendations = strategies.reduce((sum, s) => {
+            if (!s || !s.metrics) return sum;
+            return sum + (s.metrics.total_recommendations || 0);
+        }, 0);
+        const totalRecsEl = document.getElementById('total-recommendations');
+        if (totalRecsEl) {
+            totalRecsEl.textContent = formatNumber(totalRecommendations);
+        }
+        
+        const successRates = strategies
+            .filter(s => s && s.metrics && typeof s.metrics.all_time_success_rate === 'number')
+            .map(s => s.metrics.all_time_success_rate);
+        const avgSuccessRate = successRates.length > 0 
+            ? successRates.reduce((a, b) => a + b) / successRates.length 
+            : 0;
+        const successRateEl = document.getElementById('success-rate');
+        if (successRateEl) {
+            successRateEl.textContent = formatPercent(avgSuccessRate);
+        }
+        
+        if (strategies.length === 0) {
+            statusEl.innerHTML = '<div class="bg-yellow-100 border border-yellow-400 text-yellow-700 px-4 py-3 rounded relative" role="alert">No strategies found</div>';
+        } else {
+            statusEl.innerHTML = strategies
+                .filter(s => s && s.name) // Only process valid strategy objects
+                .map(createStrategyCard)
+                .join('');
+        }
     } catch (error) {
         console.error('Error loading strategies:', error);
-        statusEl.innerHTML = '<div class="alert alert-danger">Error loading strategies</div>';
+        statusEl.innerHTML = `<div class="bg-red-100 border border-red-400 text-red-700 px-4 py-3 rounded relative" role="alert">
+            <strong class="font-bold">Error loading strategies!</strong>
+            <span class="block sm:inline"> ${error.message}</span>
+        </div>`;
     }
 }
 

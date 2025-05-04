@@ -70,12 +70,32 @@ def register_strategies():
         (SentimentDivergenceStrategy(), "Sentiment Divergence")
     ]
     
-    for strategy, name in strategies:
-        current_state = trade_db.get_strategy_activation(strategy.name)
-        app.logger.info(f"Registering strategy {strategy.name} with current state: {current_state}")
-        strategy_manager.register_strategy(strategy, active=current_state)
+    for strategy, description in strategies:
+        try:
+            # Set the strategy name and description
+            strategy.name = strategy.__class__.__name__
+            strategy.description = description
+            
+            # Get current activation state from DB, default to True if not found
+            current_state = trade_db.get_strategy_activation(strategy.name)
+            if current_state is None:
+                current_state = True
+                trade_db.set_strategy_activation(strategy.name, current_state)
+            
+            app.logger.info(f"Registering strategy {strategy.name} ({description}) with state: {current_state}")
+            strategy_manager.register_strategy(strategy, active=current_state)
+            
+        except Exception as e:
+            app.logger.error(f"Error registering strategy {strategy.__class__.__name__}: {e}")
+            # Continue with other strategies even if one fails
+            continue
 
-register_strategies()
+# Register strategies when app starts
+try:
+    register_strategies()
+    app.logger.info("Successfully registered all strategies")
+except Exception as e:
+    app.logger.error(f"Error during strategy registration: {e}")
 
 FETCH_WINDOW_MINUTES = 30  # Time window for live strategies
 
@@ -266,11 +286,39 @@ def ws_subscribed_symbol_prices():
 def strategy_status():
     """Get status of all strategies."""
     try:
+        # First check if we have any strategies registered
+        all_strategies = strategy_manager.get_all_strategies()
+        if not all_strategies:
+            app.logger.warning("No strategies found in strategy manager")
+            return jsonify([])
+        
+        # Get status for all strategies
         status = strategy_manager.get_strategy_status()
         app.logger.info(f"Returning status for {len(status)} strategies")
+        
+        # Validate status format
+        if not isinstance(status, list):
+            app.logger.error("Strategy status returned invalid format")
+            return jsonify({
+                'error': 'Invalid status format returned from strategy manager',
+                'status': 'error',
+                'timestamp': datetime.utcnow().isoformat()
+            }), 500
+        
+        # Ensure each status has required fields
+        for s in status:
+            if not isinstance(s, dict) or 'name' not in s:
+                app.logger.error(f"Invalid strategy status object: {s}")
+                return jsonify({
+                    'error': 'Invalid strategy status object format',
+                    'status': 'error',
+                    'timestamp': datetime.utcnow().isoformat()
+                }), 500
+        
         return jsonify(status)
+        
     except Exception as e:
-        app.logger.error(f"Error getting strategy status: {e}")
+        app.logger.error(f"Error getting strategy status: {str(e)}", exc_info=True)
         return jsonify({
             'error': str(e),
             'status': 'error',
