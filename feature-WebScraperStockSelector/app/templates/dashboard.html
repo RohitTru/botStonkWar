@@ -528,33 +528,39 @@
                         const logsHtml = data.scraping_logs.map(log => {
                             let statusClass = 'text-success';
                             let badgeClass = 'bg-success';
+                            let cardBorder = 'border-success';
                             
                             switch (log.status) {
                                 case 'SUCCESS':
                                     statusClass = 'text-success';
                                     badgeClass = 'bg-success';
+                                    cardBorder = 'border-success';
                                     break;
                                 case 'DUPLICATE':
                                     statusClass = 'text-warning';
                                     badgeClass = 'bg-warning';
+                                    cardBorder = 'border-warning';
                                     break;
                                 case 'ERROR':
                                     statusClass = 'text-danger';
                                     badgeClass = 'bg-danger';
+                                    cardBorder = 'border-danger';
                                     break;
                                 default:
                                     statusClass = 'text-secondary';
                                     badgeClass = 'bg-secondary';
+                                    cardBorder = 'border-secondary';
                             }
-                            
                             return `
-                                <div class="log-entry p-2 ${statusClass}">
-                                    <div class="d-flex justify-content-between">
-                                        <small>${formatDateTime(log.timestamp)}</small>
-                                        <small class="badge ${badgeClass}">${log.status}</small>
+                                <div class="card mb-2 ${cardBorder}">
+                                    <div class="card-body p-2">
+                                        <div class="d-flex justify-content-between align-items-center mb-1">
+                                            <small class="${statusClass}">${formatDateTime(log.timestamp)}</small>
+                                            <span class="badge ${badgeClass}">${log.status}</span>
+                                        </div>
+                                        <div class="mb-1"><small class="text-break">${log.url || 'No URL'}</small></div>
+                                        ${log.error_message ? `<div class="text-danger"><small>${log.error_message}</small></div>` : ''}
                                     </div>
-                                    <small>${log.url || 'No URL'}</small>
-                                    ${log.error_message ? `<div class="text-danger"><small>${log.error_message}</small></div>` : ''}
                                 </div>
                             `;
                         }).join('');
