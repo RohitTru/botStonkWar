@@ -169,67 +169,90 @@
             color: #6c757d;
             font-weight: normal;
         }
+        .dashboard-top {
+            display: flex;
+            gap: 1.5rem;
+            margin-bottom: 2rem;
+        }
+        .dashboard-status {
+            flex: 0 0 220px;
+            min-width: 180px;
+            max-width: 260px;
+        }
+        .dashboard-metrics {
+            flex: 1 1 0%;
+            min-width: 320px;
+        }
+        .dashboard-metrics .stats-grid {
+            margin-top: 0;
+        }
+        .dashboard-articles-count {
+            margin-bottom: 1rem;
+        }
+        .dashboard-articles-count .card {
+            width: 100%;
+            text-align: center;
+        }
+        /* Colorful metric cards */
+        .stats-item.hour { background: #e3f2fd; color: #1565c0; }
+        .stats-item.week { background: #e8f5e9; color: #2e7d32; }
+        .stats-item.month { background: #fff3e0; color: #ef6c00; }
+        .stats-item.failed { background: #ffebee; color: #c62828; }
+        .stats-item.rate { background: #ede7f6; color: #6a1b9a; }
+        .stats-item::-webkit-scrollbar { height: 8px; }
+        .stats-item::-webkit-scrollbar-thumb { background: #bdbdbd; border-radius: 4px; }
+        .dashboard-status .card-body { padding: 1rem 0.5rem; }
+        .dashboard-status .btn { width: 100%; font-size: 0.95em; }
+        .dashboard-status .badge { font-size: 0.95em; }
     </style>
 </head>
 <body>
     <div class="container-fluid py-4">
-        <div class="row mb-4">
-            <!-- Scraper Status Card -->
-            <div class="col-md-4">
+        <div class="dashboard-top">
+            <!-- Scraper Status (compact, left) -->
+            <div class="dashboard-status">
                 <div class="card">
                     <div class="card-body">
-                        <h5 class="card-title">Scraper Status</h5>
-                        <div class="d-flex align-items-center flex-wrap">
-                            <div class="me-3 mb-2">
-                                <small class="text-muted d-block mb-1">Scraper</small>
-                                <span id="scraper-status" class="badge bg-success">Running</span>
-                            </div>
-                            <div>
-                                <small class="text-muted d-block mb-1">Database</small>
-                                <span id="db-status" class="badge bg-success">Connected</span>
-                            </div>
+                        <div class="d-flex flex-column align-items-center mb-2">
+                            <span id="scraper-status" class="badge bg-success mb-1">Running</span>
+                            <span id="db-status" class="badge bg-success mb-1">DB Connected</span>
                         </div>
-                        <div class="mt-3">
-                            <button id="pauseResumeBtn" class="btn btn-warning">Pause Scraper</button>
-                        </div>
+                        <button id="pauseResumeBtn" class="btn btn-warning mb-2">Pause Scraper</button>
                     </div>
                 </div>
             </div>
-            
-            <!-- Articles Counter Card -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">TotalArticles Found</h5>
-                        <div id="articles-count" class="h2">0</div>
+            <!-- Metrics (center, wide, scrollable) -->
+            <div class="dashboard-metrics">
+                <div class="stats-grid">
+                    <div class="stats-item hour">
+                        <div class="number" id="successful-hour">0</div>
+                        <div class="label">Successful (Last Hour)</div>
+                    </div>
+                    <div class="stats-item week">
+                        <div class="number" id="successful-week">0</div>
+                        <div class="label">Successful (Last Week)</div>
+                    </div>
+                    <div class="stats-item month">
+                        <div class="number" id="successful-month">0</div>
+                        <div class="label">Successful (Last Month)</div>
+                    </div>
+                    <div class="stats-item failed">
+                        <div class="number" id="failed-hour">0</div>
+                        <div class="label">Failed (Last Hour)</div>
+                    </div>
+                    <div class="stats-item rate">
+                        <div class="number" id="success-rate">0%</div>
+                        <div class="label">Success Rate (Last Hour)</div>
                     </div>
                 </div>
             </div>
-            
-            <!-- Last Hour Statistics Card -->
-            <div class="col-md-4">
-                <div class="card">
-                    <div class="card-body">
-                        <h5 class="card-title">Last Hour Statistics <span class="time-window">(past 60 minutes)</span></h5>
-                        <div class="stats-grid">
-                            <div class="stats-item attempts">
-                                <div class="number" id="total-attempts">0</div>
-                                <div class="label">Attempts</div>
-                            </div>
-                            <div class="stats-item successful">
-                                <div class="number" id="successful-attempts">0</div>
-                                <div class="label">Successful</div>
-                            </div>
-                            <div class="stats-item failed">
-                                <div class="number" id="failed-attempts">0</div>
-                                <div class="label">Failed</div>
-                            </div>
-                            <div class="stats-item rate">
-                                <div class="number" id="success-rate">0%</div>
-                                <div class="label">Success Rate</div>
-                            </div>
-                        </div>
-                    </div>
+        </div>
+        <!-- Articles Count above Scraper Logs -->
+        <div class="dashboard-articles-count">
+            <div class="card">
+                <div class="card-body">
+                    <h5 class="card-title mb-0">Total Articles Found</h5>
+                    <div id="articles-count" class="h2">0</div>
                 </div>
             </div>
         </div>
@@ -587,9 +610,8 @@
         }
 
         function updateLastHourStats(stats) {
-            document.getElementById('total-attempts').textContent = stats.total_attempts || 0;
-            document.getElementById('successful-attempts').textContent = stats.successful || 0;
-            document.getElementById('failed-attempts').textContent = stats.failed || 0;
+            document.getElementById('successful-hour').textContent = stats.successful || 0;
+            document.getElementById('failed-hour').textContent = stats.failed || 0;
             document.getElementById('success-rate').textContent = `${stats.success_rate || 0}%`;
         }
 
