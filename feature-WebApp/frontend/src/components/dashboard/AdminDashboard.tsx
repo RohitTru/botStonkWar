@@ -16,22 +16,30 @@ export default function AdminDashboard() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 3, mb: 2, gap: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 3, mb: 2, gap: 1 }}>
         {DASHBOARD_LINKS.map((link, idx) => (
           <Button
             key={link.name}
-            variant={activeIndex === idx ? 'contained' : 'outlined'}
-            color={activeIndex === idx ? 'primary' : 'inherit'}
+            variant="outlined"
+            color="inherit"
             onClick={() => setActiveIndex(idx)}
             sx={{
-              fontWeight: 600,
-              fontSize: '1rem',
-              px: 3,
-              py: 1.5,
-              borderRadius: 3,
-              boxShadow: activeIndex === idx ? 2 : 0,
-              transition: 'all 0.2s',
-              letterSpacing: 1,
+              fontWeight: 500,
+              fontSize: '0.95rem',
+              px: 2,
+              py: 0.5,
+              borderRadius: 2,
+              borderColor: activeIndex === idx ? '#222' : '#ccc',
+              backgroundColor: activeIndex === idx ? '#f5f5f5' : 'transparent',
+              color: '#222',
+              boxShadow: 'none',
+              textTransform: 'none',
+              letterSpacing: 0.5,
+              transition: 'all 0.15s',
+              '&:hover': {
+                backgroundColor: '#ececec',
+                borderColor: '#222',
+              },
             }}
           >
             {link.name}

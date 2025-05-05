@@ -18,7 +18,13 @@ export default function AdminNavbar() {
           <Typography
             variant="h5"
             fontWeight={700}
-            sx={{ letterSpacing: 2, color: 'primary.main', textAlign: 'center' }}
+            sx={{
+              letterSpacing: 2,
+              color: 'black',
+              textAlign: 'center',
+              textTransform: 'uppercase',
+              fontFamily: `'Montserrat', 'Inter', 'Arial', sans-serif`,
+            }}
           >
             BotStonkWar Admin Dashboard
           </Typography>
