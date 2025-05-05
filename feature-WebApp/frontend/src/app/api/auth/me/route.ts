@@ -21,7 +21,17 @@ export async function GET() {
       );
     }
 
-    // Fetch user data from the backend
+    // Special case for admin
+    if (decoded.username === 'admin') {
+      return NextResponse.json({
+        id: 0,
+        username: 'admin',
+        email: 'admin@system',
+        role: 'admin'
+      });
+    }
+
+    // Regular user: fetch from backend
     const response = await fetch(`${process.env.BACKEND_URL}/api/users/${decoded.userId}`, {
       headers: {
         'Authorization': `Bearer ${token}`,
@@ -33,7 +43,8 @@ export async function GET() {
     }
 
     const userData = await response.json();
-    return NextResponse.json(userData);
+    // Always add role: 'user' for normal users
+    return NextResponse.json({ ...userData, role: 'user' });
   } catch (error: any) {
     console.error('Error fetching user data:', error);
     return NextResponse.json(

@@ -6,7 +6,6 @@ export interface User extends RowDataPacket {
   username: string;
   email: string;
   password_hash: string;
-  role: string;
   balance: number;
   created_at: Date;
   updated_at: Date;
@@ -57,8 +56,8 @@ export async function createUser(username: string, email: string, passwordHash: 
     await connection.beginTransaction();
     
     const [result] = await connection.execute<ResultSetHeader>(
-      'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
-      [username, email, passwordHash, 'user']
+      'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      [username, email, passwordHash]
     );
     
     console.log('Insert result:', result);
