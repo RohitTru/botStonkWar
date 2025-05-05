@@ -59,8 +59,8 @@
             cursor: pointer;
             transition: background-color 0.2s;
         }
-        .article-row:hover {
-            background-color: #f8f9fa;
+        .article-row:hover, .article-row:active, .article-row:focus {
+            background-color: transparent !important;
         }
         .bullish { 
             color: #28a745;
@@ -232,9 +232,10 @@
             color: #6c757d;
             font-weight: 500;
             margin-bottom: 0.5rem;
-            margin-top: 1.2rem;
+            margin-top: 0.5rem;
             z-index: 3;
             background: none;
+            text-align: center;
         }
         .split-card-vertical-fill {
             position: absolute;
@@ -340,7 +341,6 @@
                 <h2 id="bearish-count" class="bearish">-</h2>
             </div>
             <div class="split-card">
-                <div class="split-card-title">Bullish vs Bearish (Last Hour)</div>
                 <div id="split-fill-1h-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-1h-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
@@ -349,7 +349,6 @@
                 </div>
             </div>
             <div class="split-card">
-                <div class="split-card-title">Bullish vs Bearish (Today)</div>
                 <div id="split-fill-1d-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-1d-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
@@ -358,7 +357,6 @@
                 </div>
             </div>
             <div class="split-card">
-                <div class="split-card-title">Bullish vs Bearish (7 Days)</div>
                 <div id="split-fill-7d-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-7d-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
@@ -367,7 +365,6 @@
                 </div>
             </div>
             <div class="split-card">
-                <div class="split-card-title">Bullish vs Bearish (30 Days)</div>
                 <div id="split-fill-30d-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-30d-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
@@ -375,6 +372,15 @@
                     <div class="split-card-bearish-label" id="bearish-count-30d">-</div>
                 </div>
             </div>
+        </div>
+        <div class="metrics-labels-row" style="display: flex; gap: 1.5rem; margin-top: -0.5rem; margin-bottom: 2rem; justify-content: flex-start;">
+            <div style="width: 280px;"></div>
+            <div style="width: 280px;"></div>
+            <div style="width: 280px;"></div>
+            <div class="split-card-title">Bullish vs Bearish (Last Hour)</div>
+            <div class="split-card-title">Bullish vs Bearish (Today)</div>
+            <div class="split-card-title">Bullish vs Bearish (7 Days)</div>
+            <div class="split-card-title">Bullish vs Bearish (30 Days)</div>
         </div>
 
         <!-- Recent Analyses Table -->
