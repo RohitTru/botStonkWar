@@ -1,8 +1,7 @@
 'use client';
 
-import { useState } from 'react';
 import { Container, Paper, Box } from '@mui/material';
-import AdminNavbar from '@/components/AdminNavbar';
+import { useAdminTab } from '@/components/AdminTabContext';
 
 const DASHBOARD_LINKS = [
   { name: 'Web Scraper Engine', url: 'https://feature-webscraperstockselector.emerginary.com/' },
@@ -12,12 +11,11 @@ const DASHBOARD_LINKS = [
 ];
 
 export default function AdminDashboard() {
-  const [activeIndex, setActiveIndex] = useState(0);
+  const { activeIndex } = useAdminTab();
   const activeDashboard = DASHBOARD_LINKS[activeIndex];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <AdminNavbar activeIndex={activeIndex} setActiveIndex={setActiveIndex} />
       <Container maxWidth={false} sx={{ flexGrow: 1, p: 2 }}>
         <Paper
           sx={{

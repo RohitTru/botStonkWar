@@ -2,6 +2,7 @@
 
 import { AppBar, Toolbar, Typography, Button, Tabs, Tab } from '@mui/material';
 import { useRouter } from 'next/navigation';
+import { useAdminTab } from './AdminTabContext';
 
 const DASHBOARD_LINKS = [
   { name: 'Web Scraper Engine', url: 'https://feature-webscraperstockselector.emerginary.com/' },
@@ -10,8 +11,9 @@ const DASHBOARD_LINKS = [
   { name: 'Brokerage Handler Engine', url: 'https://feature-stockbot.emerginary.com/' },
 ];
 
-export default function AdminNavbar({ activeIndex, setActiveIndex }: { activeIndex: number, setActiveIndex: (i: number) => void }) {
+export default function AdminNavbar() {
   const router = useRouter();
+  const { activeIndex, setActiveIndex } = useAdminTab();
 
   const handleLogout = () => {
     document.cookie = 'auth_token=; Max-Age=0; path=/;';
