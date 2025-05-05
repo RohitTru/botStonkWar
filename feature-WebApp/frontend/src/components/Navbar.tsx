@@ -19,33 +19,38 @@ export default function Navbar() {
   const pathname = usePathname();
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
+  const [loading, setLoading] = useState(true);
 
-  useEffect(() => {
-    // Fetch user info to determine if logged in
-    const fetchUser = async () => {
-      try {
-        const res = await fetch('/api/auth/me');
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data);
-        } else {
-          setUser(null);
-        }
-      } catch {
+  // Fetch user info to determine if logged in
+  const fetchUser = async () => {
+    setLoading(true);
+    try {
+      const res = await fetch('/api/auth/me');
+      if (res.ok) {
+        const data = await res.json();
+        setUser(data);
+      } else {
         setUser(null);
       }
-    };
+    } catch {
+      setUser(null);
+    }
+    setLoading(false);
+  };
+
+  useEffect(() => {
     fetchUser();
   }, []);
 
   const handleLogout = async () => {
-    // Remove the auth_token cookie by setting it to expired
     document.cookie = 'auth_token=; Max-Age=0; path=/;';
     setUser(null);
     router.push('/');
-    // Optionally, reload the page to clear any cached state
-    // window.location.reload();
+    setTimeout(fetchUser, 100); // Re-fetch user state after logout
   };
+
+  // Optionally, you can add a loading spinner here
+  if (loading) return null;
 
   return (
     <AppBar position="sticky" color="default" elevation={1}>
