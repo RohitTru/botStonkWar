@@ -410,18 +410,6 @@ class Database:
         """, (prediction,))
         return result[0]['count'] if result else 0
 
-    def get_analyzed_count_timewindow(self, hours: int) -> int:
-        """Get count of analyzed articles in the last N hours with validated symbols"""
-        result = self.execute_query("""
-            SELECT COUNT(*) as count
-            FROM sentiment_analysis sa
-            JOIN articles a ON sa.article_id = a.id
-            WHERE a.validated_symbols IS NOT NULL
-            AND JSON_LENGTH(a.validated_symbols) > 0
-            AND sa.analysis_timestamp >= NOW() - INTERVAL %s HOUR
-        """, (hours,))
-        return result[0]['count'] if result else 0
-
     def get_sentiment_count_timewindow(self, prediction: str, hours: int) -> int:
         """Get count of articles with specific sentiment in the last N hours with validated symbols"""
         result = self.execute_query("""
@@ -433,4 +421,34 @@ class Database:
             AND JSON_LENGTH(a.validated_symbols) > 0
             AND sa.analysis_timestamp >= NOW() - INTERVAL %s HOUR
         """, (prediction, hours))
-        return result[0]['count'] if result else 0 
+        return result[0]['count'] if result else 0
+
+    def get_sentiment_ratio_timewindow(self, hours: int) -> dict:
+        """Get bullish/bearish counts and ratio for the last N hours."""
+        bullish = self.get_sentiment_count_timewindow("bullish", hours)
+        bearish = self.get_sentiment_count_timewindow("bearish", hours)
+        total = bullish + bearish
+        ratio = bullish / total if total > 0 else 0.5
+        return {"bullish": bullish, "bearish": bearish, "ratio": ratio}
+
+    def get_sentiment_ratio_today(self) -> dict:
+        """Get bullish/bearish counts and ratio for today (midnight to now)."""
+        result = self.execute_query("""
+            SELECT prediction, COUNT(*) as count
+            FROM sentiment_analysis sa
+            JOIN articles a ON sa.article_id = a.id
+            WHERE a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
+            AND DATE(sa.analysis_timestamp) = CURDATE()
+            GROUP BY prediction
+        """)
+        bullish = 0
+        bearish = 0
+        for row in result:
+            if row["prediction"] == "bullish":
+                bullish = row["count"]
+            elif row["prediction"] == "bearish":
+                bearish = row["count"]
+        total = bullish + bearish
+        ratio = bullish / total if total > 0 else 0.5
+        return {"bullish": bullish, "bearish": bearish, "ratio": ratio} 
