@@ -5,6 +5,13 @@ import { createUser, getUserByUsername, getUserByEmail, createSession, deleteSes
 const JWT_SECRET = process.env.JWT_SECRET || 'your-secret-key';
 const SALT_ROUNDS = 10;
 
+// Define the JWT payload interface
+export interface JWTPayload {
+  userId: number;
+  username: string;
+  role?: string;
+}
+
 export async function hashPassword(password: string): Promise<string> {
   return bcrypt.hash(password, SALT_ROUNDS);
 }
@@ -52,7 +59,11 @@ export async function loginUser(username: string, password: string) {
 
     // Create session token
     const token = jwt.sign(
-      { userId: user.id, username: user.username },
+      { 
+        userId: user.id, 
+        username: user.username,
+        role: user.role || 'user'
+      } as JWTPayload,
       JWT_SECRET,
       { expiresIn: '24h' }
     );
@@ -68,7 +79,7 @@ export async function loginUser(username: string, password: string) {
         id: user.id,
         username: user.username,
         email: user.email,
-        balance: user.balance,
+        role: user.role || 'user',
       },
     };
   } catch (error) {
@@ -87,9 +98,9 @@ export async function logoutUser(token: string) {
   }
 }
 
-export function verifyToken(token: string) {
+export function verifyToken(token: string): JWTPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET);
+    return jwt.verify(token, JWT_SECRET) as JWTPayload;
   } catch (error) {
     return null;
   }

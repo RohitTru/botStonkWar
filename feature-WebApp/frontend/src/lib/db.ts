@@ -1,11 +1,12 @@
 import { createPool, RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 
 // Define interfaces for our database entities
-interface User extends RowDataPacket {
+export interface User {
   id: number;
   username: string;
   email: string;
   password_hash: string;
+  role: string;
   created_at: Date;
   updated_at: Date;
 }
