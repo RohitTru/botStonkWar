@@ -197,6 +197,68 @@
         .modal-stocks-container .stock-symbol:hover {
             background-color: #dee2e6;
         }
+        .metrics-scroll-container {
+            display: flex;
+            overflow-x: auto;
+            gap: 1.5rem;
+            padding-bottom: 1rem;
+            margin-bottom: 2rem;
+            scrollbar-width: thin;
+        }
+        .metrics-scroll-container::-webkit-scrollbar {
+            height: 8px;
+        }
+        .metrics-scroll-container::-webkit-scrollbar-thumb {
+            background: #dee2e6;
+            border-radius: 4px;
+        }
+        .split-card {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            border-radius: 15px;
+            overflow: hidden;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.05);
+            background: white;
+        }
+        .split-card-half {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            font-size: 1.5rem;
+            font-weight: 600;
+            padding: 1rem 0.5rem;
+        }
+        .split-card-half.bullish {
+            background: #eafaf1;
+            color: #28a745;
+        }
+        .split-card-half.bearish {
+            background: #faeaea;
+            color: #dc3545;
+        }
+        .stats-card h4 {
+            font-size: 1.1rem;
+            color: #6c757d;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+        }
+        @media (max-width: 900px) {
+            .metrics-scroll-container {
+                gap: 1rem;
+            }
+            .stats-card, .split-card {
+                min-width: 220px;
+                max-width: 90vw;
+            }
+        }
+        @media (max-width: 600px) {
+            .stats-card, .split-card {
+                min-width: 180px;
+            }
+        }
     </style>
 </head>
 <body>
@@ -228,23 +290,59 @@
         </div>
 
         <!-- Stats Cards -->
-        <div class="row">
-            <div class="col-md-4">
-                <div class="stats-card">
-                    <h3>Articles Analyzed</h3>
-                    <h2 id="total-articles">-</h2>
+        <div class="metrics-scroll-container">
+            <div class="stats-card">
+                <h3>Total Articles Analyzed</h3>
+                <h2 id="total-articles">-</h2>
+            </div>
+            <div class="stats-card">
+                <h3>Bullish Predictions</h3>
+                <h2 id="bullish-count" class="bullish">-</h2>
+            </div>
+            <div class="stats-card">
+                <h3>Bearish Predictions</h3>
+                <h2 id="bearish-count" class="bearish">-</h2>
+            </div>
+            <div class="stats-card">
+                <h4>Analyzed in Last Hour</h4>
+                <h2 id="articles-last-hour">-</h2>
+            </div>
+            <div class="split-card" style="min-width: 220px;">
+                <div class="split-card-half bullish">
+                    <div style="font-size:1rem;font-weight:500;">Bullish (1h)</div>
+                    <div id="bullish-last-hour">-</div>
+                </div>
+                <div class="split-card-half bearish">
+                    <div style="font-size:1rem;font-weight:500;">Bearish (1h)</div>
+                    <div id="bearish-last-hour">-</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="stats-card">
-                    <h3>Bullish Predictions</h3>
-                    <h2 id="bullish-count" class="bullish">-</h2>
+            <div class="stats-card">
+                <h4>Analyzed in Last 7 Days</h4>
+                <h2 id="articles-last-7d">-</h2>
+            </div>
+            <div class="split-card" style="min-width: 220px;">
+                <div class="split-card-half bullish">
+                    <div style="font-size:1rem;font-weight:500;">Bullish (7d)</div>
+                    <div id="bullish-last-7d">-</div>
+                </div>
+                <div class="split-card-half bearish">
+                    <div style="font-size:1rem;font-weight:500;">Bearish (7d)</div>
+                    <div id="bearish-last-7d">-</div>
                 </div>
             </div>
-            <div class="col-md-4">
-                <div class="stats-card">
-                    <h3>Bearish Predictions</h3>
-                    <h2 id="bearish-count" class="bearish">-</h2>
+            <div class="stats-card">
+                <h4>Analyzed in Last 30 Days</h4>
+                <h2 id="articles-last-30d">-</h2>
+            </div>
+            <div class="split-card" style="min-width: 220px;">
+                <div class="split-card-half bullish">
+                    <div style="font-size:1rem;font-weight:500;">Bullish (30d)</div>
+                    <div id="bullish-last-30d">-</div>
+                </div>
+                <div class="split-card-half bearish">
+                    <div style="font-size:1rem;font-weight:500;">Bearish (30d)</div>
+                    <div id="bearish-last-30d">-</div>
                 </div>
             </div>
         </div>
@@ -500,6 +598,15 @@
                     document.getElementById('total-articles').textContent = data.data.total_articles || '0';
                     document.getElementById('bullish-count').textContent = data.data.bullish_count || '0';
                     document.getElementById('bearish-count').textContent = data.data.bearish_count || '0';
+                    document.getElementById('articles-last-hour').textContent = data.data.articles_last_hour || '0';
+                    document.getElementById('bullish-last-hour').textContent = data.data.bullish_last_hour || '0';
+                    document.getElementById('bearish-last-hour').textContent = data.data.bearish_last_hour || '0';
+                    document.getElementById('articles-last-7d').textContent = data.data.articles_last_7d || '0';
+                    document.getElementById('bullish-last-7d').textContent = data.data.bullish_last_7d || '0';
+                    document.getElementById('bearish-last-7d').textContent = data.data.bearish_last_7d || '0';
+                    document.getElementById('articles-last-30d').textContent = data.data.articles_last_30d || '0';
+                    document.getElementById('bullish-last-30d').textContent = data.data.bullish_last_30d || '0';
+                    document.getElementById('bearish-last-30d').textContent = data.data.bearish_last_30d || '0';
                 }
             } catch (error) {
                 console.error('Error updating dashboard stats:', error);
