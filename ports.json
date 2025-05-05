@@ -17,7 +17,7 @@
     "botStonkWar/feature-StockBot": 5000,
     "botStonkWar/feature-WebScraperStockSelector": 5002,
     "botStonkWar/feature-WebScraperSelectedStock": 5006,
-    "botStonkWar/feature-SentimentAnalysisEngine": 5012,
+    "botStonkWar/feature-SentimentAnalysisEngine": 5007,
     "botStonkWar/feature-NumericalAnalyticalEngine": 5008,
     "botStonkWar/feature-TradeLogistics": 5009,
     "botStonkWar/feature-AppPerformance": 5010,
