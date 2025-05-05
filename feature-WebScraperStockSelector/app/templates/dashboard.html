@@ -128,6 +128,7 @@
             margin-top: 1rem;
             overflow-x: auto;
             padding-bottom: 0.5rem;
+            justify-content: center;
         }
         .stats-item {
             min-width: 120px;
@@ -233,6 +234,14 @@
             background: #e0f7fa;
             color: #006064;
         }
+        .stats-item.db {
+            background: #e8f5e9;
+            color: #2e7d32;
+        }
+        .stats-item.scraper {
+            background: #fffde7;
+            color: #f9a825;
+        }
         .stats-item::-webkit-scrollbar { height: 8px; }
         .stats-item::-webkit-scrollbar-thumb { background: #bdbdbd; border-radius: 4px; }
         .dashboard-status .card-body { padding: 1rem 0.5rem; }
@@ -252,24 +261,19 @@
 <body>
     <div class="container-fluid py-4">
         <div class="dashboard-top">
-            <!-- Scraper Status (compact, left) -->
-            <div class="dashboard-status">
-                <div class="card">
-                    <div class="card-body">
-                        <div class="status-row">
-                            <span class="status-label">Database:</span>
-                            <span id="db-status" class="badge bg-success status-badge">Connected</span>
-                        </div>
-                        <div class="status-row">
-                            <button id="pauseResumeBtn" class="status-btn stop">Stop</button>
-                            <span id="scraper-status" class="badge bg-success status-badge">Running</span>
+            <div class="dashboard-metrics" style="width:100%">
+                <div class="stats-grid">
+                    <div class="stats-item db">
+                        <div class="label">Database</div>
+                        <div id="db-status" class="number">Connected</div>
+                    </div>
+                    <div class="stats-item scraper">
+                        <div class="label">Scraper</div>
+                        <div style="display:flex;gap:0.5em;justify-content:center;align-items:center;">
+                            <button id="pauseResumeBtn" class="status-btn stop" style="margin:0;">Stop</button>
+                            <span id="scraper-status" class="badge bg-success status-badge" style="font-size:1.1em;">Running</span>
                         </div>
                     </div>
-                </div>
-            </div>
-            <!-- Metrics (center, wide, scrollable) -->
-            <div class="dashboard-metrics">
-                <div class="stats-grid">
                     <div class="stats-item failed">
                         <div class="number" id="failed-hour">0</div>
                         <div class="label">Failed (Last Hour)</div>
@@ -400,22 +404,21 @@
         
         function updateScraperControls(status, isPaused) {
             const btn = document.getElementById('pauseResumeBtn');
-            // Always show the button
             btn.style.display = 'block';
             if (isPaused) {
-                btn.textContent = 'Resume Scraper';
-                btn.className = 'btn btn-success';
+                btn.textContent = 'Start';
+                btn.className = 'status-btn start';
             } else {
-                btn.textContent = 'Pause Scraper';
-                btn.className = 'btn btn-warning';
+                btn.textContent = 'Stop';
+                btn.className = 'status-btn stop';
             }
             btn.onclick = toggleScraper;
         }
         
         function toggleScraper() {
             const btn = document.getElementById('pauseResumeBtn');
-            const action = btn.textContent === 'Pause Scraper' ? 'pause' : 'resume';
-            
+            const action = btn.textContent === 'Stop' ? 'pause' : 'resume';
+
             fetch('/api/toggle_scraper', {
                 method: 'POST',
                 headers: {
@@ -428,11 +431,11 @@
                 if (data.success) {
                     // Update button state immediately
                     if (action === 'pause') {
-                        btn.textContent = 'Resume Scraper';
-                        btn.className = 'btn btn-success';
+                        btn.textContent = 'Start';
+                        btn.className = 'status-btn start';
                     } else {
-                        btn.textContent = 'Pause Scraper';
-                        btn.className = 'btn btn-warning';
+                        btn.textContent = 'Stop';
+                        btn.className = 'status-btn stop';
                     }
                 } else {
                     console.error('Failed to toggle scraper:', data.error);
