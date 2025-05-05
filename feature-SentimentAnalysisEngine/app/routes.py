@@ -39,7 +39,19 @@ def get_dashboard_stats():
             "total_articles": db.get_analyzed_count(),
             "bullish_count": db.get_sentiment_count("bullish"),
             "bearish_count": db.get_sentiment_count("bearish"),
-            "pending_count": db.get_unanalyzed_article_count()
+            "pending_count": db.get_unanalyzed_article_count(),
+            # Last hour
+            "articles_last_hour": db.get_analyzed_count_timewindow(1),
+            "bullish_last_hour": db.get_sentiment_count_timewindow("bullish", 1),
+            "bearish_last_hour": db.get_sentiment_count_timewindow("bearish", 1),
+            # Last 7 days (168 hours)
+            "articles_last_7d": db.get_analyzed_count_timewindow(168),
+            "bullish_last_7d": db.get_sentiment_count_timewindow("bullish", 168),
+            "bearish_last_7d": db.get_sentiment_count_timewindow("bearish", 168),
+            # Last 30 days (720 hours)
+            "articles_last_30d": db.get_analyzed_count_timewindow(720),
+            "bullish_last_30d": db.get_sentiment_count_timewindow("bullish", 720),
+            "bearish_last_30d": db.get_sentiment_count_timewindow("bearish", 720)
         }
         return jsonify({
             "status": "success",

@@ -408,4 +408,29 @@ class Database:
             AND a.validated_symbols IS NOT NULL
             AND JSON_LENGTH(a.validated_symbols) > 0
         """, (prediction,))
+        return result[0]['count'] if result else 0
+
+    def get_analyzed_count_timewindow(self, hours: int) -> int:
+        """Get count of analyzed articles in the last N hours with validated symbols"""
+        result = self.execute_query("""
+            SELECT COUNT(*) as count
+            FROM sentiment_analysis sa
+            JOIN articles a ON sa.article_id = a.id
+            WHERE a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
+            AND sa.analysis_timestamp >= NOW() - INTERVAL %s HOUR
+        """, (hours,))
+        return result[0]['count'] if result else 0
+
+    def get_sentiment_count_timewindow(self, prediction: str, hours: int) -> int:
+        """Get count of articles with specific sentiment in the last N hours with validated symbols"""
+        result = self.execute_query("""
+            SELECT COUNT(*) as count
+            FROM sentiment_analysis sa
+            JOIN articles a ON sa.article_id = a.id
+            WHERE prediction = %s
+            AND a.validated_symbols IS NOT NULL
+            AND JSON_LENGTH(a.validated_symbols) > 0
+            AND sa.analysis_timestamp >= NOW() - INTERVAL %s HOUR
+        """, (prediction, hours))
         return result[0]['count'] if result else 0 
