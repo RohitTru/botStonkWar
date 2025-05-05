@@ -8,10 +8,12 @@ export default function NavbarSwitcher() {
   const pathname = usePathname();
 
   if (!pathname) return null;
+  if (pathname.startsWith('/admin-dashboard')) {
+    return null;
+  }
   if (pathname.startsWith('/dashboard')) {
     return <InternalNavbar />;
-  } else if (!pathname.startsWith('/admin-dashboard')) {
+  } else {
     return <ExternalNavbar />;
   }
-  return null;
 } 

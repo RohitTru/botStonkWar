@@ -1,7 +1,7 @@
 'use client';
 
 import { useRouter } from 'next/navigation';
-import { Box, Button, Container, Paper } from '@mui/material';
+import { Box, Button, Container, Paper, Typography } from '@mui/material';
 import { useState } from 'react';
 
 const DASHBOARD_LINKS = [
@@ -34,15 +34,29 @@ export default function AdminDashboard() {
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'flex-end', p: 2 }}>
+      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
+        <Typography variant="h5" fontWeight={700}>
+          BotStonkWar Admin Dashboard
+        </Typography>
         <Button color="inherit" onClick={handleLogout} variant="outlined">
           Logout
         </Button>
       </Box>
+      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1, mb: 2, gap: 2 }}>
+        {DASHBOARD_LINKS.map((link) => (
+          <Button
+            key={link.name}
+            variant={activeDashboard.name === link.name ? 'contained' : 'outlined'}
+            onClick={() => setActiveDashboard(link)}
+          >
+            {link.name}
+          </Button>
+        ))}
+      </Box>
       <Container maxWidth={false} sx={{ flexGrow: 1, p: 2 }}>
         <Paper
           sx={{
-            height: 'calc(100vh - 120px)',
+            height: 'calc(100vh - 180px)',
             overflow: 'hidden',
             position: 'relative',
           }}
@@ -57,17 +71,6 @@ export default function AdminDashboard() {
             title={activeDashboard.name}
           />
         </Paper>
-        <Box sx={{ display: 'flex', justifyContent: 'center', mt: 2, gap: 2 }}>
-          {DASHBOARD_LINKS.map((link) => (
-            <Button
-              key={link.name}
-              variant={activeDashboard.name === link.name ? 'contained' : 'outlined'}
-              onClick={() => setActiveDashboard(link)}
-            >
-              {link.name}
-            </Button>
-          ))}
-        </Box>
       </Container>
     </Box>
   );
