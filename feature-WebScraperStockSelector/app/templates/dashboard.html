@@ -122,16 +122,22 @@
             color: #28a745;
         }
         .stats-grid {
-            display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            display: flex;
             gap: 1rem;
             text-align: center;
             margin-top: 1rem;
+            overflow-x: auto;
+            padding-bottom: 0.5rem;
         }
         .stats-item {
-            padding: 1rem;
+            min-width: 120px;
+            flex: 0 0 auto;
+            text-align: center;
+            background: #fff;
+            border-radius: 16px;
+            padding: 1rem 0.5rem;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.03);
             background: #f8f9fa;
-            border-radius: 8px;
             transition: transform 0.2s;
         }
         .stats-item:hover {
