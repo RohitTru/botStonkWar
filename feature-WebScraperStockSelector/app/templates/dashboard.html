@@ -199,11 +199,24 @@
         .stats-item.month { background: #fff3e0; color: #ef6c00; }
         .stats-item.failed { background: #ffebee; color: #c62828; }
         .stats-item.rate { background: #ede7f6; color: #6a1b9a; }
+        .stats-item.total {
+            background: #e0f7fa;
+            color: #006064;
+        }
         .stats-item::-webkit-scrollbar { height: 8px; }
         .stats-item::-webkit-scrollbar-thumb { background: #bdbdbd; border-radius: 4px; }
         .dashboard-status .card-body { padding: 1rem 0.5rem; }
         .dashboard-status .btn { width: 100%; font-size: 0.95em; }
         .dashboard-status .badge { font-size: 0.95em; }
+        .dashboard-status .status-label {
+            font-size: 0.95em;
+            color: #6c757d;
+            margin-right: 0.5em;
+        }
+        .dashboard-status .status-badge {
+            font-size: 1em;
+            margin-bottom: 0.5em;
+        }
     </style>
 </head>
 <body>
@@ -213,9 +226,13 @@
             <div class="dashboard-status">
                 <div class="card">
                     <div class="card-body">
-                        <div class="d-flex flex-column align-items-center mb-2">
-                            <span id="scraper-status" class="badge bg-success mb-1">Running</span>
-                            <span id="db-status" class="badge bg-success mb-1">DB Connected</span>
+                        <div class="mb-2">
+                            <span class="status-label">Database:</span>
+                            <span id="db-status" class="badge bg-success status-badge">Connected</span>
+                        </div>
+                        <div class="mb-2">
+                            <span class="status-label">Scraper:</span>
+                            <span id="scraper-status" class="badge bg-success status-badge">Running</span>
                         </div>
                         <button id="pauseResumeBtn" class="btn btn-warning mb-2">Pause Scraper</button>
                     </div>
@@ -224,6 +241,10 @@
             <!-- Metrics (center, wide, scrollable) -->
             <div class="dashboard-metrics">
                 <div class="stats-grid">
+                    <div class="stats-item failed">
+                        <div class="number" id="failed-hour">0</div>
+                        <div class="label">Failed (Last Hour)</div>
+                    </div>
                     <div class="stats-item hour">
                         <div class="number" id="successful-hour">0</div>
                         <div class="label">Successful (Last Hour)</div>
@@ -236,13 +257,13 @@
                         <div class="number" id="successful-month">0</div>
                         <div class="label">Successful (Last Month)</div>
                     </div>
-                    <div class="stats-item failed">
-                        <div class="number" id="failed-hour">0</div>
-                        <div class="label">Failed (Last Hour)</div>
-                    </div>
                     <div class="stats-item rate">
                         <div class="number" id="success-rate">0%</div>
                         <div class="label">Success Rate (Last Hour)</div>
+                    </div>
+                    <div class="stats-item total">
+                        <div class="number" id="articles-count">0</div>
+                        <div class="label">Total Articles Found</div>
                     </div>
                 </div>
             </div>
