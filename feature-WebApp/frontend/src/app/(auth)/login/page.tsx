@@ -40,8 +40,12 @@ export default function LoginPage() {
         throw new Error(data.error || 'Login failed');
       }
 
-      // Redirect to dashboard on success
-      router.push('/dashboard');
+      // Redirect based on user role
+      if (data.user && data.user.role === 'admin') {
+        router.push('/admin-dashboard');
+      } else {
+        router.push('/dashboard');
+      }
     } catch (err: any) {
       setError(err.message || 'An error occurred during login');
     } finally {
