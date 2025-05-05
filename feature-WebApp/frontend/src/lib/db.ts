@@ -1,12 +1,13 @@
 import { createPool, RowDataPacket, ResultSetHeader, Pool } from 'mysql2/promise';
 
 // Define interfaces for our database entities
-export interface User {
+export interface User extends RowDataPacket {
   id: number;
   username: string;
   email: string;
   password_hash: string;
   role: string;
+  balance: number;
   created_at: Date;
   updated_at: Date;
 }
@@ -56,8 +57,8 @@ export async function createUser(username: string, email: string, passwordHash: 
     await connection.beginTransaction();
     
     const [result] = await connection.execute<ResultSetHeader>(
-      'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
-      [username, email, passwordHash]
+      'INSERT INTO users (username, email, password_hash, role) VALUES (?, ?, ?, ?)',
+      [username, email, passwordHash, 'user']
     );
     
     console.log('Insert result:', result);
