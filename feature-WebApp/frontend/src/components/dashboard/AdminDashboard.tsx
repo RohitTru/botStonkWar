@@ -1,14 +1,7 @@
 'use client';
 
 import { Container, Paper, Box } from '@mui/material';
-import { useAdminTab } from '@/components/AdminTabContext';
-
-const DASHBOARD_LINKS = [
-  { name: 'Web Scraper Engine', url: 'https://feature-webscraperstockselector.emerginary.com/' },
-  { name: 'Sentiment Analysis Engine', url: 'https://feature-sentimentanalysisengine.emerginary.com/' },
-  { name: 'Trade Recommendation Engine', url: 'https://feature-tradelogistics.emerginary.com/' },
-  { name: 'Brokerage Handler Engine', url: 'https://feature-stockbot.emerginary.com/' },
-];
+import { useAdminTab, DASHBOARD_LINKS } from '@/components/AdminTabContext';
 
 export default function AdminDashboard() {
   const { activeIndex } = useAdminTab();
