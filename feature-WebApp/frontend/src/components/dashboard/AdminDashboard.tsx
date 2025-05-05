@@ -1,62 +1,27 @@
 'use client';
 
-import { useRouter } from 'next/navigation';
-import { Box, Button, Container, Paper, Typography } from '@mui/material';
 import { useState } from 'react';
+import { Container, Paper, Box } from '@mui/material';
+import AdminNavbar from '@/components/AdminNavbar';
 
 const DASHBOARD_LINKS = [
-  {
-    name: 'Web Scraper Engine',
-    url: 'https://feature-webscraperstockselector.emerginary.com/',
-  },
-  {
-    name: 'Sentiment Analysis Engine',
-    url: 'https://feature-sentimentanalysisengine.emerginary.com/',
-  },
-  {
-    name: 'Trade Recommendation Engine',
-    url: 'https://feature-tradelogistics.emerginary.com/',
-  },
-  {
-    name: 'Brokerage Handler Engine',
-    url: 'https://feature-stockbot.emerginary.com/',
-  },
+  { name: 'Web Scraper Engine', url: 'https://feature-webscraperstockselector.emerginary.com/' },
+  { name: 'Sentiment Analysis Engine', url: 'https://feature-sentimentanalysisengine.emerginary.com/' },
+  { name: 'Trade Recommendation Engine', url: 'https://feature-tradelogistics.emerginary.com/' },
+  { name: 'Brokerage Handler Engine', url: 'https://feature-stockbot.emerginary.com/' },
 ];
 
 export default function AdminDashboard() {
-  const [activeDashboard, setActiveDashboard] = useState(DASHBOARD_LINKS[0]);
-  const router = useRouter();
-
-  const handleLogout = () => {
-    document.cookie = 'auth_token=; Max-Age=0; path=/;';
-    router.push('/');
-  };
+  const [activeIndex, setActiveIndex] = useState(0);
+  const activeDashboard = DASHBOARD_LINKS[activeIndex];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
-      <Box sx={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', p: 2 }}>
-        <Typography variant="h5" fontWeight={700}>
-          BotStonkWar Admin Dashboard
-        </Typography>
-        <Button color="inherit" onClick={handleLogout} variant="outlined">
-          Logout
-        </Button>
-      </Box>
-      <Box sx={{ display: 'flex', justifyContent: 'center', mt: 1, mb: 2, gap: 2 }}>
-        {DASHBOARD_LINKS.map((link) => (
-          <Button
-            key={link.name}
-            variant={activeDashboard.name === link.name ? 'contained' : 'outlined'}
-            onClick={() => setActiveDashboard(link)}
-          >
-            {link.name}
-          </Button>
-        ))}
-      </Box>
+      <AdminNavbar activeIndex={activeIndex} setActiveIndex={setActiveIndex} />
       <Container maxWidth={false} sx={{ flexGrow: 1, p: 2 }}>
         <Paper
           sx={{
-            height: 'calc(100vh - 180px)',
+            height: 'calc(100vh - 100px)',
             overflow: 'hidden',
             position: 'relative',
           }}
