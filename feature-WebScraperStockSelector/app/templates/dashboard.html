@@ -186,12 +186,40 @@
         .dashboard-metrics .stats-grid {
             margin-top: 0;
         }
-        .dashboard-articles-count {
-            margin-bottom: 1rem;
+        .dashboard-articles-count { display: none; }
+        .dashboard-status .status-row {
+            display: flex;
+            align-items: center;
+            gap: 0.5em;
+            margin-bottom: 0.75em;
         }
-        .dashboard-articles-count .card {
-            width: 100%;
+        .dashboard-status .status-label {
+            min-width: 90px;
+            font-size: 0.95em;
+            color: #6c757d;
+            margin-right: 0.5em;
+        }
+        .dashboard-status .status-badge, .dashboard-status .status-btn {
+            min-width: 110px;
             text-align: center;
+            font-size: 1em;
+        }
+        .dashboard-status .status-btn {
+            padding: 0.375rem 0.75rem;
+            border-radius: 0.375rem;
+            border: none;
+            background: #ffc107;
+            color: #212529;
+            font-weight: 500;
+            transition: background 0.2s;
+        }
+        .dashboard-status .status-btn.start {
+            background: #198754;
+            color: #fff;
+        }
+        .dashboard-status .status-btn.stop {
+            background: #ffc107;
+            color: #212529;
         }
         /* Colorful metric cards */
         .stats-item.hour { background: #e3f2fd; color: #1565c0; }
@@ -226,15 +254,14 @@
             <div class="dashboard-status">
                 <div class="card">
                     <div class="card-body">
-                        <div class="mb-2">
+                        <div class="status-row">
                             <span class="status-label">Database:</span>
                             <span id="db-status" class="badge bg-success status-badge">Connected</span>
                         </div>
-                        <div class="mb-2">
-                            <span class="status-label">Scraper:</span>
+                        <div class="status-row">
+                            <button id="pauseResumeBtn" class="status-btn stop">Stop</button>
                             <span id="scraper-status" class="badge bg-success status-badge">Running</span>
                         </div>
-                        <button id="pauseResumeBtn" class="btn btn-warning mb-2">Pause Scraper</button>
                     </div>
                 </div>
             </div>
