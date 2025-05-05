@@ -213,9 +213,9 @@
             border-radius: 4px;
         }
         .split-card {
-            min-width: 260px;
-            max-width: 320px;
-            width: 100%;
+            min-width: 280px;
+            max-width: 280px;
+            width: 280px;
             height: 180px;
             display: flex;
             flex-direction: column;
@@ -226,6 +226,15 @@
             background: white;
             margin: 0 0.5rem;
             position: relative;
+        }
+        .split-card-title {
+            font-size: 1.1rem;
+            color: #6c757d;
+            font-weight: 500;
+            margin-bottom: 0.5rem;
+            margin-top: 1.2rem;
+            z-index: 3;
+            background: none;
         }
         .split-card-vertical-fill {
             position: absolute;
@@ -256,25 +265,8 @@
             flex-direction: column;
             align-items: center;
             justify-content: space-between;
-            padding: 1.2rem 0.5rem 1.2rem 0.5rem;
+            padding: 0 0.5rem 1.2rem 0.5rem;
         }
-        .split-card-title {
-            font-size: 1.1rem;
-            color: #6c757d;
-            font-weight: 500;
-            margin-bottom: 0.5rem;
-            margin-top: 0.5rem;
-        }
-        .split-card-counts {
-            width: 100%;
-            display: flex;
-            justify-content: space-between;
-            font-size: 1.1rem;
-            font-weight: 500;
-            padding: 0 1.2rem;
-        }
-        .split-card-counts .bullish { color: #28a745; }
-        .split-card-counts .bearish { color: #dc3545; }
         .split-card-bullish-label {
             color: #28a745;
             font-size: 1.3rem;
@@ -294,11 +286,13 @@
             .stats-card, .split-card {
                 min-width: 220px;
                 max-width: 90vw;
+                width: 90vw;
             }
         }
         @media (max-width: 600px) {
             .stats-card, .split-card {
                 min-width: 180px;
+                width: 180px;
             }
         }
     </style>
@@ -346,37 +340,37 @@
                 <h2 id="bearish-count" class="bearish">-</h2>
             </div>
             <div class="split-card">
+                <div class="split-card-title">Bullish vs Bearish (Last Hour)</div>
                 <div id="split-fill-1h-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-1h-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
-                    <div class="split-card-title">Bullish vs Bearish (Last Hour)</div>
                     <div class="split-card-bullish-label" id="bullish-count-1h">-</div>
                     <div class="split-card-bearish-label" id="bearish-count-1h">-</div>
                 </div>
             </div>
             <div class="split-card">
+                <div class="split-card-title">Bullish vs Bearish (Today)</div>
                 <div id="split-fill-1d-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-1d-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
-                    <div class="split-card-title">Bullish vs Bearish (Today)</div>
                     <div class="split-card-bullish-label" id="bullish-count-1d">-</div>
                     <div class="split-card-bearish-label" id="bearish-count-1d">-</div>
                 </div>
             </div>
             <div class="split-card">
+                <div class="split-card-title">Bullish vs Bearish (7 Days)</div>
                 <div id="split-fill-7d-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-7d-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
-                    <div class="split-card-title">Bullish vs Bearish (7 Days)</div>
                     <div class="split-card-bullish-label" id="bullish-count-7d">-</div>
                     <div class="split-card-bearish-label" id="bearish-count-7d">-</div>
                 </div>
             </div>
             <div class="split-card">
+                <div class="split-card-title">Bullish vs Bearish (30 Days)</div>
                 <div id="split-fill-30d-bullish" class="split-card-bullish-fill split-card-vertical-fill"></div>
                 <div id="split-fill-30d-bearish" class="split-card-bearish-fill split-card-vertical-fill"></div>
                 <div class="split-card-content">
-                    <div class="split-card-title">Bullish vs Bearish (30 Days)</div>
                     <div class="split-card-bullish-label" id="bullish-count-30d">-</div>
                     <div class="split-card-bearish-label" id="bearish-count-30d">-</div>
                 </div>
@@ -660,7 +654,9 @@
             const bullishFill = document.getElementById(`split-fill-${period}-bullish`);
             const bearishFill = document.getElementById(`split-fill-${period}-bearish`);
             bullishFill.style.height = (ratio * 100) + '%';
+            bullishFill.style.top = '0';
             bearishFill.style.height = ((1 - ratio) * 100) + '%';
+            bearishFill.style.bottom = '0';
         }
 
         // Function to update analyzer status and metrics
