@@ -75,12 +75,26 @@
                 </tbody>
             </table>
         </section>
+        <section id="brokerage-section">
+            <div class="section-title">Brokerage-Wide Positions</div>
+            <table class="leaderboard">
+                <thead><tr><th>Symbol</th><th>Total Shares</th><th>Avg Price</th><th>Current Price</th><th>Total Value</th><th>Unrealized P&L</th></tr></thead>
+                <tbody id="brokerage-positions-body"></tbody>
+            </table>
+            <div class="section-title">Brokerage Portfolio History</div>
+            <table class="leaderboard">
+                <thead><tr><th>Symbol</th><th>Total Shares</th><th>Avg Price</th><th>Market Price</th><th>Total Value</th><th>Unrealized P&L</th><th>Recorded At</th></tr></thead>
+                <tbody id="brokerage-history-body"></tbody>
+            </table>
+            <canvas id="brokerage-portfolio-graph" height="100"></canvas>
+        </section>
     </main>
     <div class="overlay" id="popup-overlay"></div>
     <div class="popup" id="user-popup">
         <span class="popup-close" onclick="closePopup()">&times;</span>
         <div id="popup-content">User details will appear here.</div>
     </div>
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
         // Fetch metrics and update dashboard cards
         function updateMetrics() {
@@ -104,7 +118,7 @@
                     tbody.innerHTML = '';
                     users.forEach(u => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}')\">View</button></td>`;
+                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}', ${u.id})\">View</button></td>`;
                         tbody.appendChild(tr);
                     });
                 });
@@ -123,7 +137,7 @@
                     tbody.innerHTML = '';
                     trades.forEach(t => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td><button onclick=\"openPopup('${t.details}')\">Details</button></td>`;
+                        tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td><button onclick=\"openTradePopup(${t.id})\">Details</button></td>`;
                         tbody.appendChild(tr);
                     });
                 });
@@ -193,17 +207,105 @@
         updateAcceptances();
         setInterval(updateAcceptances, 30000);
 
+        // Brokerage-wide positions
+        function updateBrokeragePositions() {
+            fetch('/api/brokerage/positions')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('brokerage-positions-body');
+                    tbody.innerHTML = '';
+                    data.forEach(pos => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${pos.symbol}</td><td>${pos.total_shares}</td><td>${pos.average_price}</td><td>${pos.current_price}</td><td>${pos.total_value}</td><td>${pos.unrealized_pnl}</td>`;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+        function updateBrokerageHistory() {
+            fetch('/api/brokerage/history')
+                .then(res => res.json())
+                .then(data => {
+                    const tbody = document.getElementById('brokerage-history-body');
+                    tbody.innerHTML = '';
+                    let graphData = {};
+                    data.forEach(hist => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${hist.symbol}</td><td>${hist.total_shares}</td><td>${hist.average_price}</td><td>${hist.market_price}</td><td>${hist.total_value}</td><td>${hist.unrealized_pnl}</td><td>${hist.recorded_at}</td>`;
+                        tbody.appendChild(tr);
+                        // Prepare data for graph
+                        if (!graphData[hist.symbol]) graphData[hist.symbol] = {labels: [], values: []};
+                        graphData[hist.symbol].labels.push(hist.recorded_at);
+                        graphData[hist.symbol].values.push(hist.total_value);
+                    });
+                    // Draw graph for first symbol (or all, if desired)
+                    const ctx = document.getElementById('brokerage-portfolio-graph').getContext('2d');
+                    if (Object.keys(graphData).length > 0) {
+                        const firstSymbol = Object.keys(graphData)[0];
+                        new Chart(ctx, {
+                            type: 'line',
+                            data: {
+                                labels: graphData[firstSymbol].labels,
+                                datasets: [{
+                                    label: firstSymbol + ' Portfolio Value',
+                                    data: graphData[firstSymbol].values,
+                                    borderColor: 'rgba(75,192,192,1)',
+                                    fill: false
+                                }]
+                            },
+                            options: {scales: {x: {display: true}, y: {display: true}}}
+                        });
+                    }
+                });
+        }
+        updateBrokeragePositions();
+        updateBrokerageHistory();
+        setInterval(updateBrokeragePositions, 30000);
+        setInterval(updateBrokerageHistory, 30000);
+
         // Popup logic
-        function openPopup(content) {
+        function openPopup(content, userId) {
             document.getElementById('popup-content').innerHTML = content;
             document.getElementById('user-popup').classList.add('active');
             document.getElementById('popup-overlay').classList.add('active');
+            if (userId) {
+                // Fetch and show user positions and history
+                fetch(`/api/user/${userId}/positions`).then(res => res.json()).then(pos => {
+                    let html = '<h4>User Positions</h4><ul>';
+                    pos.forEach(p => { html += `<li>${p.symbol}: ${p.shares_owned} @ $${p.average_buy_price} (Value: $${p.market_value})</li>`; });
+                    html += '</ul>';
+                    document.getElementById('popup-content').innerHTML += html;
+                });
+                fetch(`/api/user/${userId}/history`).then(res => res.json()).then(hist => {
+                    let html = '<h4>User History</h4><ul>';
+                    hist.forEach(h => { html += `<li>${h.recorded_at}: ${h.symbol} - ${h.shares_owned} @ $${h.average_price} (Value: $${h.total_value})</li>`; });
+                    html += '</ul>';
+                    document.getElementById('popup-content').innerHTML += html;
+                });
+            }
         }
         function closePopup() {
             document.getElementById('user-popup').classList.remove('active');
             document.getElementById('popup-overlay').classList.remove('active');
         }
         document.getElementById('popup-overlay').onclick = closePopup;
+
+        // Enhance trade popup
+        function openTradePopup(tradeId) {
+            let html = `<h4>Trade Acceptances</h4><ul id='acceptances-list'></ul><h4>Execution Logs</h4><ul id='logs-list'></ul>`;
+            document.getElementById('popup-content').innerHTML = html;
+            document.getElementById('user-popup').classList.add('active');
+            document.getElementById('popup-overlay').classList.add('active');
+            fetch(`/api/trade_acceptances?trade_id=${tradeId}`).then(res => res.json()).then(accs => {
+                let accHtml = '';
+                accs.forEach(a => { accHtml += `<li>User ${a.user_id}: $${a.allocation_amount} (${a.status})</li>`; });
+                document.getElementById('acceptances-list').innerHTML = accHtml;
+            });
+            fetch(`/api/trade_execution_log?trade_id=${tradeId}`).then(res => res.json()).then(logs => {
+                let logHtml = '';
+                logs.forEach(l => { logHtml += `<li>${l.executed_at}: ${l.status} - ${l.details}</li>`; });
+                document.getElementById('logs-list').innerHTML = logHtml;
+            });
+        }
     </script>
 </body>
 </html> 
