@@ -103,6 +103,21 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
   }
 }
 
+export async function getUserById(id: number): Promise<User | undefined> {
+  try {
+    console.log('getUserById called for id:', id);
+    const [rows] = await pool.execute<User[]>(
+      'SELECT * FROM users WHERE id = ?',
+      [id]
+    );
+    console.log('getUserById result:', rows[0] ? 'User found' : 'User not found');
+    return rows[0];
+  } catch (error) {
+    console.error('Error getting user by id:', error);
+    throw error;
+  }
+}
+
 // Session-related database functions
 export async function createSession(userId: number, sessionId: string, expiresAt: Date): Promise<ResultSetHeader> {
   try {

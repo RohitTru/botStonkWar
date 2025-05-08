@@ -10,17 +10,34 @@ export default function DashboardPage() {
   const router = useRouter();
   const [user, setUser] = useState<any>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
     const fetchUserData = async () => {
       try {
+        console.log('Fetching user data...');
         const response = await fetch('/api/auth/me');
+        console.log('Auth response status:', response.status);
+        
         if (!response.ok) {
-          throw new Error('Not authenticated');
+          console.log('Auth failed, redirecting to login');
+          router.push('/login');
+          return;
         }
+        
         const data = await response.json();
-        setUser(data);
+        console.log('User data received:', data);
+        
+        if (!data.user || !data.user.role) {
+          console.error('Invalid user data received:', data);
+          setError('Invalid user data');
+          return;
+        }
+        
+        setUser(data.user);
       } catch (error) {
+        console.error('Error fetching user data:', error);
+        setError('Failed to fetch user data');
         router.push('/login');
       } finally {
         setLoading(false);
@@ -34,6 +51,14 @@ export default function DashboardPage() {
     return (
       <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
         <CircularProgress />
+      </Box>
+    );
+  }
+
+  if (error) {
+    return (
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+        <Typography color="error">{error}</Typography>
       </Box>
     );
   }
