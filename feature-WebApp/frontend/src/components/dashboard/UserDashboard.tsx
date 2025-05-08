@@ -18,7 +18,6 @@ export default function UserDashboard({ user }: { user: any }) {
         const res = await fetch('/api/latest_trade_recommendation');
         if (!res.ok) return;
         const trade = await res.json();
-        setLatestTrade(trade);
         // Fetch user positions for SELL
         const posRes = await fetch(`/api/user_positions?user_id=${user.id}`);
         const positions = await posRes.json();
@@ -33,10 +32,11 @@ export default function UserDashboard({ user }: { user: any }) {
             if (pos && pos.shares > 0) {
               shouldShow = true;
             }
-          } else {
+          } else if (trade.action === 'BUY') {
             shouldShow = true;
           }
         }
+        setLatestTrade(shouldShow ? trade : null);
         setShowModal(shouldShow);
         setLastRespondedTradeId(acceptances.length ? trade.id : null);
       } catch (e) {
