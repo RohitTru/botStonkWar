@@ -20,6 +20,17 @@
         .popup-close { float: right; cursor: pointer; color: #888; font-size: 1.2rem; }
         .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); z-index: 999; }
         .overlay.active { display: block; }
+        .scroll-table-wrapper {
+            max-height: 300px;
+            overflow-y: auto;
+            display: block;
+        }
+        .filter-bar {
+            margin-bottom: 0.5rem;
+            display: flex;
+            gap: 1rem;
+            align-items: center;
+        }
     </style>
 </head>
 <body>
@@ -31,13 +42,28 @@
         </section>
         <section id="user-search">
             <div class="section-title">User Search &amp; Leaderboard</div>
-            <input class="search-box" type="text" id="user-search-box" placeholder="Search users...">
-            <table class="leaderboard">
-                <thead><tr><th>Username</th><th>Equity</th><th>P&amp;L</th><th>Actions</th></tr></thead>
-                <tbody id="leaderboard-body">
-                    <!-- User rows will be populated here -->
-                </tbody>
-            </table>
+            <div class="filter-bar">
+                <input class="search-box" type="text" id="user-search-box" placeholder="Search users...">
+                <select id="user-sort">
+                    <option value="equity">Sort by Equity</option>
+                    <option value="pnl">Sort by P&L</option>
+                    <option value="username">Sort by Username</option>
+                </select>
+                <select id="user-pnl-filter">
+                    <option value="all">All</option>
+                    <option value="positive">Positive P&L</option>
+                    <option value="negative">Negative P&L</option>
+                </select>
+            </div>
+            <div class="scroll-table-wrapper">
+                <table class="leaderboard">
+                    <thead><tr><th>Username</th><th>Equity</th><th>P&amp;L</th><th>Actions</th></tr></thead>
+                    <tbody id="leaderboard-body">
+                        <!-- User rows will be populated here -->
+                    </tbody>
+                </table>
+            </div>
+            <div id="user-empty-msg" style="color:#888;text-align:center;display:none;">No users found.</div>
         </section>
         <section id="trade-summary">
             <div class="section-title">Trade &amp; Position Summaries</div>
@@ -110,23 +136,40 @@
         setInterval(updateMetrics, 30000);
 
         // Fetch users and populate leaderboard
-        function updateUsers(search = '') {
+        function updateUsers(search = '', sort = 'equity', pnlFilter = 'all') {
             fetch('/api/users?search=' + encodeURIComponent(search))
                 .then(res => res.json())
                 .then(users => {
+                    // Apply client-side filters
+                    if (pnlFilter === 'positive') users = users.filter(u => u.pnl > 0);
+                    if (pnlFilter === 'negative') users = users.filter(u => u.pnl < 0);
+                    if (sort === 'equity') users.sort((a, b) => b.equity - a.equity);
+                    if (sort === 'pnl') users.sort((a, b) => b.pnl - a.pnl);
+                    if (sort === 'username') users.sort((a, b) => a.username.localeCompare(b.username));
                     const tbody = document.getElementById('leaderboard-body');
                     tbody.innerHTML = '';
-                    users.forEach(u => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}', ${u.id})\">View</button></td>`;
-                        tbody.appendChild(tr);
-                    });
+                    if (users.length === 0) {
+                        document.getElementById('user-empty-msg').style.display = 'block';
+                    } else {
+                        document.getElementById('user-empty-msg').style.display = 'none';
+                        users.forEach(u => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}', ${u.id})\">View</button></td>`;
+                            tbody.appendChild(tr);
+                        });
+                    }
                 });
         }
-        updateUsers();
         document.getElementById('user-search-box').addEventListener('input', function() {
-            updateUsers(this.value);
+            updateUsers(this.value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value);
         });
+        document.getElementById('user-sort').addEventListener('change', function() {
+            updateUsers(document.getElementById('user-search-box').value, this.value, document.getElementById('user-pnl-filter').value);
+        });
+        document.getElementById('user-pnl-filter').addEventListener('change', function() {
+            updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, this.value);
+        });
+        updateUsers();
 
         // Fetch trades and populate trade summary
         function updateTrades() {
