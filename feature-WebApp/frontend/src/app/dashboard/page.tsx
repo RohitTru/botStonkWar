@@ -68,7 +68,7 @@ export default function DashboardPage() {
       {user?.role === 'admin' ? (
         <AdminDashboard />
       ) : (
-        <UserDashboard />
+        <UserDashboard user={user} />
       )}
     </Container>
   );

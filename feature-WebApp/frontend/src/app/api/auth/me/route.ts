@@ -61,7 +61,8 @@ export async function GET() {
         id: user.id,
         username: user.username,
         email: user.email,
-        role: 'user'
+        role: 'user',
+        balance: user.balance
       }
     });
   } catch (error) {
