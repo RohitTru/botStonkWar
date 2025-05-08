@@ -4,6 +4,7 @@ from app.services.alpaca_service import AlpacaService
 from app.models.user import User
 from app.database import db
 from sqlalchemy.exc import NoResultFound
+from datetime import datetime, timedelta
 
 api_bp = Blueprint('api', __name__)
 trade_service = TradeService()
@@ -101,4 +102,18 @@ def get_orders():
             'submitted_at': o.submitted_at.isoformat() if o.submitted_at else '',
         } for o in orders
     ]
-    return jsonify(order_list) 
+    return jsonify(order_list)
+
+@api_bp.route('/logs', methods=['GET'])
+def get_logs():
+    # Placeholder log data; replace with real logs later
+    now = datetime.utcnow()
+    logs = [
+        {
+            'timestamp': (now - timedelta(minutes=i)).isoformat() + 'Z',
+            'event': 'Trade Executed' if i % 2 == 0 else 'Order Submitted',
+            'details': f'Event details for log {i+1}'
+        }
+        for i in range(10)
+    ]
+    return jsonify(logs) 

@@ -138,6 +138,23 @@
         updateOrders();
         setInterval(updateOrders, 30000);
 
+        // Fetch logs and populate logs table
+        function updateLogs() {
+            fetch('/api/logs')
+                .then(res => res.json())
+                .then(logs => {
+                    const tbody = document.getElementById('logs-body');
+                    tbody.innerHTML = '';
+                    logs.forEach(l => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${l.timestamp}</td><td>${l.event}</td><td>${l.details}</td>`;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+        updateLogs();
+        setInterval(updateLogs, 30000);
+
         // Popup logic
         function openPopup(content) {
             document.getElementById('popup-content').innerHTML = content;
