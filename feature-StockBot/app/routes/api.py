@@ -136,21 +136,35 @@ def get_logs():
 @api_bp.route('/latest_trade_recommendation', methods=['GET'])
 def latest_trade_recommendation():
     try:
-        result = TradeRecommendation.query.order_by(TradeRecommendation.created_at.desc()).first()
-        if result:
-            return jsonify({
-                'id': result.id,
-                'symbol': result.symbol,
-                'action': result.action,
-                'status': result.status,
-                'amount': float(result.amount),
-                'shares': float(result.shares),
-                'timeframe': result.timeframe,
-                'expires_at': result.expires_at.isoformat(),
-                'required_acceptances': result.required_acceptances,
-                'created_at': result.created_at.isoformat(),
-            })
-        return jsonify({'error': 'No trade recommendations found'}), 404
+        # First check if the table exists and has the required columns
+        try:
+            result = db.session.execute(text("""
+                SELECT id, symbol, action, amount, shares, timeframe, expires_at, 
+                       required_acceptances, created_at 
+                FROM trade_recommendations 
+                ORDER BY created_at DESC 
+                LIMIT 1
+            """)).fetchone()
+            
+            if result:
+                return jsonify({
+                    'id': result.id,
+                    'symbol': result.symbol,
+                    'action': result.action,
+                    'status': 'PENDING',  # Default status if column doesn't exist
+                    'amount': float(result.amount),
+                    'shares': float(result.shares),
+                    'timeframe': result.timeframe,
+                    'expires_at': result.expires_at.isoformat(),
+                    'required_acceptances': result.required_acceptances,
+                    'created_at': result.created_at.isoformat(),
+                })
+            return jsonify({'error': 'No trade recommendations found'}), 404
+            
+        except Exception as e:
+            print(f"Error querying trade_recommendations: {e}")
+            return jsonify({'error': 'No trade recommendations found'}), 404
+            
     except Exception as e:
         print(f"Error in latest_trade_recommendation: {e}")
         return jsonify({'error': 'Internal server error'}), 500

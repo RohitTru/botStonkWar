@@ -7,6 +7,7 @@ import os
 from app.database import db
 from flask_migrate import Migrate
 import logging
+from sqlalchemy import text
 
 def create_app():
     # Load environment variables
@@ -33,7 +34,19 @@ def create_app():
         with app.app_context():
             # Create tables if they don't exist
             db.create_all()
-            app.logger.info("Database tables created successfully")
+            
+            # Ensure trade_recommendations table has all required columns
+            try:
+                db.session.execute(text("""
+                    ALTER TABLE trade_recommendations 
+                    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                    ADD COLUMN IF NOT EXISTS updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                """))
+                db.session.commit()
+                app.logger.info("Database tables and columns verified successfully")
+            except Exception as e:
+                app.logger.error(f"Error verifying table columns: {e}")
+                db.session.rollback()
             
     except Exception as e:
         app.logger.error(f"Error initializing database: {e}")
