@@ -67,27 +67,29 @@ def add_funds():
 @api_bp.route('/users', methods=['GET'])
 def get_users():
     try:
-        # Optionally support search
         search = request.args.get('search', '').strip()
         query = db.session.query(User)
         if search:
             query = query.filter(User.username.ilike(f'%{search}%'))
-        
-        # Use a simpler query that doesn't include updated_at
-        users = query.with_entities(
-            User.id,
-            User.username,
-            User.balance
-        ).order_by(User.balance.desc()).all()
-        
-        # Placeholder equity and P&L
-        user_list = [
-            {
+        users = query.order_by(User.balance.desc()).all()
+        user_list = []
+        for u in users:
+            # Calculate equity and P&L
+            positions = db.session.execute(text('SELECT shares_owned, average_buy_price, symbol FROM user_positions WHERE user_id = :uid'), {'uid': u.id}).fetchall()
+            equity = float(u.balance)
+            pnl = 0.0
+            for pos in positions:
+                # Fetch current price (stub: use average_buy_price for now, replace with live price if available)
+                current_price = float(pos.average_buy_price)
+                shares = float(pos.shares_owned)
+                equity += shares * current_price
+                pnl += shares * (current_price - float(pos.average_buy_price))
+            user_list.append({
+                'id': u.id,
                 'username': u.username,
-                'equity': float(u.balance),
-                'pnl': 0.0,  # Placeholder
-            } for u in users
-        ]
+                'equity': round(equity, 2),
+                'pnl': round(pnl, 2),
+            })
         return jsonify(user_list)
     except Exception as e:
         print(f"Error in get_users: {e}")
@@ -95,24 +97,23 @@ def get_users():
 
 @api_bp.route('/trades', methods=['GET'])
 def get_trades():
-    # Placeholder data; replace with real trade data later
-    trades = [
-        {
-            'symbol': 'AAPL',
-            'type': 'BUY',
-            'status': 'EXECUTED',
-            'users': 5,
-            'details': 'Bought 10 shares at $150',
-        },
-        {
-            'symbol': 'TSLA',
-            'type': 'SELL',
-            'status': 'PENDING',
-            'users': 3,
-            'details': 'Sell order for 5 shares',
-        },
-    ]
-    return jsonify(trades)
+    # Fetch all trade recommendations (active, executed, expired)
+    trades = TradeRecommendation.query.order_by(TradeRecommendation.created_at.desc()).all()
+    trade_list = []
+    for t in trades:
+        # Count users who accepted this trade
+        user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
+        trade_list.append({
+            'id': t.id,
+            'symbol': t.symbol,
+            'type': t.action,
+            'status': t.status,
+            'users': user_count,
+            'details': f"{t.action} {t.shares} shares at ${t.amount} (expires {t.expires_at})",
+            'created_at': t.created_at.isoformat() if t.created_at else '',
+            'expires_at': t.expires_at.isoformat() if t.expires_at else '',
+        })
+    return jsonify(trade_list)
 
 @api_bp.route('/orders', methods=['GET'])
 def get_orders():
@@ -132,17 +133,20 @@ def get_orders():
 
 @api_bp.route('/logs', methods=['GET'])
 def get_logs():
-    # Placeholder log data; replace with real logs later
-    now = datetime.utcnow()
-    logs = [
-        {
-            'timestamp': (now - timedelta(minutes=i)).isoformat() + 'Z',
-            'event': 'Trade Executed' if i % 2 == 0 else 'Order Submitted',
-            'details': f'Event details for log {i+1}'
-        }
-        for i in range(10)
-    ]
-    return jsonify(logs)
+    try:
+        logs = db.session.execute(text('SELECT trade_recommendation_id, executed_at, status, details FROM trade_execution_log ORDER BY executed_at DESC LIMIT 100')).fetchall()
+        log_list = []
+        for l in logs:
+            log_list.append({
+                'timestamp': l.executed_at.isoformat() if l.executed_at else '',
+                'event': l.status,
+                'details': l.details,
+                'trade_recommendation_id': l.trade_recommendation_id,
+            })
+        return jsonify(log_list)
+    except Exception as e:
+        print(f"Error in get_logs: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/latest_trade_recommendation', methods=['GET'])
 def latest_trade_recommendation():
@@ -345,4 +349,84 @@ def get_executed_trades():
             'created_at': t.created_at.isoformat(),
             'updated_at': t.updated_at.isoformat(),
         } for t in executed
-    ]) 
+    ])
+
+@api_bp.route('/user/<int:user_id>/positions', methods=['GET'])
+def get_user_positions(user_id):
+    try:
+        positions = db.session.execute(text('SELECT symbol, shares_owned, average_buy_price FROM user_positions WHERE user_id = :uid'), {'uid': user_id}).fetchall()
+        pos_list = []
+        for pos in positions:
+            # Fetch current price (stub: use average_buy_price for now)
+            current_price = float(pos.average_buy_price)
+            pos_list.append({
+                'symbol': pos.symbol,
+                'shares_owned': float(pos.shares_owned),
+                'average_buy_price': float(pos.average_buy_price),
+                'current_price': current_price,
+                'market_value': round(float(pos.shares_owned) * current_price, 2),
+            })
+        return jsonify(pos_list)
+    except Exception as e:
+        print(f"Error in get_user_positions: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/user/<int:user_id>/history', methods=['GET'])
+def get_user_history(user_id):
+    try:
+        history = db.session.execute(text('SELECT symbol, shares_owned, average_price, market_price, total_value, unrealized_pnl, recorded_at FROM historical_positions WHERE user_id = :uid ORDER BY recorded_at DESC'), {'uid': user_id}).fetchall()
+        hist_list = []
+        for h in history:
+            hist_list.append({
+                'symbol': h.symbol,
+                'shares_owned': float(h.shares_owned),
+                'average_price': float(h.average_price),
+                'market_price': float(h.market_price),
+                'total_value': float(h.total_value),
+                'unrealized_pnl': float(h.unrealized_pnl),
+                'recorded_at': h.recorded_at.isoformat() if h.recorded_at else '',
+            })
+        return jsonify(hist_list)
+    except Exception as e:
+        print(f"Error in get_user_history: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/brokerage/positions', methods=['GET'])
+def get_brokerage_positions():
+    try:
+        positions = db.session.execute(text('SELECT symbol, total_shares, average_price, current_price, total_value, unrealized_pnl, updated_at FROM brokerage_summary ORDER BY total_value DESC')).fetchall()
+        pos_list = []
+        for pos in positions:
+            pos_list.append({
+                'symbol': pos.symbol,
+                'total_shares': float(pos.total_shares),
+                'average_price': float(pos.average_price),
+                'current_price': float(pos.current_price),
+                'total_value': float(pos.total_value),
+                'unrealized_pnl': float(pos.unrealized_pnl),
+                'updated_at': pos.updated_at.isoformat() if pos.updated_at else '',
+            })
+        return jsonify(pos_list)
+    except Exception as e:
+        print(f"Error in get_brokerage_positions: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
+
+@api_bp.route('/brokerage/history', methods=['GET'])
+def get_brokerage_history():
+    try:
+        history = db.session.execute(text('SELECT symbol, SUM(shares_owned) as total_shares, AVG(average_price) as avg_price, AVG(market_price) as avg_market, SUM(total_value) as total_value, SUM(unrealized_pnl) as unrealized_pnl, recorded_at FROM historical_positions GROUP BY symbol, recorded_at ORDER BY recorded_at DESC')).fetchall()
+        hist_list = []
+        for h in history:
+            hist_list.append({
+                'symbol': h.symbol,
+                'total_shares': float(h.total_shares),
+                'average_price': float(h.avg_price),
+                'market_price': float(h.avg_market),
+                'total_value': float(h.total_value),
+                'unrealized_pnl': float(h.unrealized_pnl),
+                'recorded_at': h.recorded_at.isoformat() if h.recorded_at else '',
+            })
+        return jsonify(hist_list)
+    except Exception as e:
+        print(f"Error in get_brokerage_history: {e}")
+        return jsonify({'error': 'Internal server error'}), 500 
