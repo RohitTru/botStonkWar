@@ -70,12 +70,8 @@ export async function loginUser(username: string, password: string) {
           { expiresIn: '24h' }
         );
 
-        // Create session in database for admin too
-        console.log('Creating admin session in database');
-        const expiresAt = new Date();
-        expiresAt.setDate(expiresAt.getDate() + 1); // 24 hours from now
-        await createSession(0, token, expiresAt);
-        console.log('Admin session created successfully');
+        // Do NOT create a session in the database for admin
+        // This avoids the foreign key constraint error
 
         return {
           token,
