@@ -6,11 +6,12 @@ WORKDIR /app
 # Install system dependencies for building Python packages
 RUN apt-get update && apt-get install -y \
     gcc \
-    python3-dev \
+    python3.11-dev \
     libffi-dev \
     build-essential \
     libssl-dev \
     default-libmysqlclient-dev \
+    cython3 \
     && rm -rf /var/lib/apt/lists/*
 
 # Copy the current directory contents into the container at /app
