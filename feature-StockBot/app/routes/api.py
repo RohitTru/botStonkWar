@@ -6,7 +6,7 @@ from app.database import db
 from sqlalchemy.exc import NoResultFound
 from datetime import datetime, timedelta
 from app.models.trade import TradeAcceptance, TradeExecutionLog, TradeRecommendation
-from sqlalchemy import desc
+from sqlalchemy import desc, text
 
 api_bp = Blueprint('api', __name__)
 trade_service = TradeService()
@@ -32,17 +32,30 @@ def execute_trade():
 
 @api_bp.route('/metrics', methods=['GET'])
 def get_metrics():
-    user_count = db.session.query(User).count()
-    # Fetch live balance from Alpaca
-    alpaca = AlpacaService()
-    account = alpaca.api.get_account()
-    portfolio_value = float(account.portfolio_value)
-    metrics = {
-        'portfolio_value': portfolio_value,
-        'pnl': 2500.00,  # Placeholder
-        'active_users': user_count
-    }
-    return jsonify(metrics)
+    try:
+        # Simple count query that doesn't include columns
+        user_count = db.session.query(db.func.count(User.id)).scalar()
+        
+        # Fetch live balance from Alpaca with error handling
+        try:
+            alpaca = AlpacaService()
+            account = alpaca.api.get_account()
+            portfolio_value = float(account.portfolio_value)
+            pnl = float(account.equity) - float(account.last_equity)
+        except Exception as e:
+            print(f"Error fetching Alpaca data: {e}")
+            portfolio_value = 0.0
+            pnl = 0.0
+            
+        metrics = {
+            'portfolio_value': portfolio_value,
+            'pnl': pnl,
+            'active_users': user_count
+        }
+        return jsonify(metrics)
+    except Exception as e:
+        print(f"Error in metrics endpoint: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
 def add_funds():
@@ -122,15 +135,25 @@ def get_logs():
 
 @api_bp.route('/latest_trade_recommendation', methods=['GET'])
 def latest_trade_recommendation():
-    # Fetch the most recent trade recommendation
-    result = db.session.execute(
-        "SELECT * FROM trade_recommendations ORDER BY created_at DESC LIMIT 1"
-    )
-    row = result.fetchone()
-    if not row:
-        return jsonify({'status': 'error', 'message': 'No trade recommendations found'}), 404
-    trade = dict(row)
-    return jsonify(trade)
+    try:
+        result = TradeRecommendation.query.order_by(TradeRecommendation.created_at.desc()).first()
+        if result:
+            return jsonify({
+                'id': result.id,
+                'symbol': result.symbol,
+                'action': result.action,
+                'status': result.status,
+                'amount': float(result.amount),
+                'shares': float(result.shares),
+                'timeframe': result.timeframe,
+                'expires_at': result.expires_at.isoformat(),
+                'required_acceptances': result.required_acceptances,
+                'created_at': result.created_at.isoformat(),
+            })
+        return jsonify({'error': 'No trade recommendations found'}), 404
+    except Exception as e:
+        print(f"Error in latest_trade_recommendation: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/trade_acceptances', methods=['POST'])
 def post_trade_acceptance():
