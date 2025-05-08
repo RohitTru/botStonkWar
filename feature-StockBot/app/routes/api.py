@@ -46,4 +46,22 @@ def add_funds():
     data = request.json
     amount = float(data.get('amount', 0))
     # This is a simulation; does not affect Alpaca
-    return jsonify({'status': 'success', 'added': amount, 'new_balance': 'live from Alpaca'}) 
+    return jsonify({'status': 'success', 'added': amount, 'new_balance': 'live from Alpaca'})
+
+@api_bp.route('/users', methods=['GET'])
+def get_users():
+    # Optionally support search
+    search = request.args.get('search', '').strip()
+    query = db.session.query(User)
+    if search:
+        query = query.filter(User.username.ilike(f'%{search}%'))
+    users = query.order_by(User.balance.desc()).all()
+    # Placeholder equity and P&L
+    user_list = [
+        {
+            'username': u.username,
+            'equity': float(u.balance),
+            'pnl': 0.0,  # Placeholder
+        } for u in users
+    ]
+    return jsonify(user_list) 

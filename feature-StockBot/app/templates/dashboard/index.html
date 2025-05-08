@@ -76,6 +76,25 @@
         updateMetrics();
         setInterval(updateMetrics, 30000);
 
+        // Fetch users and populate leaderboard
+        function updateUsers(search = '') {
+            fetch('/api/users?search=' + encodeURIComponent(search))
+                .then(res => res.json())
+                .then(users => {
+                    const tbody = document.getElementById('leaderboard-body');
+                    tbody.innerHTML = '';
+                    users.forEach(u => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}')\">View</button></td>`;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+        updateUsers();
+        document.getElementById('user-search-box').addEventListener('input', function() {
+            updateUsers(this.value);
+        });
+
         // Popup logic
         function openPopup(content) {
             document.getElementById('popup-content').innerHTML = content;
