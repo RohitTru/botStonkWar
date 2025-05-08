@@ -24,6 +24,20 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   const [allocation, setAllocation] = useState('');
   const [error, setError] = useState('');
   const [action, setAction] = useState<'ACCEPTED' | 'DENIED' | null>(null);
+  const [userLiquidity, setUserLiquidity] = useState<number | null>(null);
+  const [userShares, setUserShares] = useState<number>(0);
+
+  React.useEffect(() => {
+    // Fetch user liquidity and shares for the symbol
+    if (trade && trade.action === 'BUY') {
+      fetch('/api/auth/me').then(res => res.json()).then(data => {
+        setUserLiquidity(data.user?.balance ?? null);
+      });
+    } else if (trade && trade.action === 'SELL') {
+      const pos = userPositions.find(p => p.symbol === trade.symbol);
+      setUserShares(pos ? pos.shares : 0);
+    }
+  }, [trade, userPositions]);
 
   if (!trade) return null;
 
@@ -72,10 +86,14 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
       setError('Enter a valid positive number');
       return;
     }
-    // For SELL, check shares
+    if (trade.action === 'BUY') {
+      if (userLiquidity !== null && Number(allocation) > userLiquidity) {
+        setError('Cannot allocate more than your available liquidity');
+        return;
+      }
+    }
     if (trade.action === 'SELL') {
-      const pos = userPositions.find(p => p.symbol === trade.symbol);
-      if (pos && Number(allocation) > pos.shares) {
+      if (Number(allocation) > userShares) {
         setError('Cannot sell more shares than you own');
         return;
       }
@@ -109,6 +127,16 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
               size="small"
               sx={{ mb: 1 }}
             />
+            {trade.action === 'BUY' && userLiquidity !== null && (
+              <Typography variant="caption" sx={{ color: '#888' }}>
+                Available liquidity: ${userLiquidity.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
+              </Typography>
+            )}
+            {trade.action === 'SELL' && (
+              <Typography variant="caption" sx={{ color: '#888' }}>
+                Shares owned: {userShares}
+              </Typography>
+            )}
             {error && <Typography color="error">{error}</Typography>}
             <Button variant="contained" onClick={handleInputSubmit} fullWidth>Submit</Button>
           </Box>
