@@ -12,3 +12,5 @@ pymysql==1.1.0
 cryptography==42.0.5  # Required for PyMySQL
 websocket-client==1.7.0
 pyarrow==15.0.2
+rq==1.15.1  # Redis Queue for background tasks
+rq-scheduler==0.13.1  # Redis Queue Scheduler for periodic tasks
