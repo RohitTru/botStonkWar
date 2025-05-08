@@ -21,21 +21,58 @@ from decision_engine.strategies.volume_spike import VolumeSpikeSentimentStrategy
 from decision_engine.strategies.news_breakout import NewsDrivenBreakoutStrategy
 from decision_engine.strategies.sentiment_divergence import SentimentDivergenceStrategy
 from decision_engine.alpaca_ws_price_service import price_service
+import redis
+from rq import Queue
+from rq_scheduler import Scheduler
+from functools import lru_cache
+import time
+from threading import Thread
+import threading
+import random  # Add at the top with other imports
 
 load_dotenv()
 
 app = Flask(__name__)
 
-# Database connection using Docker environment variables
-DB_USER = os.getenv('MYSQL_USER')
-DB_PASSWORD = os.getenv('MYSQL_PASSWORD')
-DB_HOST = os.getenv('MYSQL_HOST')
-DB_NAME = os.getenv('MYSQL_DATABASE')
+# Database connection with connection pooling
+db_url = f"mysql+pymysql://{os.getenv('MYSQL_USER')}:{os.getenv('MYSQL_PASSWORD')}@{os.getenv('MYSQL_HOST')}/{os.getenv('MYSQL_DATABASE')}"
+engine = create_engine(
+    db_url,
+    poolclass=QueuePool,
+    pool_size=5,
+    max_overflow=10,
+    pool_timeout=30,
+    pool_recycle=1800,
+    pool_pre_ping=True
+)
 
-app.logger.info(f'Connecting to database at {DB_HOST}')
+# Redis connection for task queue (without decode_responses for RQ)
+redis_conn = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'redis'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    db=0,
+    socket_timeout=5,
+    socket_connect_timeout=5
+)
 
-engine = create_engine(f'mysql+pymysql://{DB_USER}:{DB_PASSWORD}@{DB_HOST}/{DB_NAME}')
-Session = sessionmaker(bind=engine)
+# Redis connection for regular operations (with decode_responses)
+redis_regular = redis.Redis(
+    host=os.getenv('REDIS_HOST', 'redis'),
+    port=int(os.getenv('REDIS_PORT', 6379)),
+    db=0,
+    decode_responses=True,
+    encoding='utf-8',
+    charset='utf-8',
+    errors='replace',
+    socket_timeout=5,
+    socket_connect_timeout=5
+)
+
+# Create RQ queue
+task_queue = Queue('trade_tasks', connection=redis_conn)
+
+# Create scheduler
+scheduler = Scheduler(queue=task_queue, connection=redis_conn)
 
 # Initialize trade recommendations with MySQL
 trade_db = TradeRecommendationMySQL(engine)
@@ -216,23 +253,83 @@ def fetch_strategy_data():
         }
 
 def gather_dashboard_data():
-    strategy_data = fetch_strategy_data()
-    recommendations = strategy_manager.run_all_strategies(strategy_data)
-    strategies = strategy_manager.get_strategy_status()  # This is a list of dicts
-    total_recommendations = trade_db.count_total_recommendations()
-    recs_last_hour = trade_db.count_recommendations_last_hour()
-    metrics = {
-        'total_recommendations': total_recommendations,
-        'recommendations_last_hour': recs_last_hour,
-        'buy_signals': len([r for r in recommendations if r['action'] == 'buy']),
-        'sell_signals': len([r for r in recommendations if r['action'] == 'sell']),
-        'high_confidence_signals': len([r for r in recommendations if r['confidence'] >= 0.8])
-    }
-    return {
-        'metrics': metrics,
-        'strategies': strategies,
-        'recommendations': recommendations
-    }
+    try:
+        # Get the latest job results
+        latest_job = task_queue.get_jobs()[-1] if task_queue.get_jobs() else None
+        if latest_job and latest_job.result:
+            return latest_job.result
+
+        # If no job results, gather data directly
+        metrics = {
+            'total_recommendations': 0,
+            'buy_signals': 0,
+            'sell_signals': 0,
+            'hold_signals': 0,
+            'last_updated': datetime.now().isoformat()
+        }
+        
+        recommendations = []
+        
+        # Get active strategies
+        active_strategies = strategy_manager.get_active_strategies()
+        
+        # Fetch data for each active strategy
+        for strategy in active_strategies:
+            try:
+                strategy_data = fetch_strategy_data()
+                if not strategy_data:
+                    continue
+                    
+                # Run strategy analysis
+                results = strategy.analyze(strategy_data)
+                
+                # Update metrics
+                metrics['total_recommendations'] += len(results)
+                for result in results:
+                    if result.get('signal') == 'BUY':
+                        metrics['buy_signals'] += 1
+                    elif result.get('signal') == 'SELL':
+                        metrics['sell_signals'] += 1
+                    else:
+                        metrics['hold_signals'] += 1
+                        
+                    recommendations.append({
+                        'symbol': result.get('symbol'),
+                        'strategy': strategy.name,
+                        'signal': result.get('signal'),
+                        'confidence': result.get('confidence', 0),
+                        'timestamp': datetime.now().isoformat()
+                    })
+                    
+            except Exception as e:
+                app.logger.error(f"Error processing strategy {strategy.name}: {str(e)}")
+                continue
+                
+        return {
+            'metrics': metrics,
+            'recommendations': recommendations
+        }
+        
+    except Exception as e:
+        app.logger.error(f"Error gathering dashboard data: {str(e)}")
+        return {
+            'metrics': {
+                'total_recommendations': 0,
+                'buy_signals': 0,
+                'sell_signals': 0,
+                'hold_signals': 0,
+                'last_updated': datetime.now().isoformat()
+            },
+            'recommendations': []
+        }
+
+# Cache for dashboard data with 30-second TTL
+@lru_cache(maxsize=1)
+def get_cached_dashboard_data():
+    return gather_dashboard_data()
+
+def clear_dashboard_cache():
+    get_cached_dashboard_data.cache_clear()
 
 @app.route('/')
 def index():
@@ -245,6 +342,39 @@ def get_strategies():
     print("Endpoint: /api/strategies called")
     return jsonify(strategy_manager.get_all_strategies())
 
+# Add after other global variables
+_recommendations_cache = []
+_last_cache_update = 0
+_cache_lock = threading.Lock()
+
+def update_recommendations_cache():
+    """Background task to update recommendations cache"""
+    global _recommendations_cache, _last_cache_update
+    while True:
+        try:
+            # Fetch and run strategies
+            strategy_data = fetch_strategy_data()
+            new_recs = strategy_manager.run_all_strategies(strategy_data)
+            
+            # Insert new recommendations into MySQL
+            for rec in new_recs:
+                trade_db.insert(rec)
+            
+            # Update cache
+            with _cache_lock:
+                _recommendations_cache = trade_db.fetch_all()
+                _last_cache_update = time.time()
+                
+        except Exception as e:
+            app.logger.error(f"Error updating recommendations cache: {str(e)}")
+        
+        # Sleep for 2.5 seconds plus a small random jitter (0-0.5s)
+        time.sleep(2.5 + random.random() * 0.5)
+
+# Start background task
+cache_thread = Thread(target=update_recommendations_cache, daemon=True)
+cache_thread.start()
+
 @app.route('/api/recommendations')
 def get_recommendations():
     print("Endpoint: /api/recommendations called")
@@ -253,22 +383,12 @@ def get_recommendations():
     page = int(request.args.get('page', 1))
     filter_type = request.args.get('filter', 'all')
     strategy = request.args.get('strategy', '')
-    
-    # Always fetch and run strategies before returning recommendations
-    strategy_data = fetch_strategy_data()
-    new_recs = strategy_manager.run_all_strategies(strategy_data)
-    
-    # Insert new recommendations into MySQL
-    for rec in new_recs:
-        trade_db.insert(rec)
-    
-    # Fetch all recommendations from MySQL for the dashboard
     min_confidence = float(request.args.get('min_confidence', 0.0))
     timeframe = request.args.get('timeframe')
     
-    # Get recommendations with pagination
-    per_page = 10
-    all_recs = trade_db.fetch_all()
+    # Get recommendations from cache
+    with _cache_lock:
+        all_recs = _recommendations_cache
     
     # Apply filters
     filtered = [r for r in all_recs if (
@@ -282,6 +402,7 @@ def get_recommendations():
     filtered.sort(key=lambda x: x['created_at'], reverse=True)
     
     # Paginate results
+    per_page = 10
     start_idx = (page - 1) * per_page
     end_idx = start_idx + per_page
     paginated = filtered[start_idx:end_idx]
@@ -290,22 +411,36 @@ def get_recommendations():
 
 @app.route('/api/run-analysis', methods=['POST'])
 def run_analysis():
-    print("Endpoint: /api/run-analysis called")
-    data = request.json
-    recommendations = strategy_manager.run_all_strategies(data)
-    return jsonify({
-        'status': 'success',
-        'recommendations': recommendations
-    })
+    try:
+        # Enqueue the task
+        job = task_queue.enqueue(
+            'decision_engine.tasks.process_strategies',
+            job_timeout='5m'
+        )
+        
+        return jsonify({
+            'status': 'success',
+            'message': 'Analysis started',
+            'job_id': job.id
+        })
+    except Exception as e:
+        app.logger.error(f"Error starting analysis: {str(e)}")
+        return jsonify({
+            'error': 'Failed to start analysis',
+            'details': str(e)
+        }), 500
 
-@app.route('/api/dashboard-data')
+@app.route('/api/dashboard')
 def get_dashboard_data():
     try:
-        data = gather_dashboard_data()
+        data = get_cached_dashboard_data()
         return jsonify(data)
     except Exception as e:
-        print(f"Error in dashboard-data endpoint: {e}")
-        return jsonify({'status': 'error', 'message': str(e)}), 500
+        app.logger.error(f"Error getting dashboard data: {str(e)}")
+        return jsonify({
+            'error': 'Failed to fetch dashboard data',
+            'details': str(e)
+        }), 500
 
 @app.route('/health')
 def health():
@@ -423,6 +558,47 @@ def check_db_health():
             "status": "error",
             "message": str(e)
         }), 500
+
+@app.route('/api/job-status/<job_id>')
+def get_job_status(job_id):
+    try:
+        job = task_queue.fetch_job(job_id)
+        if not job:
+            return jsonify({
+                'error': 'Job not found'
+            }), 404
+            
+        status = {
+            'id': job.id,
+            'status': job.get_status(),
+            'created_at': job.created_at.isoformat() if job.created_at else None,
+            'ended_at': job.ended_at.isoformat() if job.ended_at else None,
+            'result': job.result if job.result else None
+        }
+        
+        return jsonify(status)
+    except Exception as e:
+        app.logger.error(f"Error getting job status: {str(e)}")
+        return jsonify({
+            'error': 'Failed to get job status',
+            'details': str(e)
+        }), 500
+
+def schedule_periodic_tasks():
+    try:
+        # Schedule strategy processing every 5 minutes
+        scheduler.schedule(
+            scheduled_time=datetime.utcnow(),
+            func='decision_engine.tasks.process_strategies',
+            interval=300,  # 5 minutes
+            repeat=None  # Run indefinitely
+        )
+        app.logger.info("Scheduled periodic tasks")
+    except Exception as e:
+        app.logger.error(f"Error scheduling tasks: {str(e)}")
+
+# Schedule tasks on startup
+schedule_periodic_tasks()
 
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))
