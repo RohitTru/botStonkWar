@@ -3,7 +3,24 @@
 <head>
     <meta charset="UTF-8">
     <title>StockBot Admin Dashboard</title>
-    <link rel="stylesheet" href="/static/css/dashboard.css">
+    <style>
+        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
+        header { background: #222; color: #fff; padding: 1rem; text-align: center; }
+        main { max-width: 1100px; margin: 2rem auto; padding: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
+        #metrics-cards { display: flex; gap: 1rem; margin-bottom: 2rem; }
+        .card { background: #e3e8f0; padding: 1rem 2rem; border-radius: 6px; font-size: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); min-width: 180px; }
+        #user-search, #trade-summary, #logs-section { margin-bottom: 2rem; }
+        .section-title { font-weight: bold; margin-bottom: 0.5rem; }
+        .leaderboard, .trade-table, .logs-table { width: 100%; border-collapse: collapse; }
+        .leaderboard th, .trade-table th, .logs-table th { background: #e3e8f0; }
+        .leaderboard th, .leaderboard td, .trade-table th, .trade-table td, .logs-table th, .logs-table td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
+        .search-box { padding: 0.5rem; width: 250px; margin-bottom: 1rem; }
+        .popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); padding: 2rem; z-index: 1000; }
+        .popup.active { display: block; }
+        .popup-close { float: right; cursor: pointer; color: #888; font-size: 1.2rem; }
+        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); z-index: 999; }
+        .overlay.active { display: block; }
+    </style>
 </head>
 <body>
     <header>
@@ -11,17 +28,58 @@
     </header>
     <main>
         <section id="metrics-cards">
-            <!-- Metrics cards will go here -->
             <div class="card">Portfolio Value: <span id="portfolio-value">$0.00</span></div>
             <div class="card">P&amp;L: <span id="pnl">$0.00</span></div>
             <div class="card">Active Users: <span id="active-users">0</span></div>
         </section>
         <section id="user-search">
-            <!-- User search and leaderboard will go here -->
+            <div class="section-title">User Search &amp; Leaderboard</div>
+            <input class="search-box" type="text" id="user-search-box" placeholder="Search users...">
+            <table class="leaderboard">
+                <thead><tr><th>Username</th><th>Equity</th><th>P&amp;L</th><th>Actions</th></tr></thead>
+                <tbody id="leaderboard-body">
+                    <!-- User rows will be populated here -->
+                </tbody>
+            </table>
         </section>
         <section id="trade-summary">
-            <!-- Trade and position summaries will go here -->
+            <div class="section-title">Trade &amp; Position Summaries</div>
+            <table class="trade-table">
+                <thead><tr><th>Symbol</th><th>Type</th><th>Status</th><th>Users</th><th>Details</th></tr></thead>
+                <tbody id="trade-summary-body">
+                    <!-- Trade rows will be populated here -->
+                </tbody>
+            </table>
+        </section>
+        <section id="logs-section">
+            <div class="section-title">Logs &amp; Monitoring</div>
+            <table class="logs-table">
+                <thead><tr><th>Timestamp</th><th>Event</th><th>Details</th></tr></thead>
+                <tbody id="logs-body">
+                    <!-- Log rows will be populated here -->
+                </tbody>
+            </table>
         </section>
     </main>
+    <div class="overlay" id="popup-overlay"></div>
+    <div class="popup" id="user-popup">
+        <span class="popup-close" onclick="closePopup()">&times;</span>
+        <div id="popup-content">User details will appear here.</div>
+    </div>
+    <script>
+        // Placeholder JS for popup
+        function openPopup(content) {
+            document.getElementById('popup-content').innerHTML = content;
+            document.getElementById('user-popup').classList.add('active');
+            document.getElementById('popup-overlay').classList.add('active');
+        }
+        function closePopup() {
+            document.getElementById('user-popup').classList.remove('active');
+            document.getElementById('popup-overlay').classList.remove('active');
+        }
+        document.getElementById('popup-overlay').onclick = closePopup;
+        // Placeholder for dynamic data fetching (to be implemented)
+        // Example: fetch('/api/metrics').then(...)
+    </script>
 </body>
 </html> 
