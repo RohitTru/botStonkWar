@@ -24,7 +24,7 @@ export default function InternalNavbar() {
   };
 
   return (
-    <AppBar position="sticky" color="default" elevation={1}>
+    <AppBar position="sticky" sx={{ background: '#181828', color: '#fff', boxShadow: 'none', borderBottom: '1px solid #23233a' }}>
       <Toolbar>
         <Typography
           variant="h6"
@@ -32,25 +32,33 @@ export default function InternalNavbar() {
           href="/dashboard"
           sx={{
             textDecoration: 'none',
-            color: 'inherit',
+            color: '#fff',
             flexGrow: 1,
+            fontWeight: 700,
+            letterSpacing: 1.5,
           }}
         >
           BotStonkWar
         </Typography>
         <Box sx={{ display: 'flex', gap: 1 }}>
-          {/* Example internal navigation links, add more as needed */}
           <Button
             component={Link}
             href="/dashboard"
-            color={pathname === '/dashboard' ? 'primary' : 'inherit'}
+            sx={{
+              color: pathname === '/dashboard' ? '#a385ff' : '#fff',
+              fontWeight: pathname === '/dashboard' ? 700 : 400,
+              background: pathname === '/dashboard' ? 'rgba(124,95,255,0.08)' : 'none',
+              borderRadius: 2,
+              px: 2,
+              textTransform: 'none',
+            }}
             size={isMobile ? 'small' : 'medium'}
           >
             Dashboard
           </Button>
           {/* Add more internal links here */}
           <Button
-            color="inherit"
+            sx={{ color: '#fff', border: '1px solid #7c5fff', borderRadius: 2, px: 2, ml: 1, textTransform: 'none' }}
             onClick={handleLogout}
             size={isMobile ? 'small' : 'medium'}
           >
