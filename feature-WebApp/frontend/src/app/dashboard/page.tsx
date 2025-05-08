@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: '#181828' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: '#18191A' }}>
         <CircularProgress />
       </Box>
     );
@@ -57,14 +57,14 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: '#181828' }}>
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: '#18191A' }}>
         <Typography color="error">{error}</Typography>
       </Box>
     );
   }
 
   return (
-    <Box sx={{ minHeight: '100vh', width: '100vw', background: '#181828' }}>
+    <Box sx={{ minHeight: '100vh', width: '100vw', background: '#18191A' }}>
       {user?.role === 'admin' ? (
         <AdminDashboard />
       ) : (

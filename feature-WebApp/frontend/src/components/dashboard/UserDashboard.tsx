@@ -4,25 +4,26 @@ import { Box, Typography, Paper, Card, CardContent } from '@mui/material';
 
 export default function UserDashboard({ user }: { user: any }) {
   return (
-    <Box sx={{ p: 3, minHeight: '100vh', background: '#181828' }}>
+    <Box sx={{ p: 3, minHeight: '100vh', background: '#18191A' }}>
       <Card sx={{
-        maxWidth: 300,
+        width: 180,
         mx: 'auto',
-        mb: 3,
+        mb: 2,
         background: 'linear-gradient(90deg, #7c5fff 0%, #6c47ff 100%)',
         boxShadow: 'none',
-        borderRadius: 3,
+        borderRadius: 2,
         color: '#fff',
         border: '1px solid #7c5fff',
         position: 'relative',
         top: 24,
-        zIndex: 2
+        zIndex: 2,
+        p: 0,
       }}>
-        <CardContent sx={{ textAlign: 'center', p: 2 }}>
-          <Typography variant="subtitle2" sx={{ color: '#e0d7ff', letterSpacing: 1 }} gutterBottom>
-            Account Balance
+        <CardContent sx={{ textAlign: 'center', p: 1.5 }}>
+          <Typography variant="caption" sx={{ color: '#e0d7ff', letterSpacing: 1, fontSize: 13 }} gutterBottom>
+            Liquidity
           </Typography>
-          <Typography variant="h5" fontWeight={700} sx={{ color: '#fff' }}>
+          <Typography variant="h6" fontWeight={700} sx={{ color: '#fff', fontSize: 20 }}>
             ${user?.balance?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}
           </Typography>
         </CardContent>
@@ -30,7 +31,7 @@ export default function UserDashboard({ user }: { user: any }) {
       <Paper sx={{
         p: 4,
         textAlign: 'center',
-        background: '#23233a',
+        background: '#232526',
         color: '#fff',
         borderRadius: 3,
         boxShadow: 'none',
