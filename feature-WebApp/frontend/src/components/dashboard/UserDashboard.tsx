@@ -15,6 +15,20 @@ export default function UserDashboard({ user }: { user: any }) {
         justifyContent: 'flex-start',
       }}
     >
+      <Box
+        sx={{
+          width: '100%',
+          display: 'flex',
+          justifyContent: 'flex-end',
+          alignItems: 'center',
+          mb: 1,
+          pr: 2,
+        }}
+      >
+        <Typography sx={{ color: '#bdbddd', fontSize: 14 }}>
+          Logged in as <b>{user.username}</b>
+        </Typography>
+      </Box>
       <Card
         sx={{
           width: 120,

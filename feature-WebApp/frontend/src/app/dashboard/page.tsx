@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation';
 import { Box, Typography, CircularProgress } from '@mui/material';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import UserDashboard from '@/components/dashboard/UserDashboard';
-import InternalNavbar from '@/components/InternalNavbar';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -65,15 +64,12 @@ export default function DashboardPage() {
   }
 
   return (
-    <>
-      <InternalNavbar user={user} />
-      <Box sx={{ minHeight: '100vh', width: '100vw', background: '#18191A' }}>
-        {user?.role === 'admin' ? (
-          <AdminDashboard />
-        ) : (
-          <UserDashboard user={user} />
-        )}
-      </Box>
-    </>
+    <Box sx={{ minHeight: '100vh', width: '100vw', background: '#18191A' }}>
+      {user?.role === 'admin' ? (
+        <AdminDashboard />
+      ) : (
+        <UserDashboard user={user} />
+      )}
+    </Box>
   );
 } 
