@@ -58,4 +58,18 @@ class TradeExecutionLog(db.Model):
     trade_recommendation_id = db.Column(db.BigInteger, nullable=False)
     executed_at = db.Column(db.DateTime, default=datetime.utcnow)
     status = db.Column(db.String(16), nullable=False)  # SUCCESS, FAILED
-    details = db.Column(db.Text, nullable=True) 
+    details = db.Column(db.Text, nullable=True)
+
+class TradeRecommendation(db.Model):
+    __tablename__ = 'trade_recommendations'
+    id = db.Column(db.BigInteger, primary_key=True)
+    symbol = db.Column(db.String(10), nullable=False)
+    action = db.Column(db.String(4), nullable=False)  # 'BUY' or 'SELL'
+    status = db.Column(db.String(20), nullable=False, default='PENDING')  # PENDING, EXECUTED, EXPIRED
+    amount = db.Column(db.Numeric(10, 2), nullable=False)
+    shares = db.Column(db.Numeric(10, 4), nullable=False)
+    timeframe = db.Column(db.String(20), nullable=False)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    required_acceptances = db.Column(db.Integer, nullable=False, default=1)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 

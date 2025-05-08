@@ -5,7 +5,7 @@ from app.models.user import User
 from app.database import db
 from sqlalchemy.exc import NoResultFound
 from datetime import datetime, timedelta
-from app.models.trade import TradeAcceptance, TradeExecutionLog
+from app.models.trade import TradeAcceptance, TradeExecutionLog, TradeRecommendation
 from sqlalchemy import desc
 
 api_bp = Blueprint('api', __name__)
@@ -193,4 +193,101 @@ def get_trade_execution_log():
             'details': l.details
         } for l in logs
     ]
-    return jsonify(result) 
+    return jsonify(result)
+
+@api_bp.route('/active_trades', methods=['GET'])
+def get_active_trades():
+    active = trade_service.get_active_recommendations()
+    return jsonify([
+        {
+            'id': t.id,
+            'symbol': t.symbol,
+            'action': t.action,
+            'status': t.status,
+            'amount': float(t.amount),
+            'shares': float(t.shares),
+            'timeframe': t.timeframe,
+            'expires_at': t.expires_at.isoformat(),
+            'required_acceptances': t.required_acceptances,
+            'created_at': t.created_at.isoformat(),
+        } for t in active
+    ])
+
+@api_bp.route('/expired_trades', methods=['GET'])
+def get_expired_trades():
+    expired = trade_service.get_expired_recommendations()
+    return jsonify([
+        {
+            'id': t.id,
+            'symbol': t.symbol,
+            'action': t.action,
+            'status': t.status,
+            'amount': float(t.amount),
+            'shares': float(t.shares),
+            'timeframe': t.timeframe,
+            'expires_at': t.expires_at.isoformat(),
+            'required_acceptances': t.required_acceptances,
+            'created_at': t.created_at.isoformat(),
+        } for t in expired
+    ])
+
+@api_bp.route('/user_unanswered_trades', methods=['GET'])
+def get_user_unanswered_trades():
+    user_id = request.args.get('user_id', type=int)
+    if not user_id:
+        return jsonify({'error': 'user_id required'}), 400
+    active = trade_service.get_active_recommendations()
+    answered_ids = {a.trade_recommendation_id for a in TradeAcceptance.query.filter_by(user_id=user_id).all()}
+    unanswered = [t for t in active if t.id not in answered_ids]
+    return jsonify([
+        {
+            'id': t.id,
+            'symbol': t.symbol,
+            'action': t.action,
+            'status': t.status,
+            'amount': float(t.amount),
+            'shares': float(t.shares),
+            'timeframe': t.timeframe,
+            'expires_at': t.expires_at.isoformat(),
+            'required_acceptances': t.required_acceptances,
+            'created_at': t.created_at.isoformat(),
+        } for t in unanswered
+    ])
+
+@api_bp.route('/admin/trigger_expiry_and_execution', methods=['POST'])
+def trigger_expiry_and_execution():
+    expired = trade_service.expire_recommendations()
+    executed = trade_service.execute_eligible_recommendations()
+    return jsonify({'expired': expired, 'executed': executed})
+
+@api_bp.route('/admin/create_recommendation', methods=['POST'])
+def admin_create_recommendation():
+    data = request.json
+    symbol = data.get('symbol')
+    action = data.get('action')
+    amount = float(data.get('amount'))
+    shares = float(data.get('shares'))
+    timeframe = data.get('timeframe')
+    expires_at = datetime.fromisoformat(data.get('expires_at'))
+    required_acceptances = int(data.get('required_acceptances', 1))
+    rec = trade_service.create_recommendation(symbol, action, amount, shares, timeframe, expires_at, required_acceptances)
+    return jsonify({'id': rec.id, 'status': rec.status})
+
+@api_bp.route('/executed_trades', methods=['GET'])
+def get_executed_trades():
+    executed = TradeRecommendation.query.filter_by(status='EXECUTED').order_by(TradeRecommendation.updated_at.desc()).all()
+    return jsonify([
+        {
+            'id': t.id,
+            'symbol': t.symbol,
+            'action': t.action,
+            'status': t.status,
+            'amount': float(t.amount),
+            'shares': float(t.shares),
+            'timeframe': t.timeframe,
+            'expires_at': t.expires_at.isoformat(),
+            'required_acceptances': t.required_acceptances,
+            'created_at': t.created_at.isoformat(),
+            'updated_at': t.updated_at.isoformat(),
+        } for t in executed
+    ]) 
