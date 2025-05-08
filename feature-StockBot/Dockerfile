@@ -1,28 +1,38 @@
-FROM python:3.11
+FROM python:3.9-slim
 
-# Set the working directory inside the container
+# Set environment variables
+ENV PYTHONDONTWRITEBYTECODE=1 \
+    PYTHONUNBUFFERED=1 \
+    FLASK_APP=app.py \
+    FLASK_ENV=production
+
 WORKDIR /app
 
-# Install system dependencies for building Python packages
+# Install system dependencies
 RUN apt-get update && apt-get install -y \
-    gcc \
-    python3.11-dev \
-    libffi-dev \
-    build-essential \
-    libssl-dev \
+    curl \
     default-libmysqlclient-dev \
-    cython3 \
+    build-essential \
+    pkg-config \
     && rm -rf /var/lib/apt/lists/*
 
-# Copy the current directory contents into the container at /app
+# Install Python dependencies
+COPY requirements.txt .
+RUN pip install --no-cache-dir -r requirements.txt
+
+# Copy project
 COPY . .
 
-# Install Python dependencies globally (no venv)
-RUN pip install --upgrade pip && \
-    pip install -r requirements.txt
+# Create logs directory
+RUN mkdir -p logs && chmod 777 logs
 
-# Expose the port (use the value from the .env if available)
-EXPOSE ${APP_PORT}
+# Create a non-root user
+RUN useradd -m appuser && chown -R appuser:appuser /app
+USER appuser
 
-# Run the app
+# Health check
+HEALTHCHECK --interval=30s --timeout=30s --start-period=5s --retries=3 \
+    CMD curl -f http://localhost:${APP_PORT}/health || exit 1
+
+# Command to run the application
 CMD ["python", "app.py"]
