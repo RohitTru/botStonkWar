@@ -20,7 +20,7 @@ export default function UserDashboard({ user }: { user: any }) {
         const trade = await res.json();
         setLatestTrade(trade);
         // Check if user has responded
-        const resp = await fetch(`/api/trade_acceptances?trade_id=${trade.id}&user_id=${user.id}`);
+        const resp = await fetch(`/api/trade_acceptances?trade_recommendation_id=${trade.id}&user_id=${user.id}`);
         const acceptances = await resp.json();
         if (!acceptances.length || lastRespondedTradeId !== trade.id) {
           setShowModal(true);

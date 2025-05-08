@@ -44,12 +44,29 @@ class Vote(db.Model):
     user = db.relationship("User", back_populates="votes")
     trade = db.relationship("Trade", back_populates="votes")
 
+class TradeRecommendation(db.Model):
+    __tablename__ = "trade_recommendations"
+
+    id = db.Column(db.BigInteger, primary_key=True)
+    symbol = db.Column(db.String(10), nullable=False)
+    action = db.Column(db.String(10), nullable=False)
+    confidence = db.Column(db.Float)
+    reasoning = db.Column(db.Text)
+    timeframe = db.Column(db.String(20))
+    metadata = db.Column(db.JSON)
+    created_at = db.Column(db.DateTime)
+    strategy_name = db.Column(db.String(50))
+    trade_time = db.Column(db.DateTime)
+    live_price = db.Column(db.Float)
+    live_change_percent = db.Column(db.Float)
+    live_volume = db.Column(db.BigInteger)
+
 class TradeAcceptance(db.Model):
     __tablename__ = "trade_acceptances"
 
     id = db.Column(db.Integer, primary_key=True, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    trade_id = db.Column(db.Integer, db.ForeignKey("trades.id"), nullable=False)
+    trade_recommendation_id = db.Column(db.BigInteger, db.ForeignKey("trade_recommendations.id"), nullable=False)
     allocation_amount = db.Column(db.Float, nullable=True)  # For BUY
     allocation_shares = db.Column(db.Integer, nullable=True)  # For SELL
     status = db.Column(db.String(10), nullable=False)  # 'ACCEPTED' or 'DENIED'

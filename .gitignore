@@ -24,3 +24,6 @@ main/
 
 # Do not ignore ports.json
 !ports.json
+
+# Ignore schema_dump.sql
+schema_dump.sql

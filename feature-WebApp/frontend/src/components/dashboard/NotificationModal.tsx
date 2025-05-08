@@ -3,10 +3,10 @@ import { Box, Modal, Typography, Button, TextField, CircularProgress } from '@mu
 
 interface Trade {
   id: number;
-  stock_symbol: string;
-  trade_type: string;
-  entry_price: number;
-  status: string;
+  symbol: string;
+  action: string;
+  live_price?: number;
+  status?: string;
   // Add more fields as needed
 }
 
@@ -28,8 +28,8 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   if (!trade) return null;
 
   // Only show SELL if user owns shares
-  if (trade.trade_type === 'SELL') {
-    const pos = userPositions.find(p => p.symbol === trade.stock_symbol);
+  if (trade.action === 'SELL') {
+    const pos = userPositions.find(p => p.symbol === trade.symbol);
     if (!pos || pos.shares <= 0) return null;
   }
 
@@ -51,8 +51,8 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
         status: action,
       };
       if (action === 'ACCEPTED') {
-        if (trade.trade_type === 'BUY') body.allocation_amount = parseFloat(allocation);
-        if (trade.trade_type === 'SELL') body.allocation_shares = parseInt(allocation);
+        if (trade.action === 'BUY') body.allocation_amount = parseFloat(allocation);
+        if (trade.action === 'SELL') body.allocation_shares = parseInt(allocation);
       }
       const res = await fetch('/api/trade_acceptances', {
         method: 'POST',
@@ -73,8 +73,8 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
       return;
     }
     // For SELL, check shares
-    if (trade.trade_type === 'SELL') {
-      const pos = userPositions.find(p => p.symbol === trade.stock_symbol);
+    if (trade.action === 'SELL') {
+      const pos = userPositions.find(p => p.symbol === trade.symbol);
       if (pos && Number(allocation) > pos.shares) {
         setError('Cannot sell more shares than you own');
         return;
@@ -88,10 +88,10 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     <Modal open={open} onClose={onClose}>
       <Box sx={{ p: 4, bgcolor: 'background.paper', borderRadius: 2, maxWidth: 400, mx: 'auto', mt: '10vh', boxShadow: 24 }}>
         <Typography variant="h6" gutterBottom>Trade Recommendation</Typography>
-        <Typography>Symbol: <b>{trade.stock_symbol}</b></Typography>
-        <Typography>Action: <b>{trade.trade_type}</b></Typography>
-        <Typography>Price: ${trade.entry_price}</Typography>
-        <Typography>Status: {trade.status}</Typography>
+        <Typography>Symbol: <b>{trade.symbol}</b></Typography>
+        <Typography>Action: <b>{trade.action}</b></Typography>
+        <Typography>Price: ${trade.live_price ?? '-'}</Typography>
+        <Typography>Status: {trade.status ?? '-'}</Typography>
         {step === 'choice' && (
           <Box mt={2} display="flex" gap={2}>
             <Button variant="contained" color="success" onClick={handleAccept}>Accept</Button>
@@ -101,7 +101,7 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
         {step === 'input' && (
           <Box mt={2}>
             <TextField
-              label={trade.trade_type === 'BUY' ? 'Dollar Amount' : 'Shares to Sell'}
+              label={trade.action === 'BUY' ? 'Dollar Amount' : 'Shares to Sell'}
               value={allocation}
               onChange={e => setAllocation(e.target.value)}
               type="number"
