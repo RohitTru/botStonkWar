@@ -1,8 +1,48 @@
 'use client';
 
+import { useEffect, useState } from 'react';
+import NotificationModal from './NotificationModal';
 import { Box, Typography, Paper, Card, CardContent } from '@mui/material';
 
 export default function UserDashboard({ user }: { user: any }) {
+  const [latestTrade, setLatestTrade] = useState<any>(null);
+  const [showModal, setShowModal] = useState(false);
+  const [userPositions, setUserPositions] = useState<{ symbol: string; shares: number }[]>([]);
+  const [lastRespondedTradeId, setLastRespondedTradeId] = useState<number | null>(null);
+
+  // Poll for latest trade recommendation
+  useEffect(() => {
+    let interval: any;
+    const fetchLatest = async () => {
+      try {
+        const res = await fetch('/api/latest_trade_recommendation');
+        if (!res.ok) return;
+        const trade = await res.json();
+        setLatestTrade(trade);
+        // Check if user has responded
+        const resp = await fetch(`/api/trade_acceptances?trade_id=${trade.id}&user_id=${user.id}`);
+        const acceptances = await resp.json();
+        if (!acceptances.length || lastRespondedTradeId !== trade.id) {
+          setShowModal(true);
+        } else {
+          setShowModal(false);
+        }
+        setLastRespondedTradeId(acceptances.length ? trade.id : null);
+        // Fetch user positions for SELL
+        const posRes = await fetch(`/api/user_positions?user_id=${user.id}`);
+        setUserPositions(await posRes.json());
+      } catch (e) {
+        // Ignore errors for now
+      }
+    };
+    fetchLatest();
+    interval = setInterval(fetchLatest, 15000);
+    return () => clearInterval(interval);
+  }, [user.id, lastRespondedTradeId]);
+
+  const handleModalClose = () => setShowModal(false);
+  const handleRespond = () => setShowModal(false);
+
   return (
     <Box
       sx={{
@@ -15,6 +55,14 @@ export default function UserDashboard({ user }: { user: any }) {
         justifyContent: 'flex-start',
       }}
     >
+      <NotificationModal
+        open={showModal}
+        trade={latestTrade}
+        userId={user.id}
+        onClose={handleModalClose}
+        onRespond={handleRespond}
+        userPositions={userPositions}
+      />
       <Box
         sx={{
           width: '100%',

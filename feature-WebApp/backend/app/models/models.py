@@ -43,4 +43,24 @@ class Vote(db.Model):
     timestamp = db.Column(db.DateTime, default=datetime.utcnow)
     
     user = db.relationship("User", back_populates="votes")
-    trade = db.relationship("Trade", back_populates="votes") 
+    trade = db.relationship("Trade", back_populates="votes")
+
+class TradeAcceptance(db.Model):
+    __tablename__ = "trade_acceptances"
+
+    id = db.Column(db.Integer, primary_key=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    trade_id = db.Column(db.Integer, db.ForeignKey("trades.id"), nullable=False)
+    allocation_amount = db.Column(db.Float, nullable=True)  # For BUY
+    allocation_shares = db.Column(db.Integer, nullable=True)  # For SELL
+    status = db.Column(db.String(10), nullable=False)  # 'ACCEPTED' or 'DENIED'
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+
+class UserPosition(db.Model):
+    __tablename__ = "user_positions"
+
+    id = db.Column(db.Integer, primary_key=True, index=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
+    symbol = db.Column(db.String(10), nullable=False)
+    shares = db.Column(db.Integer, nullable=False)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 

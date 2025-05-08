@@ -1,9 +1,9 @@
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, status, Query
 from sqlalchemy.orm import Session
 from typing import List
 from pydantic import BaseModel
 from database.database import get_db
-from models.models import Trade, Vote, User
+from models.models import Trade, Vote, User, TradeAcceptance, UserPosition
 from datetime import datetime
 from typing import Optional
 
@@ -34,6 +34,33 @@ class TradeResponse(BaseModel):
 class VoteCreate(BaseModel):
     trade_id: int
     vote: bool  # True for yes, False for no
+
+class TradeAcceptanceCreate(BaseModel):
+    trade_recommendation_id: int
+    user_id: int
+    allocation_amount: float = None
+    allocation_shares: int = None
+    status: str  # 'ACCEPTED' or 'DENIED'
+
+class TradeAcceptanceResponse(BaseModel):
+    id: int
+    user_id: int
+    trade_id: int
+    allocation_amount: float = None
+    allocation_shares: int = None
+    status: str
+    created_at: datetime
+    class Config:
+        orm_mode = True
+
+class UserPositionResponse(BaseModel):
+    id: int
+    user_id: int
+    symbol: str
+    shares: int
+    updated_at: datetime
+    class Config:
+        orm_mode = True
 
 @router.post("/trades/", response_model=TradeResponse)
 def create_trade(trade: TradeCreate, user_id: int, db: Session = Depends(get_db)):
@@ -95,4 +122,38 @@ def get_trade_votes(trade_id: int, db: Session = Depends(get_db)):
         "total_votes": len(votes),
         "yes_votes": yes_votes,
         "no_votes": no_votes
-    } 
+    }
+
+@router.get("/latest_trade_recommendation")
+def get_latest_trade_recommendation(db: Session = Depends(get_db)):
+    trade = db.query(Trade).order_by(Trade.entry_time.desc()).first()
+    if not trade:
+        raise HTTPException(status_code=404, detail="No trade recommendations found")
+    return trade
+
+@router.post("/trade_acceptances", response_model=TradeAcceptanceResponse)
+def create_trade_acceptance(acceptance: TradeAcceptanceCreate, db: Session = Depends(get_db)):
+    db_acceptance = TradeAcceptance(
+        user_id=acceptance.user_id,
+        trade_id=acceptance.trade_recommendation_id,
+        allocation_amount=acceptance.allocation_amount,
+        allocation_shares=acceptance.allocation_shares,
+        status=acceptance.status
+    )
+    db.add(db_acceptance)
+    db.commit()
+    db.refresh(db_acceptance)
+    return db_acceptance
+
+@router.get("/trade_acceptances", response_model=List[TradeAcceptanceResponse])
+def get_trade_acceptances(trade_id: int = Query(None), user_id: int = Query(None), db: Session = Depends(get_db)):
+    query = db.query(TradeAcceptance)
+    if trade_id is not None:
+        query = query.filter(TradeAcceptance.trade_id == trade_id)
+    if user_id is not None:
+        query = query.filter(TradeAcceptance.user_id == user_id)
+    return query.all()
+
+@router.get("/user_positions", response_model=List[UserPositionResponse])
+def get_user_positions(user_id: int, db: Session = Depends(get_db)):
+    return db.query(UserPosition).filter(UserPosition.user_id == user_id).all() 

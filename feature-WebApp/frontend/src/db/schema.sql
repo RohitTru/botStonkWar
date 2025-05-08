@@ -66,4 +66,27 @@ CREATE TABLE IF NOT EXISTS sessions (
     expires_at TIMESTAMP NOT NULL,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     FOREIGN KEY (user_id) REFERENCES users(id)
+);
+
+-- Trade acceptances table
+CREATE TABLE IF NOT EXISTS trade_acceptances (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    trade_id INT NOT NULL,
+    allocation_amount DECIMAL(15, 2), -- For BUY
+    allocation_shares INT,            -- For SELL
+    status ENUM('ACCEPTED', 'DENIED') NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id),
+    FOREIGN KEY (trade_id) REFERENCES trades(id)
+);
+
+-- User positions table
+CREATE TABLE IF NOT EXISTS user_positions (
+    id INT PRIMARY KEY AUTO_INCREMENT,
+    user_id INT NOT NULL,
+    symbol VARCHAR(10) NOT NULL,
+    shares INT NOT NULL,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    FOREIGN KEY (user_id) REFERENCES users(id)
 ); 
