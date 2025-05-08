@@ -54,6 +54,7 @@
                     <option value="positive">Positive P&L</option>
                     <option value="negative">Negative P&L</option>
                 </select>
+                <span id="user-count"></span>
             </div>
             <div class="scroll-table-wrapper">
                 <table class="leaderboard">
@@ -64,33 +65,99 @@
                 </table>
             </div>
             <div id="user-empty-msg" style="color:#888;text-align:center;display:none;">No users found.</div>
+            <div class="filter-bar">
+                <button id="user-prev-page">&lt; Prev</button>
+                <span id="user-page-info"></span>
+                <button id="user-next-page">Next &gt;</button>
+            </div>
         </section>
         <section id="trade-summary">
             <div class="section-title">Trade &amp; Position Summaries</div>
-            <table class="trade-table">
-                <thead><tr><th>Symbol</th><th>Type</th><th>Status</th><th>Users</th><th>Details</th></tr></thead>
-                <tbody id="trade-summary-body">
-                    <!-- Trade rows will be populated here -->
-                </tbody>
-            </table>
+            <div class="filter-bar">
+                <input class="search-box" type="text" id="trade-search-box" placeholder="Search symbol...">
+                <select id="trade-status-filter">
+                    <option value="">All Statuses</option>
+                    <option value="PENDING">Pending</option>
+                    <option value="EXECUTED">Executed</option>
+                    <option value="EXPIRED">Expired</option>
+                </select>
+                <input type="date" id="trade-start-date">
+                <input type="date" id="trade-end-date">
+                <span id="trade-count"></span>
+            </div>
+            <div class="scroll-table-wrapper">
+                <table class="trades-table">
+                    <thead><tr><th>Symbol</th><th>Type</th><th>Status</th><th>Users</th><th>Details</th><th>Created</th><th>Expires</th></tr></thead>
+                    <tbody id="trades-body"></tbody>
+                </table>
+            </div>
+            <div id="trades-empty-msg" style="color:#888;text-align:center;display:none;">No trades found.</div>
+            <div class="filter-bar">
+                <button id="trades-prev-page">&lt; Prev</button>
+                <span id="trades-page-info"></span>
+                <button id="trades-next-page">Next &gt;</button>
+            </div>
         </section>
         <section id="orders-section">
             <div class="section-title">Live Orders</div>
-            <table class="orders-table">
-                <thead><tr><th>Symbol</th><th>Qty</th><th>Side</th><th>Status</th><th>Filled Price</th><th>Submitted At</th></tr></thead>
-                <tbody id="orders-body">
-                    <!-- Orders will be populated here -->
-                </tbody>
-            </table>
+            <div class="filter-bar">
+                <input class="search-box" type="text" id="orders-symbol-search" placeholder="Symbol...">
+                <select id="orders-status-filter">
+                    <option value="">All Statuses</option>
+                    <option value="new">New</option>
+                    <option value="partially_filled">Partially Filled</option>
+                    <option value="filled">Filled</option>
+                    <option value="done_for_day">Done for Day</option>
+                    <option value="canceled">Canceled</option>
+                    <option value="expired">Expired</option>
+                    <option value="replaced">Replaced</option>
+                    <option value="pending_cancel">Pending Cancel</option>
+                    <option value="pending_replace">Pending Replace</option>
+                    <option value="stopped">Stopped</option>
+                    <option value="rejected">Rejected</option>
+                    <option value="pending_new">Pending New</option>
+                    <option value="accepted">Accepted</option>
+                </select>
+                <span id="orders-count"></span>
+            </div>
+            <div class="scroll-table-wrapper">
+                <table class="orders-table">
+                    <thead><tr><th>Symbol</th><th>Qty</th><th>Side</th><th>Status</th><th>Avg Price</th><th>Submitted</th></tr></thead>
+                    <tbody id="orders-body"></tbody>
+                </table>
+            </div>
+            <div id="orders-empty-msg" style="color:#888;text-align:center;display:none;">No orders found.</div>
+            <div class="filter-bar">
+                <button id="orders-prev-page">&lt; Prev</button>
+                <span id="orders-page-info"></span>
+                <button id="orders-next-page">Next &gt;</button>
+            </div>
         </section>
         <section id="logs-section">
             <div class="section-title">Logs &amp; Monitoring</div>
-            <table class="logs-table">
-                <thead><tr><th>Timestamp</th><th>Event</th><th>Details</th></tr></thead>
-                <tbody id="logs-body">
-                    <!-- Log rows will be populated here -->
-                </tbody>
-            </table>
+            <div class="filter-bar">
+                <select id="logs-event-filter">
+                    <option value="">All Events</option>
+                    <option value="EXECUTED">Executed</option>
+                    <option value="FAILED">Failed</option>
+                    <option value="EXPIRED">Expired</option>
+                </select>
+                <input type="date" id="logs-start-date">
+                <input type="date" id="logs-end-date">
+                <span id="logs-count"></span>
+            </div>
+            <div class="scroll-table-wrapper">
+                <table class="logs-table">
+                    <thead><tr><th>Timestamp</th><th>Event</th><th>Details</th><th>Trade ID</th></tr></thead>
+                    <tbody id="logs-body"></tbody>
+                </table>
+            </div>
+            <div id="logs-empty-msg" style="color:#888;text-align:center;display:none;">No logs found.</div>
+            <div class="filter-bar">
+                <button id="logs-prev-page">&lt; Prev</button>
+                <span id="logs-page-info"></span>
+                <button id="logs-next-page">Next &gt;</button>
+            </div>
         </section>
         <section id="trade-acceptances-section">
             <div class="section-title">User Acceptances & Allocations (Latest Trade)</div>
@@ -122,6 +189,9 @@
     </div>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
     <script>
+        let userPage = 1;
+        let userPerPage = 20;
+        let userTotal = 0;
         // Fetch metrics and update dashboard cards
         function updateMetrics() {
             fetch('/api/metrics')
@@ -136,16 +206,12 @@
         setInterval(updateMetrics, 30000);
 
         // Fetch users and populate leaderboard
-        function updateUsers(search = '', sort = 'equity', pnlFilter = 'all') {
-            fetch('/api/users?search=' + encodeURIComponent(search))
+        function updateUsers(search = '', sort = 'equity', pnlFilter = 'all', page = 1) {
+            fetch(`/api/users?search=${encodeURIComponent(search)}&sort=${sort}&pnl_filter=${pnlFilter}&page=${page}&per_page=${userPerPage}`)
                 .then(res => res.json())
-                .then(users => {
-                    // Apply client-side filters
-                    if (pnlFilter === 'positive') users = users.filter(u => u.pnl > 0);
-                    if (pnlFilter === 'negative') users = users.filter(u => u.pnl < 0);
-                    if (sort === 'equity') users.sort((a, b) => b.equity - a.equity);
-                    if (sort === 'pnl') users.sort((a, b) => b.pnl - a.pnl);
-                    if (sort === 'username') users.sort((a, b) => a.username.localeCompare(b.username));
+                .then(data => {
+                    const users = data.users || [];
+                    userTotal = data.total || 0;
                     const tbody = document.getElementById('leaderboard-body');
                     tbody.innerHTML = '';
                     if (users.length === 0) {
@@ -158,69 +224,146 @@
                             tbody.appendChild(tr);
                         });
                     }
+                    document.getElementById('user-count').textContent = `Total: ${userTotal}`;
+                    document.getElementById('user-page-info').textContent = `Page ${userPage} of ${Math.ceil(userTotal/userPerPage)}`;
                 });
         }
         document.getElementById('user-search-box').addEventListener('input', function() {
-            updateUsers(this.value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value);
+            userPage = 1;
+            updateUsers(this.value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
         });
         document.getElementById('user-sort').addEventListener('change', function() {
-            updateUsers(document.getElementById('user-search-box').value, this.value, document.getElementById('user-pnl-filter').value);
+            userPage = 1;
+            updateUsers(document.getElementById('user-search-box').value, this.value, document.getElementById('user-pnl-filter').value, userPage);
         });
         document.getElementById('user-pnl-filter').addEventListener('change', function() {
-            updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, this.value);
+            userPage = 1;
+            updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, this.value, userPage);
+        });
+        document.getElementById('user-prev-page').addEventListener('click', function() {
+            if (userPage > 1) {
+                userPage--;
+                updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
+            }
+        });
+        document.getElementById('user-next-page').addEventListener('click', function() {
+            if (userPage < Math.ceil(userTotal/userPerPage)) {
+                userPage++;
+                updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
+            }
         });
         updateUsers();
 
         // Fetch trades and populate trade summary
+        let tradesPage = 1;
+        let tradesPerPage = 20;
+        let tradesTotal = 0;
         function updateTrades() {
-            fetch('/api/trades')
+            const search = document.getElementById('trade-search-box').value;
+            const status = document.getElementById('trade-status-filter').value;
+            const start = document.getElementById('trade-start-date').value;
+            const end = document.getElementById('trade-end-date').value;
+            let url = `/api/trades?search=${encodeURIComponent(search)}&status=${status}&start_date=${start}&end_date=${end}&page=${tradesPage}&per_page=${tradesPerPage}`;
+            fetch(url)
                 .then(res => res.json())
-                .then(trades => {
-                    const tbody = document.getElementById('trade-summary-body');
+                .then(data => {
+                    const trades = data.trades || [];
+                    tradesTotal = data.total || 0;
+                    const tbody = document.getElementById('trades-body');
                     tbody.innerHTML = '';
-                    trades.forEach(t => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td><button onclick=\"openTradePopup(${t.id})\">Details</button></td>`;
-                        tbody.appendChild(tr);
-                    });
+                    if (trades.length === 0) {
+                        document.getElementById('trades-empty-msg').style.display = 'block';
+                    } else {
+                        document.getElementById('trades-empty-msg').style.display = 'none';
+                        trades.forEach(t => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td>${t.details}</td><td>${t.created_at}</td><td>${t.expires_at}</td>`;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    document.getElementById('trade-count').textContent = `Total: ${tradesTotal}`;
+                    document.getElementById('trades-page-info').textContent = `Page ${tradesPage} of ${Math.ceil(tradesTotal/tradesPerPage)}`;
                 });
         }
+        document.getElementById('trade-search-box').addEventListener('input', function() { tradesPage = 1; updateTrades(); });
+        document.getElementById('trade-status-filter').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
+        document.getElementById('trade-start-date').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
+        document.getElementById('trade-end-date').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
+        document.getElementById('trades-prev-page').addEventListener('click', function() { if (tradesPage > 1) { tradesPage--; updateTrades(); } });
+        document.getElementById('trades-next-page').addEventListener('click', function() { if (tradesPage < Math.ceil(tradesTotal/tradesPerPage)) { tradesPage++; updateTrades(); } });
         updateTrades();
-        setInterval(updateTrades, 30000);
 
         // Fetch orders and populate live orders table
+        let ordersPage = 1;
+        let ordersPerPage = 20;
+        let ordersTotal = 0;
         function updateOrders() {
-            fetch('/api/orders')
+            const symbol = document.getElementById('orders-symbol-search').value;
+            const status = document.getElementById('orders-status-filter').value;
+            let url = `/api/orders?symbol=${encodeURIComponent(symbol)}&status=${status}&page=${ordersPage}&per_page=${ordersPerPage}`;
+            fetch(url)
                 .then(res => res.json())
-                .then(orders => {
+                .then(data => {
+                    const orders = data.orders || [];
+                    ordersTotal = data.total || 0;
                     const tbody = document.getElementById('orders-body');
                     tbody.innerHTML = '';
-                    orders.forEach(o => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${o.symbol}</td><td>${o.qty}</td><td>${o.side}</td><td>${o.status}</td><td>${o.filled_avg_price || '-'}</td><td>${o.submitted_at}</td>`;
-                        tbody.appendChild(tr);
-                    });
+                    if (orders.length === 0) {
+                        document.getElementById('orders-empty-msg').style.display = 'block';
+                    } else {
+                        document.getElementById('orders-empty-msg').style.display = 'none';
+                        orders.forEach(o => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td>${o.symbol}</td><td>${o.qty}</td><td>${o.side}</td><td>${o.status}</td><td>${o.filled_avg_price || '-'}</td><td>${o.submitted_at}</td>`;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    document.getElementById('orders-count').textContent = `Total: ${ordersTotal}`;
+                    document.getElementById('orders-page-info').textContent = `Page ${ordersPage} of ${Math.ceil(ordersTotal/ordersPerPage)}`;
                 });
         }
+        document.getElementById('orders-symbol-search').addEventListener('input', function() { ordersPage = 1; updateOrders(); });
+        document.getElementById('orders-status-filter').addEventListener('change', function() { ordersPage = 1; updateOrders(); });
+        document.getElementById('orders-prev-page').addEventListener('click', function() { if (ordersPage > 1) { ordersPage--; updateOrders(); } });
+        document.getElementById('orders-next-page').addEventListener('click', function() { if (ordersPage < Math.ceil(ordersTotal/ordersPerPage)) { ordersPage++; updateOrders(); } });
         updateOrders();
-        setInterval(updateOrders, 30000);
 
         // Fetch logs and populate logs table
+        let logsPage = 1;
+        let logsPerPage = 20;
+        let logsTotal = 0;
         function updateLogs() {
-            fetch('/api/logs')
+            const event = document.getElementById('logs-event-filter').value;
+            const start = document.getElementById('logs-start-date').value;
+            const end = document.getElementById('logs-end-date').value;
+            let url = `/api/logs?event=${event}&start_date=${start}&end_date=${end}&page=${logsPage}&per_page=${logsPerPage}`;
+            fetch(url)
                 .then(res => res.json())
-                .then(logs => {
+                .then(data => {
+                    const logs = data.logs || [];
+                    logsTotal = data.total || 0;
                     const tbody = document.getElementById('logs-body');
                     tbody.innerHTML = '';
-                    logs.forEach(l => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${l.timestamp}</td><td>${l.event}</td><td>${l.details}</td>`;
-                        tbody.appendChild(tr);
-                    });
+                    if (logs.length === 0) {
+                        document.getElementById('logs-empty-msg').style.display = 'block';
+                    } else {
+                        document.getElementById('logs-empty-msg').style.display = 'none';
+                        logs.forEach(l => {
+                            const tr = document.createElement('tr');
+                            tr.innerHTML = `<td>${l.timestamp}</td><td>${l.event}</td><td>${l.details}</td><td>${l.trade_recommendation_id}</td>`;
+                            tbody.appendChild(tr);
+                        });
+                    }
+                    document.getElementById('logs-count').textContent = `Total: ${logsTotal}`;
+                    document.getElementById('logs-page-info').textContent = `Page ${logsPage} of ${Math.ceil(logsTotal/logsPerPage)}`;
                 });
         }
+        document.getElementById('logs-event-filter').addEventListener('change', function() { logsPage = 1; updateLogs(); });
+        document.getElementById('logs-start-date').addEventListener('change', function() { logsPage = 1; updateLogs(); });
+        document.getElementById('logs-end-date').addEventListener('change', function() { logsPage = 1; updateLogs(); });
+        document.getElementById('logs-prev-page').addEventListener('click', function() { if (logsPage > 1) { logsPage--; updateLogs(); } });
+        document.getElementById('logs-next-page').addEventListener('click', function() { if (logsPage < Math.ceil(logsTotal/logsPerPage)) { logsPage++; updateLogs(); } });
         updateLogs();
-        setInterval(updateLogs, 30000);
 
         // Fetch and display user acceptances for the latest trade recommendation
         function updateAcceptances() {

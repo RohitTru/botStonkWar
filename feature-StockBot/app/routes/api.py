@@ -68,18 +68,20 @@ def add_funds():
 def get_users():
     try:
         search = request.args.get('search', '').strip()
+        sort = request.args.get('sort', 'equity')
+        pnl_filter = request.args.get('pnl_filter', 'all')
+        page = int(request.args.get('page', 1))
+        per_page = int(request.args.get('per_page', 20))
         query = db.session.query(User)
         if search:
             query = query.filter(User.username.ilike(f'%{search}%'))
         users = query.order_by(User.balance.desc()).all()
         user_list = []
         for u in users:
-            # Calculate equity and P&L
             positions = db.session.execute(text('SELECT shares_owned, average_buy_price, symbol FROM user_positions WHERE user_id = :uid'), {'uid': u.id}).fetchall()
             equity = float(u.balance)
             pnl = 0.0
             for pos in positions:
-                # Fetch current price (stub: use average_buy_price for now, replace with live price if available)
                 current_price = float(pos.average_buy_price)
                 shares = float(pos.shares_owned)
                 equity += shares * current_price
@@ -90,18 +92,52 @@ def get_users():
                 'equity': round(equity, 2),
                 'pnl': round(pnl, 2),
             })
-        return jsonify(user_list)
+        # Filtering
+        if pnl_filter == 'positive':
+            user_list = [u for u in user_list if u['pnl'] > 0]
+        elif pnl_filter == 'negative':
+            user_list = [u for u in user_list if u['pnl'] < 0]
+        # Sorting
+        if sort == 'equity':
+            user_list.sort(key=lambda x: x['equity'], reverse=True)
+        elif sort == 'pnl':
+            user_list.sort(key=lambda x: x['pnl'], reverse=True)
+        elif sort == 'username':
+            user_list.sort(key=lambda x: x['username'])
+        # Pagination
+        total = len(user_list)
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated = user_list[start:end]
+        return jsonify({'total': total, 'users': paginated})
     except Exception as e:
         print(f"Error in get_users: {e}")
         return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/trades', methods=['GET'])
 def get_trades():
-    # Fetch all trade recommendations (active, executed, expired)
-    trades = TradeRecommendation.query.order_by(TradeRecommendation.created_at.desc()).all()
+    search = request.args.get('search', '').strip()
+    status = request.args.get('status', '').strip()
+    symbol = request.args.get('symbol', '').strip()
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
+    query = TradeRecommendation.query
+    if search:
+        query = query.filter(TradeRecommendation.symbol.ilike(f'%{search}%'))
+    if status:
+        query = query.filter(TradeRecommendation.status == status)
+    if symbol:
+        query = query.filter(TradeRecommendation.symbol == symbol)
+    if start_date:
+        query = query.filter(TradeRecommendation.created_at >= start_date)
+    if end_date:
+        query = query.filter(TradeRecommendation.created_at <= end_date)
+    total = query.count()
+    trades = query.order_by(TradeRecommendation.created_at.desc()).offset((page-1)*per_page).limit(per_page).all()
     trade_list = []
     for t in trades:
-        # Count users who accepted this trade
         user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
         trade_list.append({
             'id': t.id,
@@ -113,12 +149,23 @@ def get_trades():
             'created_at': t.created_at.isoformat() if t.created_at else '',
             'expires_at': t.expires_at.isoformat() if t.expires_at else '',
         })
-    return jsonify(trade_list)
+    return jsonify({'total': total, 'trades': trade_list})
 
 @api_bp.route('/orders', methods=['GET'])
 def get_orders():
+    status = request.args.get('status', '').strip()
+    symbol = request.args.get('symbol', '').strip()
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
     alpaca = AlpacaService()
-    orders = alpaca.api.list_orders(status='all', limit=50)
+    orders = alpaca.api.list_orders(status='all', limit=200)
+    # Filter in memory since Alpaca API doesn't support all filters
+    if status:
+        orders = [o for o in orders if o.status == status]
+    if symbol:
+        orders = [o for o in orders if o.symbol == symbol]
+    total = len(orders)
+    paginated = orders[(page-1)*per_page:page*per_page]
     order_list = [
         {
             'symbol': o.symbol,
@@ -127,26 +174,44 @@ def get_orders():
             'status': o.status,
             'filled_avg_price': o.filled_avg_price,
             'submitted_at': o.submitted_at.isoformat() if o.submitted_at else '',
-        } for o in orders
+        } for o in paginated
     ]
-    return jsonify(order_list)
+    return jsonify({'total': total, 'orders': order_list})
 
 @api_bp.route('/logs', methods=['GET'])
 def get_logs():
-    try:
-        logs = db.session.execute(text('SELECT trade_recommendation_id, executed_at, status, details FROM trade_execution_log ORDER BY executed_at DESC LIMIT 100')).fetchall()
-        log_list = []
-        for l in logs:
-            log_list.append({
-                'timestamp': l.executed_at.isoformat() if l.executed_at else '',
-                'event': l.status,
-                'details': l.details,
-                'trade_recommendation_id': l.trade_recommendation_id,
-            })
-        return jsonify(log_list)
-    except Exception as e:
-        print(f"Error in get_logs: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+    event = request.args.get('event', '').strip()
+    start_date = request.args.get('start_date')
+    end_date = request.args.get('end_date')
+    page = int(request.args.get('page', 1))
+    per_page = int(request.args.get('per_page', 20))
+    base_query = 'SELECT trade_recommendation_id, executed_at, status, details FROM trade_execution_log WHERE 1=1'
+    params = {}
+    if event:
+        base_query += ' AND status = :event'
+        params['event'] = event
+    if start_date:
+        base_query += ' AND executed_at >= :start_date'
+        params['start_date'] = start_date
+    if end_date:
+        base_query += ' AND executed_at <= :end_date'
+        params['end_date'] = end_date
+    base_query += ' ORDER BY executed_at DESC'
+    count_query = f'SELECT COUNT(*) FROM ({base_query}) as sub'
+    total = db.session.execute(text(count_query), params).scalar()
+    base_query += ' LIMIT :limit OFFSET :offset'
+    params['limit'] = per_page
+    params['offset'] = (page-1)*per_page
+    logs = db.session.execute(text(base_query), params).fetchall()
+    log_list = []
+    for l in logs:
+        log_list.append({
+            'timestamp': l.executed_at.isoformat() if l.executed_at else '',
+            'event': l.status,
+            'details': l.details,
+            'trade_recommendation_id': l.trade_recommendation_id,
+        })
+    return jsonify({'total': total, 'logs': log_list})
 
 @api_bp.route('/latest_trade_recommendation', methods=['GET'])
 def latest_trade_recommendation():
