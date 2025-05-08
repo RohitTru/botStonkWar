@@ -5,6 +5,8 @@ from app.models.user import User
 from app.database import db
 from sqlalchemy.exc import NoResultFound
 from datetime import datetime, timedelta
+from app.models.trade import TradeAcceptance, TradeExecutionLog
+from sqlalchemy import desc
 
 api_bp = Blueprint('api', __name__)
 trade_service = TradeService()
@@ -116,4 +118,79 @@ def get_logs():
         }
         for i in range(10)
     ]
-    return jsonify(logs) 
+    return jsonify(logs)
+
+@api_bp.route('/latest_trade_recommendation', methods=['GET'])
+def latest_trade_recommendation():
+    # Fetch the most recent trade recommendation
+    result = db.session.execute(
+        "SELECT * FROM trade_recommendations ORDER BY created_at DESC LIMIT 1"
+    )
+    row = result.fetchone()
+    if not row:
+        return jsonify({'status': 'error', 'message': 'No trade recommendations found'}), 404
+    trade = dict(row)
+    return jsonify(trade)
+
+@api_bp.route('/trade_acceptances', methods=['POST'])
+def post_trade_acceptance():
+    data = request.json
+    trade_recommendation_id = data.get('trade_recommendation_id')
+    user_id = data.get('user_id')
+    allocation_amount = data.get('allocation_amount')
+    allocation_shares = data.get('allocation_shares')
+    status = data.get('status')
+    acceptance = TradeAcceptance.query.filter_by(trade_recommendation_id=trade_recommendation_id, user_id=user_id).first()
+    if acceptance:
+        acceptance.allocation_amount = allocation_amount
+        acceptance.allocation_shares = allocation_shares
+        acceptance.status = status
+        acceptance.updated_at = datetime.utcnow()
+    else:
+        acceptance = TradeAcceptance(
+            trade_recommendation_id=trade_recommendation_id,
+            user_id=user_id,
+            allocation_amount=allocation_amount,
+            allocation_shares=allocation_shares,
+            status=status
+        )
+        db.session.add(acceptance)
+    db.session.commit()
+    return jsonify({'status': 'success'})
+
+@api_bp.route('/trade_acceptances', methods=['GET'])
+def get_trade_acceptances():
+    trade_id = request.args.get('trade_id')
+    query = TradeAcceptance.query
+    if trade_id:
+        query = query.filter_by(trade_recommendation_id=trade_id)
+    acceptances = query.all()
+    result = [
+        {
+            'user_id': a.user_id,
+            'trade_recommendation_id': a.trade_recommendation_id,
+            'allocation_amount': float(a.allocation_amount) if a.allocation_amount else None,
+            'allocation_shares': float(a.allocation_shares) if a.allocation_shares else None,
+            'status': a.status,
+            'created_at': a.created_at.isoformat(),
+            'updated_at': a.updated_at.isoformat()
+        } for a in acceptances
+    ]
+    return jsonify(result)
+
+@api_bp.route('/trade_execution_log', methods=['GET'])
+def get_trade_execution_log():
+    trade_id = request.args.get('trade_id')
+    query = TradeExecutionLog.query
+    if trade_id:
+        query = query.filter_by(trade_recommendation_id=trade_id)
+    logs = query.order_by(desc(TradeExecutionLog.executed_at)).all()
+    result = [
+        {
+            'trade_recommendation_id': l.trade_recommendation_id,
+            'executed_at': l.executed_at.isoformat(),
+            'status': l.status,
+            'details': l.details
+        } for l in logs
+    ]
+    return jsonify(result) 

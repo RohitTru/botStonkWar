@@ -65,6 +65,15 @@
                 </tbody>
             </table>
         </section>
+        <section id="trade-acceptances-section">
+            <div class="section-title">User Acceptances & Allocations (Latest Trade)</div>
+            <table class="acceptances-table">
+                <thead><tr><th>User ID</th><th>Allocation ($)</th><th>Allocation (Shares)</th><th>Status</th><th>Updated At</th></tr></thead>
+                <tbody id="acceptances-body">
+                    <!-- Acceptances will be populated here -->
+                </tbody>
+            </table>
+        </section>
     </main>
     <div class="overlay" id="popup-overlay"></div>
     <div class="popup" id="user-popup">
@@ -154,6 +163,28 @@
         }
         updateLogs();
         setInterval(updateLogs, 30000);
+
+        // Fetch and display user acceptances for the latest trade recommendation
+        function updateAcceptances() {
+            fetch('/api/latest_trade_recommendation')
+                .then(res => res.json())
+                .then(trade => {
+                    if (!trade.id) return;
+                    fetch('/api/trade_acceptances?trade_id=' + trade.id)
+                        .then(res => res.json())
+                        .then(acceptances => {
+                            const tbody = document.getElementById('acceptances-body');
+                            tbody.innerHTML = '';
+                            acceptances.forEach(a => {
+                                const tr = document.createElement('tr');
+                                tr.innerHTML = `<td>${a.user_id}</td><td>${a.allocation_amount || '-'}</td><td>${a.allocation_shares || '-'}</td><td>${a.status}</td><td>${a.updated_at}</td>`;
+                                tbody.appendChild(tr);
+                            });
+                        });
+                });
+        }
+        updateAcceptances();
+        setInterval(updateAcceptances, 30000);
 
         // Popup logic
         function openPopup(content) {
