@@ -2,12 +2,14 @@
 
 import { Container, Paper, Box, Button } from '@mui/material';
 import { useState } from 'react';
+import SystemMonitor from './SystemMonitor';
 
 const DASHBOARD_LINKS = [
   { name: 'Web Scraper Engine', url: 'https://feature-webscraperstockselector.emerginary.com/' },
   { name: 'Sentiment Analysis Engine', url: 'https://feature-sentimentanalysisengine.emerginary.com/' },
   { name: 'Trade Recommendation Engine', url: 'https://feature-tradelogistics.emerginary.com/' },
   { name: 'Brokerage Handler Engine', url: 'https://feature-stockbot.emerginary.com/' },
+  { name: 'System Monitor', url: null },
 ];
 
 export default function AdminDashboard() {
@@ -46,25 +48,29 @@ export default function AdminDashboard() {
           </Button>
         ))}
       </Box>
-      <Container maxWidth={false} sx={{ flexGrow: 1, p: 2 }}>
-        <Paper
-          sx={{
-            height: 'calc(100vh - 140px)',
-            overflow: 'hidden',
-            position: 'relative',
-          }}
-        >
-          <iframe
-            src={activeDashboard.url}
-            style={{
-              width: '100%',
-              height: '100%',
-              border: 'none',
+      {activeDashboard.name === 'System Monitor' ? (
+        <SystemMonitor />
+      ) : (
+        <Container maxWidth={false} sx={{ flexGrow: 1, p: 2 }}>
+          <Paper
+            sx={{
+              height: 'calc(100vh - 140px)',
+              overflow: 'hidden',
+              position: 'relative',
             }}
-            title={activeDashboard.name}
-          />
-        </Paper>
-      </Container>
+          >
+            <iframe
+              src={activeDashboard.url as string}
+              style={{
+                width: '100%',
+                height: '100%',
+                border: 'none',
+              }}
+              title={activeDashboard.name}
+            />
+          </Paper>
+        </Container>
+      )}
     </Box>
   );
 } 
