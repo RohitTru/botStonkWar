@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react';
 import { useRouter } from 'next/navigation';
-import { Box, Container, Typography, CircularProgress } from '@mui/material';
+import { Box, Typography, CircularProgress } from '@mui/material';
 import AdminDashboard from '@/components/dashboard/AdminDashboard';
 import UserDashboard from '@/components/dashboard/UserDashboard';
 
@@ -49,7 +49,7 @@ export default function DashboardPage() {
 
   if (loading) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: '#181828' }}>
         <CircularProgress />
       </Box>
     );
@@ -57,19 +57,19 @@ export default function DashboardPage() {
 
   if (error) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh">
+      <Box display="flex" justifyContent="center" alignItems="center" minHeight="100vh" sx={{ background: '#181828' }}>
         <Typography color="error">{error}</Typography>
       </Box>
     );
   }
 
   return (
-    <Container maxWidth="xl">
+    <Box sx={{ minHeight: '100vh', width: '100vw', background: '#181828' }}>
       {user?.role === 'admin' ? (
         <AdminDashboard />
       ) : (
         <UserDashboard user={user} />
       )}
-    </Container>
+    </Box>
   );
 } 

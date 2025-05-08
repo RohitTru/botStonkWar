@@ -9,7 +9,7 @@ export default function UserDashboard({ user }: { user: any }) {
         maxWidth: 300,
         mx: 'auto',
         mb: 3,
-        background: '#6c47ff',
+        background: 'linear-gradient(90deg, #7c5fff 0%, #6c47ff 100%)',
         boxShadow: 'none',
         borderRadius: 3,
         color: '#fff',
