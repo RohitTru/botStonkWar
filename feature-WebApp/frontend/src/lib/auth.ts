@@ -52,9 +52,13 @@ export async function registerUser(username: string, email: string, password: st
 
 export async function loginUser(username: string, password: string) {
   try {
+    console.log('loginUser function called for username:', username);
+    
     // Special case for admin user
     if (username.toLowerCase() === ADMIN_USERNAME) {
+      console.log('Admin login attempt');
       if (password === ADMIN_PASSWORD) {
+        console.log('Admin login successful');
         // Create admin session token
         const token = jwt.sign(
           { 
@@ -76,22 +80,30 @@ export async function loginUser(username: string, password: string) {
           },
         };
       }
+      console.log('Admin login failed - invalid credentials');
       throw new Error('Invalid admin credentials');
     }
 
     // Regular user login
+    console.log('Regular user login attempt');
     const user = await getUserByUsername(username);
     if (!user) {
+      console.log('User not found in database');
       throw new Error('Invalid username or password');
     }
+    console.log('User found in database:', user);
 
     // Verify password
+    console.log('Verifying password');
     const isValid = await comparePasswords(password, user.password_hash);
     if (!isValid) {
+      console.log('Password verification failed');
       throw new Error('Invalid username or password');
     }
+    console.log('Password verified successfully');
 
     // Create session token
+    console.log('Creating session token');
     const token = jwt.sign(
       { 
         userId: user.id, 
@@ -103,9 +115,11 @@ export async function loginUser(username: string, password: string) {
     );
 
     // Create session in database
+    console.log('Creating session in database');
     const expiresAt = new Date();
     expiresAt.setDate(expiresAt.getDate() + 1); // 24 hours from now
     await createSession(user.id, token, expiresAt);
+    console.log('Session created successfully');
 
     return {
       token,
@@ -117,7 +131,7 @@ export async function loginUser(username: string, password: string) {
       },
     };
   } catch (error) {
-    console.error('Login error:', error);
+    console.error('Login error in loginUser function:', error);
     throw error;
   }
 }

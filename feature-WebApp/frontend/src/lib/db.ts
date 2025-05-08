@@ -77,13 +77,15 @@ export async function createUser(username: string, email: string, passwordHash: 
 
 export async function getUserByUsername(username: string): Promise<User | undefined> {
   try {
+    console.log('getUserByUsername called for:', username);
     const [rows] = await pool.execute<User[]>(
       'SELECT * FROM users WHERE username = ?',
       [username]
     );
+    console.log('getUserByUsername result:', rows[0] ? 'User found' : 'User not found');
     return rows[0];
   } catch (error) {
-    console.error('Error getting user:', error);
+    console.error('Error getting user by username:', error);
     throw error;
   }
 }
@@ -104,10 +106,12 @@ export async function getUserByEmail(email: string): Promise<User | undefined> {
 // Session-related database functions
 export async function createSession(userId: number, sessionId: string, expiresAt: Date): Promise<ResultSetHeader> {
   try {
+    console.log('createSession called for userId:', userId);
     const [result] = await pool.execute<ResultSetHeader>(
       'INSERT INTO sessions (id, user_id, expires_at) VALUES (?, ?, ?)',
       [sessionId, userId, expiresAt]
     );
+    console.log('createSession result:', result);
     return result;
   } catch (error) {
     console.error('Error creating session:', error);
