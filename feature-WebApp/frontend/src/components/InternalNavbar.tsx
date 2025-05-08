@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
-export default function InternalNavbar() {
+export default function InternalNavbar({ user }: { user: any }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
@@ -40,7 +40,7 @@ export default function InternalNavbar() {
         >
           BotStonkWar
         </Typography>
-        <Box sx={{ display: 'flex', gap: 1 }}>
+        <Box sx={{ display: 'flex', gap: 1, alignItems: 'center' }}>
           <Button
             component={Link}
             href="/dashboard"
@@ -66,6 +66,11 @@ export default function InternalNavbar() {
           >
             Logout
           </Button>
+          {user?.username && (
+            <Typography sx={{ color: '#bdbddd', fontSize: 14, ml: 2 }}>
+              Logged in as <b>{user.username}</b>
+            </Typography>
+          )}
         </Box>
       </Toolbar>
     </AppBar>
