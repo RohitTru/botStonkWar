@@ -7,7 +7,7 @@ class User(db.Model):
     id = db.Column(db.Integer, primary_key=True, index=True)
     username = db.Column(db.String(80), unique=True, index=True)
     email = db.Column(db.String(120), unique=True, index=True)
-    hashed_password = db.Column(db.String(128))
+    password_hash = db.Column(db.String(128))
     full_name = db.Column(db.String(120))
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
