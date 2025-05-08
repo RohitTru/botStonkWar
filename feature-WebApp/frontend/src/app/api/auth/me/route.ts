@@ -31,20 +31,19 @@ export async function GET() {
       });
     }
 
-    // Regular user: fetch from backend
-    const response = await fetch(`${process.env.BACKEND_URL}/api/users/${decoded.userId}`, {
-      headers: {
-        'Authorization': `Bearer ${token}`,
-      },
-    });
-
-    if (!response.ok) {
-      throw new Error('Failed to fetch user data');
+    // Regular user: fetch from database
+    const user = await getUserByUsername(decoded.username);
+    if (!user) {
+      throw new Error('User not found');
     }
 
-    const userData = await response.json();
     // Always add role: 'user' for normal users
-    return NextResponse.json({ ...userData, role: 'user' });
+    return NextResponse.json({ 
+      id: user.id,
+      username: user.username,
+      email: user.email,
+      role: 'user'
+    });
   } catch (error: any) {
     console.error('Error fetching user data:', error);
     return NextResponse.json(

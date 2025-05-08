@@ -26,27 +26,38 @@ export default function LoginPage() {
     setIsLoading(true);
 
     try {
+      console.log('Attempting login for user:', username);
       const response = await fetch('/api/auth/login', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({ username, password }),
+        credentials: 'include',
       });
 
       const data = await response.json();
+      console.log('Login response:', data);
 
       if (!response.ok) {
         throw new Error(data.error || 'Login failed');
       }
 
+      // Verify the user data is present
+      if (!data.user) {
+        throw new Error('No user data received');
+      }
+
       // Redirect based on user role
-      if (data.user && data.user.role === 'admin') {
+      if (data.user.role === 'admin') {
+        console.log('Redirecting to admin dashboard');
         router.push('/admin-dashboard');
       } else {
+        console.log('Redirecting to user dashboard');
         router.push('/dashboard');
       }
     } catch (err: any) {
+      console.error('Login error:', err);
       setError(err.message || 'An error occurred during login');
     } finally {
       setIsLoading(false);
