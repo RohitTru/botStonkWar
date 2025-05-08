@@ -55,7 +55,7 @@ def trade_acceptances():
         data = request.get_json()
         acceptance = TradeAcceptance(
             user_id=data['user_id'],
-            trade_recommendation_id=data['trade_recommendation_id'],
+            trade_id=data['trade_id'],
             allocation_amount=data.get('allocation_amount'),
             allocation_shares=data.get('allocation_shares'),
             status=data['status']
@@ -64,18 +64,18 @@ def trade_acceptances():
         db.session.commit()
         return jsonify({'message': 'Acceptance recorded', 'id': acceptance.id}), 201
     else:
-        trade_recommendation_id = request.args.get('trade_recommendation_id')
+        trade_id = request.args.get('trade_id')
         user_id = request.args.get('user_id')
         query = TradeAcceptance.query
-        if trade_recommendation_id:
-            query = query.filter_by(trade_recommendation_id=trade_recommendation_id)
+        if trade_id:
+            query = query.filter_by(trade_id=trade_id)
         if user_id:
             query = query.filter_by(user_id=user_id)
         acceptances = query.order_by(desc(TradeAcceptance.created_at)).all()
         return jsonify([{
             'id': a.id,
             'user_id': a.user_id,
-            'trade_recommendation_id': a.trade_recommendation_id,
+            'trade_id': a.trade_id,
             'allocation_amount': a.allocation_amount,
             'allocation_shares': a.allocation_shares,
             'status': a.status,

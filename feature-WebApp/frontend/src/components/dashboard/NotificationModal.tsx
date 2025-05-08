@@ -46,7 +46,7 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     setError('');
     try {
       const body: any = {
-        trade_recommendation_id: trade.id,
+        trade_id: trade.id,
         user_id: userId,
         status: action,
       };

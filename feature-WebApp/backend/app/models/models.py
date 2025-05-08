@@ -66,9 +66,9 @@ class TradeAcceptance(db.Model):
 
     id = db.Column(db.Integer, primary_key=True, index=True)
     user_id = db.Column(db.Integer, db.ForeignKey("users.id"), nullable=False)
-    trade_recommendation_id = db.Column(db.BigInteger, db.ForeignKey("trade_recommendations.id"), nullable=False)
+    trade_id = db.Column(db.BigInteger, db.ForeignKey("trade_recommendations.id"), nullable=False)
     allocation_amount = db.Column(db.Float, nullable=True)  # For BUY
-    allocation_shares = db.Column(db.Integer, nullable=True)  # For SELL
+    allocation_shares = db.Column(db.Float, nullable=True)  # For SELL
     status = db.Column(db.String(10), nullable=False)  # 'ACCEPTED' or 'DENIED'
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
 
