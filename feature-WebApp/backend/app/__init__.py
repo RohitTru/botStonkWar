@@ -31,5 +31,7 @@ def create_app():
     # Register blueprints
     from app.routes import auth_bp
     app.register_blueprint(auth_bp, url_prefix='/api/auth')
+    from app.routes.trades import trades_bp
+    app.register_blueprint(trades_bp, url_prefix='/api')
 
     return app 
