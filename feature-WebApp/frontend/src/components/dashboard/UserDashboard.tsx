@@ -19,18 +19,26 @@ export default function UserDashboard({ user }: { user: any }) {
         if (!res.ok) return;
         const trade = await res.json();
         setLatestTrade(trade);
+        // Fetch user positions for SELL
+        const posRes = await fetch(`/api/user_positions?user_id=${user.id}`);
+        const positions = await posRes.json();
+        setUserPositions(positions);
         // Check if user has responded
         const resp = await fetch(`/api/trade_acceptances?trade_id=${trade.id}&user_id=${user.id}`);
         const acceptances = await resp.json();
+        let shouldShow = false;
         if (!acceptances.length || lastRespondedTradeId !== trade.id) {
-          setShowModal(true);
-        } else {
-          setShowModal(false);
+          if (trade.action === 'SELL') {
+            const pos = positions.find((p: any) => p.symbol === trade.symbol);
+            if (pos && pos.shares > 0) {
+              shouldShow = true;
+            }
+          } else {
+            shouldShow = true;
+          }
         }
+        setShowModal(shouldShow);
         setLastRespondedTradeId(acceptances.length ? trade.id : null);
-        // Fetch user positions for SELL
-        const posRes = await fetch(`/api/user_positions?user_id=${user.id}`);
-        setUserPositions(await posRes.json());
       } catch (e) {
         // Ignore errors for now
       }
