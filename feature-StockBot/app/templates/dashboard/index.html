@@ -8,11 +8,12 @@
         main { max-width: 1100px; margin: 2rem auto; padding: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         #metrics-cards { display: flex; gap: 1rem; margin-bottom: 2rem; }
         .card { background: #e3e8f0; padding: 1rem 2rem; border-radius: 6px; font-size: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); min-width: 180px; }
-        #user-search, #trade-summary, #orders-section, #logs-section { margin-bottom: 2rem; }
+        #user-search, #trade-summary, #orders-section, #logs-section, #trade-acceptances-section { margin-bottom: 2rem; }
         .section-title { font-weight: bold; margin-bottom: 0.5rem; }
-        .leaderboard, .trade-table, .orders-table, .logs-table { width: 100%; border-collapse: collapse; }
-        .leaderboard th, .trade-table th, .orders-table th, .logs-table th { background: #e3e8f0; }
-        .leaderboard th, .leaderboard td, .trade-table th, .trade-table td, .orders-table th, .orders-table td, .logs-table th, .logs-table td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
+        .leaderboard, .trade-table, .orders-table, .logs-table, .acceptances-table { width: 100%; border-collapse: collapse; }
+        .leaderboard th, .trade-table th, .orders-table th, .logs-table th, .acceptances-table th { background: #e3e8f0; }
+        .leaderboard th, .leaderboard td, .trade-table th, .trade-table td, .orders-table th, .orders-table td, .logs-table th, .logs-table td, .acceptances-table th, .acceptances-table td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
+        .acceptances-table { background: #f9f9f9; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); margin-top: 1rem; }
         .search-box { padding: 0.5rem; width: 250px; margin-bottom: 1rem; }
         .popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); padding: 2rem; z-index: 1000; }
         .popup.active { display: block; }
@@ -175,11 +176,17 @@
                         .then(acceptances => {
                             const tbody = document.getElementById('acceptances-body');
                             tbody.innerHTML = '';
-                            acceptances.forEach(a => {
+                            if (acceptances.length === 0) {
                                 const tr = document.createElement('tr');
-                                tr.innerHTML = `<td>${a.user_id}</td><td>${a.allocation_amount || '-'}</td><td>${a.allocation_shares || '-'}</td><td>${a.status}</td><td>${a.updated_at}</td>`;
+                                tr.innerHTML = `<td colspan="5" style="text-align:center;color:#888;">No user acceptances yet</td>`;
                                 tbody.appendChild(tr);
-                            });
+                            } else {
+                                acceptances.forEach(a => {
+                                    const tr = document.createElement('tr');
+                                    tr.innerHTML = `<td>${a.user_id}</td><td>${a.allocation_amount || '-'}</td><td>${a.allocation_shares || '-'}</td><td>${a.status}</td><td>${a.updated_at}</td>`;
+                                    tbody.appendChild(tr);
+                                });
+                            }
                         });
                 });
         }
