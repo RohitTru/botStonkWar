@@ -95,6 +95,23 @@
             updateUsers(this.value);
         });
 
+        // Fetch trades and populate trade summary
+        function updateTrades() {
+            fetch('/api/trades')
+                .then(res => res.json())
+                .then(trades => {
+                    const tbody = document.getElementById('trade-summary-body');
+                    tbody.innerHTML = '';
+                    trades.forEach(t => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td><button onclick=\"openPopup('${t.details}')\">Details</button></td>`;
+                        tbody.appendChild(tr);
+                    });
+                });
+        }
+        updateTrades();
+        setInterval(updateTrades, 30000);
+
         // Popup logic
         function openPopup(content) {
             document.getElementById('popup-content').innerHTML = content;

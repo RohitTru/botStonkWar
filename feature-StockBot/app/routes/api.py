@@ -64,4 +64,25 @@ def get_users():
             'pnl': 0.0,  # Placeholder
         } for u in users
     ]
-    return jsonify(user_list) 
+    return jsonify(user_list)
+
+@api_bp.route('/trades', methods=['GET'])
+def get_trades():
+    # Placeholder data; replace with real trade data later
+    trades = [
+        {
+            'symbol': 'AAPL',
+            'type': 'BUY',
+            'status': 'EXECUTED',
+            'users': 5,
+            'details': 'Bought 10 shares at $150',
+        },
+        {
+            'symbol': 'TSLA',
+            'type': 'SELL',
+            'status': 'PENDING',
+            'users': 3,
+            'details': 'Sell order for 5 shares',
+        },
+    ]
+    return jsonify(trades) 
