@@ -56,7 +56,7 @@ export async function createUser(username: string, email: string, passwordHash: 
     await connection.beginTransaction();
     
     const [result] = await connection.execute<ResultSetHeader>(
-      'INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)',
+      'INSERT INTO users (username, email, password_hash, balance) VALUES (?, ?, ?, 10000.00)',
       [username, email, passwordHash]
     );
     
