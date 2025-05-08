@@ -12,7 +12,7 @@ import {
 import Link from 'next/link';
 import { useRouter, usePathname } from 'next/navigation';
 
-export default function InternalNavbar({ user }: { user: any }) {
+export default function InternalNavbar({ user }: { user?: any }) {
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const router = useRouter();
