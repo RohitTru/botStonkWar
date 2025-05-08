@@ -63,7 +63,21 @@
         <div id="popup-content">User details will appear here.</div>
     </div>
     <script>
-        // Placeholder JS for popup
+        // Fetch metrics and update dashboard cards
+        function updateMetrics() {
+            fetch('/api/metrics')
+                .then(res => res.json())
+                .then(data => {
+                    document.getElementById('portfolio-value').textContent = `$${data.portfolio_value.toLocaleString()}`;
+                    document.getElementById('pnl').textContent = `$${data.pnl.toLocaleString()}`;
+                    document.getElementById('active-users').textContent = data.active_users;
+                });
+        }
+        updateMetrics();
+        // Optionally refresh every 30s
+        setInterval(updateMetrics, 30000);
+
+        // Popup logic
         function openPopup(content) {
             document.getElementById('popup-content').innerHTML = content;
             document.getElementById('user-popup').classList.add('active');
@@ -74,8 +88,6 @@
             document.getElementById('popup-overlay').classList.remove('active');
         }
         document.getElementById('popup-overlay').onclick = closePopup;
-        // Placeholder for dynamic data fetching (to be implemented)
-        // Example: fetch('/api/metrics').then(...)
     </script>
 </body>
 </html> 

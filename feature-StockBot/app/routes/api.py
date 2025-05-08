@@ -21,4 +21,14 @@ def execute_trade():
             'status': result.status
         }}), 200
     else:
-        return jsonify({'status': 'error', 'message': 'Trade execution failed'}), 500 
+        return jsonify({'status': 'error', 'message': 'Trade execution failed'}), 500
+
+@api_bp.route('/metrics', methods=['GET'])
+def get_metrics():
+    # Placeholder values; replace with real calculations later
+    metrics = {
+        'portfolio_value': 100000.00,
+        'pnl': 2500.00,
+        'active_users': 12
+    }
+    return jsonify(metrics) 
