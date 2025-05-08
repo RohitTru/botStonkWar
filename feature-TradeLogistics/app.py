@@ -29,6 +29,7 @@ import time
 from threading import Thread
 import threading
 import random  # Add at the top with other imports
+from sqlalchemy.pool import QueuePool  # Add this import
 
 load_dotenv()
 
