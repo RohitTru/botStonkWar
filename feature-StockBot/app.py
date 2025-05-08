@@ -1,9 +1,7 @@
 # Entry point for StockBot Brokerage Handler
 from app import create_app
-from app.database import db
 
 app = create_app()
-db.init_app(app)
 
 @app.route('/')
 def index():
