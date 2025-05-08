@@ -13,7 +13,6 @@ class User(db.Model):
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
     balance = db.Column(db.Float, default=10000.0)
     
-    trades = db.relationship("Trade", back_populates="user")
     votes = db.relationship("Vote", back_populates="user")
 
 class Trade(db.Model):
@@ -31,7 +30,6 @@ class Trade(db.Model):
     executed_at = db.Column(db.DateTime, nullable=True)
     closed_at = db.Column(db.DateTime, nullable=True)
     
-    user = db.relationship("User", back_populates="trades")
     votes = db.relationship("Vote", back_populates="trade")
 
 class Vote(db.Model):
