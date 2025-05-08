@@ -66,21 +66,32 @@ def add_funds():
 
 @api_bp.route('/users', methods=['GET'])
 def get_users():
-    # Optionally support search
-    search = request.args.get('search', '').strip()
-    query = db.session.query(User)
-    if search:
-        query = query.filter(User.username.ilike(f'%{search}%'))
-    users = query.order_by(User.balance.desc()).all()
-    # Placeholder equity and P&L
-    user_list = [
-        {
-            'username': u.username,
-            'equity': float(u.balance),
-            'pnl': 0.0,  # Placeholder
-        } for u in users
-    ]
-    return jsonify(user_list)
+    try:
+        # Optionally support search
+        search = request.args.get('search', '').strip()
+        query = db.session.query(User)
+        if search:
+            query = query.filter(User.username.ilike(f'%{search}%'))
+        
+        # Use a simpler query that doesn't include updated_at
+        users = query.with_entities(
+            User.id,
+            User.username,
+            User.balance
+        ).order_by(User.balance.desc()).all()
+        
+        # Placeholder equity and P&L
+        user_list = [
+            {
+                'username': u.username,
+                'equity': float(u.balance),
+                'pnl': 0.0,  # Placeholder
+            } for u in users
+        ]
+        return jsonify(user_list)
+    except Exception as e:
+        print(f"Error in get_users: {e}")
+        return jsonify({'error': 'Internal server error'}), 500
 
 @api_bp.route('/trades', methods=['GET'])
 def get_trades():
@@ -136,7 +147,14 @@ def get_logs():
 @api_bp.route('/latest_trade_recommendation', methods=['GET'])
 def latest_trade_recommendation():
     try:
-        # First check if the table exists and has the required columns
+        # First check if the table exists
+        try:
+            db.session.execute(text("SELECT 1 FROM trade_recommendations LIMIT 1"))
+        except Exception as e:
+            print(f"Table trade_recommendations does not exist: {e}")
+            return jsonify({'error': 'No trade recommendations found'}), 404
+            
+        # If table exists, try to get the latest recommendation
         try:
             result = db.session.execute(text("""
                 SELECT id, symbol, action, amount, shares, timeframe, expires_at, 

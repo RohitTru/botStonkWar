@@ -35,15 +35,105 @@ def create_app():
             # Create tables if they don't exist
             db.create_all()
             
+            # Ensure users table has all required columns
+            try:
+                # Check if updated_at exists
+                result = db.session.execute(text("""
+                    SELECT COUNT(*) 
+                    FROM information_schema.columns 
+                    WHERE table_name = 'users' 
+                    AND column_name = 'updated_at'
+                """)).scalar()
+                
+                if result == 0:
+                    db.session.execute(text("""
+                        ALTER TABLE users 
+                        ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                    """))
+                    db.session.commit()
+                    app.logger.info("Added updated_at column to users table")
+            except Exception as e:
+                app.logger.error(f"Error checking/adding updated_at to users: {e}")
+                db.session.rollback()
+            
             # Ensure trade_recommendations table has all required columns
             try:
-                db.session.execute(text("""
-                    ALTER TABLE trade_recommendations 
-                    ADD COLUMN IF NOT EXISTS status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
-                    ADD COLUMN IF NOT EXISTS updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
-                """))
-                db.session.commit()
-                app.logger.info("Database tables and columns verified successfully")
+                # Check if table exists
+                result = db.session.execute(text("""
+                    SELECT COUNT(*) 
+                    FROM information_schema.tables 
+                    WHERE table_name = 'trade_recommendations'
+                """)).scalar()
+                
+                if result == 0:
+                    # Create table with all required columns
+                    db.session.execute(text("""
+                        CREATE TABLE trade_recommendations (
+                            id BIGINT PRIMARY KEY AUTO_INCREMENT,
+                            symbol VARCHAR(10) NOT NULL,
+                            action VARCHAR(4) NOT NULL,
+                            status VARCHAR(20) NOT NULL DEFAULT 'PENDING',
+                            amount DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+                            shares DECIMAL(10,4) NOT NULL DEFAULT 0.0000,
+                            timeframe VARCHAR(20) NOT NULL DEFAULT '1D',
+                            expires_at DATETIME NOT NULL,
+                            required_acceptances INT NOT NULL DEFAULT 1,
+                            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+                            updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                        )
+                    """))
+                    db.session.commit()
+                    app.logger.info("Created trade_recommendations table")
+                else:
+                    # Check and add missing columns
+                    columns = ['status', 'amount', 'shares', 'timeframe', 'expires_at', 'required_acceptances', 'updated_at']
+                    for column in columns:
+                        result = db.session.execute(text(f"""
+                            SELECT COUNT(*) 
+                            FROM information_schema.columns 
+                            WHERE table_name = 'trade_recommendations' 
+                            AND column_name = '{column}'
+                        """)).scalar()
+                        
+                        if result == 0:
+                            if column == 'status':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN status VARCHAR(20) NOT NULL DEFAULT 'PENDING'
+                                """))
+                            elif column == 'amount':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN amount DECIMAL(10,2) NOT NULL DEFAULT 0.00
+                                """))
+                            elif column == 'shares':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN shares DECIMAL(10,4) NOT NULL DEFAULT 0.0000
+                                """))
+                            elif column == 'timeframe':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN timeframe VARCHAR(20) NOT NULL DEFAULT '1D'
+                                """))
+                            elif column == 'expires_at':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN expires_at DATETIME NOT NULL
+                                """))
+                            elif column == 'required_acceptances':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN required_acceptances INT NOT NULL DEFAULT 1
+                                """))
+                            elif column == 'updated_at':
+                                db.session.execute(text("""
+                                    ALTER TABLE trade_recommendations 
+                                    ADD COLUMN updated_at DATETIME DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP
+                                """))
+                            db.session.commit()
+                            app.logger.info(f"Added {column} column to trade_recommendations table")
+                
             except Exception as e:
                 app.logger.error(f"Error verifying table columns: {e}")
                 db.session.rollback()
