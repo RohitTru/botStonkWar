@@ -12,7 +12,7 @@ export default function SystemMonitor() {
       setLoading(true);
       setError('');
       try {
-        const t = await fetch('/api/trades/').then(r => r.json());
+        const t = await fetch('/api/trades').then(r => r.json());
         setTrades(t);
         const a = await fetch('/api/trade_acceptances').then(r => r.json());
         setAcceptances(a);

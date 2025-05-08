@@ -72,3 +72,6 @@ wheels/
 # Logs
 logs/
 *.log 
+
+# Schema dump
+schema_dump.sql

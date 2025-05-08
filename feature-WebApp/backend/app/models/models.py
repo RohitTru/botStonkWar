@@ -20,15 +20,16 @@ class Trade(db.Model):
     __tablename__ = "trades"
 
     id = db.Column(db.Integer, primary_key=True, index=True)
-    stock_symbol = db.Column(db.String(10), index=True)
-    entry_price = db.Column(db.Float)
-    exit_price = db.Column(db.Float, nullable=True)
-    quantity = db.Column(db.Integer)
-    entry_time = db.Column(db.DateTime, default=datetime.utcnow)
-    exit_time = db.Column(db.DateTime, nullable=True)
-    trade_type = db.Column(db.String(10))  # 'long' or 'short'
-    status = db.Column(db.String(10))  # 'pending', 'active', 'closed'
-    user_id = db.Column(db.Integer, db.ForeignKey("users.id"))
+    strategy_id = db.Column(db.Integer, db.ForeignKey("trading_strategies.id"), nullable=True)
+    stock_symbol = db.Column(db.String(10), index=True, nullable=False)
+    trade_type = db.Column(db.Enum('BUY', 'SELL'), nullable=False)
+    status = db.Column(db.Enum('PROPOSED', 'APPROVED', 'REJECTED', 'EXECUTED', 'CLOSED'), nullable=False)
+    entry_price = db.Column(db.Numeric(10, 2), nullable=True)
+    exit_price = db.Column(db.Numeric(10, 2), nullable=True)
+    quantity = db.Column(db.Integer, nullable=False)
+    created_at = db.Column(db.DateTime, nullable=True, default=datetime.utcnow)
+    executed_at = db.Column(db.DateTime, nullable=True)
+    closed_at = db.Column(db.DateTime, nullable=True)
     
     user = db.relationship("User", back_populates="trades")
     votes = db.relationship("Vote", back_populates="trade")
