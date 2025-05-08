@@ -1,7 +1,9 @@
 from flask import Blueprint, request, jsonify
 from app.services.trade_service import TradeService
+from app.services.alpaca_service import AlpacaService
 from app.models.user import User
 from app.database import db
+from sqlalchemy.exc import NoResultFound
 
 api_bp = Blueprint('api', __name__)
 trade_service = TradeService()
@@ -27,11 +29,14 @@ def execute_trade():
 
 @api_bp.route('/metrics', methods=['GET'])
 def get_metrics():
-    # Get real user count from the database
     user_count = db.session.query(User).count()
+    # Fetch live balance from Alpaca
+    alpaca = AlpacaService()
+    account = alpaca.api.get_account()
+    portfolio_value = float(account.portfolio_value)
     metrics = {
-        'portfolio_value': 100000.00,  # Placeholder, update with real value if needed
-        'pnl': 2500.00,                # Placeholder
+        'portfolio_value': portfolio_value,
+        'pnl': 2500.00,  # Placeholder
         'active_users': user_count
     }
     return jsonify(metrics)
@@ -39,8 +44,6 @@ def get_metrics():
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
 def add_funds():
     data = request.json
-    amount = data.get('amount')
-    # Simulate adding funds (in real Alpaca, this is not possible in paper trading)
-    # You could update a local brokerage balance in your DB for dashboard purposes
-    # For now, just return success
-    return jsonify({'status': 'success', 'added': amount}) 
+    amount = float(data.get('amount', 0))
+    # This is a simulation; does not affect Alpaca
+    return jsonify({'status': 'success', 'added': amount, 'new_balance': 'live from Alpaca'}) 

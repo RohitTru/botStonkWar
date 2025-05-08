@@ -28,4 +28,10 @@ class BrokerageSummary(db.Model):
     unrealized_pnl = db.Column(db.Numeric(15, 2), nullable=False)
     updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow)
     
-    __table_args__ = (db.UniqueConstraint('symbol', name='unique_symbol'),) 
+    __table_args__ = (db.UniqueConstraint('symbol', name='unique_symbol'),)
+
+class BrokerageState(db.Model):
+    __tablename__ = 'brokerage_state'
+    id = db.Column(db.Integer, primary_key=True, default=1)
+    balance = db.Column(db.Numeric(20, 2), nullable=False, default=100000.00)
+    updated_at = db.Column(db.DateTime, default=datetime.utcnow, onupdate=datetime.utcnow) 

@@ -8,9 +8,6 @@
         main { max-width: 1100px; margin: 2rem auto; padding: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
         #metrics-cards { display: flex; gap: 1rem; margin-bottom: 2rem; }
         .card { background: #e3e8f0; padding: 1rem 2rem; border-radius: 6px; font-size: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); min-width: 180px; }
-        #add-funds-section { margin-bottom: 2rem; }
-        #add-funds-input { padding: 0.5rem; width: 200px; }
-        #add-funds-btn { padding: 0.5rem 1rem; margin-left: 0.5rem; }
         #user-search, #trade-summary, #logs-section { margin-bottom: 2rem; }
         .section-title { font-weight: bold; margin-bottom: 0.5rem; }
         .leaderboard, .trade-table, .logs-table { width: 100%; border-collapse: collapse; }
@@ -30,12 +27,6 @@
             <div class="card">Portfolio Value: <span id="portfolio-value">$0.00</span></div>
             <div class="card">P&amp;L: <span id="pnl">$0.00</span></div>
             <div class="card">Active Users: <span id="active-users">0</span></div>
-        </section>
-        <section id="add-funds-section">
-            <div class="section-title">Add Funds to Brokerage</div>
-            <input id="add-funds-input" type="number" min="1" placeholder="Amount (e.g. 1000000)">
-            <button id="add-funds-btn">Add Funds</button>
-            <span id="add-funds-status"></span>
         </section>
         <section id="user-search">
             <div class="section-title">User Search &amp; Leaderboard</div>
@@ -83,31 +74,7 @@
                 });
         }
         updateMetrics();
-        // Optionally refresh every 30s
         setInterval(updateMetrics, 30000);
-
-        // Add Funds logic
-        document.getElementById('add-funds-btn').onclick = function() {
-            const amount = parseFloat(document.getElementById('add-funds-input').value);
-            if (!amount || amount <= 0) {
-                document.getElementById('add-funds-status').textContent = 'Enter a valid amount.';
-                return;
-            }
-            fetch('/api/brokerage/add_funds', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ amount })
-            })
-            .then(res => res.json())
-            .then(data => {
-                if (data.status === 'success') {
-                    document.getElementById('add-funds-status').textContent = `Added $${amount.toLocaleString()} to brokerage.`;
-                    updateMetrics();
-                } else {
-                    document.getElementById('add-funds-status').textContent = 'Failed to add funds.';
-                }
-            });
-        };
 
         // Popup logic
         function openPopup(content) {
