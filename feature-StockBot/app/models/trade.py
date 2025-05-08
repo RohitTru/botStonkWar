@@ -1,10 +1,8 @@
 """
 Trade-related models for StockBot brokerage handler.
 """
-from flask_sqlalchemy import SQLAlchemy
+from app.database import db
 from datetime import datetime
-
-db = SQLAlchemy()
 
 class TradeNotification(db.Model):
     __tablename__ = 'trade_notifications'

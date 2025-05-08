@@ -1,10 +1,8 @@
 """
 UserPosition model for tracking user stock holdings.
 """
-from flask_sqlalchemy import SQLAlchemy
+from app.database import db
 from datetime import datetime
-
-db = SQLAlchemy()
 
 class UserPosition(db.Model):
     __tablename__ = 'user_positions'

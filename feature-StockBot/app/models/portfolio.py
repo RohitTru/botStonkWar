@@ -1,10 +1,8 @@
 """
 Portfolio and brokerage summary models for StockBot brokerage handler.
 """
-from flask_sqlalchemy import SQLAlchemy
+from app.database import db
 from datetime import datetime
-
-db = SQLAlchemy()
 
 class HistoricalPosition(db.Model):
     __tablename__ = 'historical_positions'
