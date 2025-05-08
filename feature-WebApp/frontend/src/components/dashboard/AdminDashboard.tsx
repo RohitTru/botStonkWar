@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const activeDashboard = DASHBOARD_LINKS[activeIndex];
 
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8f9fa' }}>
       <Box sx={{ display: 'flex', justifyContent: 'center', alignItems: 'center', mt: 3, mb: 2, gap: 1 }}>
         {DASHBOARD_LINKS.map((link, idx) => (
           <Button
