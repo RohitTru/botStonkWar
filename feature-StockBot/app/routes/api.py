@@ -85,4 +85,20 @@ def get_trades():
             'details': 'Sell order for 5 shares',
         },
     ]
-    return jsonify(trades) 
+    return jsonify(trades)
+
+@api_bp.route('/orders', methods=['GET'])
+def get_orders():
+    alpaca = AlpacaService()
+    orders = alpaca.api.list_orders(status='all', limit=50)
+    order_list = [
+        {
+            'symbol': o.symbol,
+            'qty': o.qty,
+            'side': o.side,
+            'status': o.status,
+            'filled_avg_price': o.filled_avg_price,
+            'submitted_at': o.submitted_at.isoformat() if o.submitted_at else '',
+        } for o in orders
+    ]
+    return jsonify(order_list) 
