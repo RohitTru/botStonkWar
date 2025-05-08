@@ -3,7 +3,7 @@ from app import db
 from app.models.models import Trade, TradeAcceptance, UserPosition
 from sqlalchemy import desc
 
-trades_bp = Blueprint('trades', __name__)
+trades_bp = Blueprint('trades', __name__, strict_slashes=False)
 
 # Get all trades
 @trades_bp.route('/trades', methods=['GET'])
