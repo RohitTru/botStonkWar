@@ -274,6 +274,9 @@ def gather_dashboard_data():
         # Get active strategies
         active_strategies = strategy_manager.get_active_strategies()
         
+        # Get all strategies with their status
+        strategies = strategy_manager.get_strategy_status()
+        
         # Fetch data for each active strategy
         for strategy in active_strategies:
             try:
@@ -308,7 +311,8 @@ def gather_dashboard_data():
                 
         return {
             'metrics': metrics,
-            'recommendations': recommendations
+            'recommendations': recommendations,
+            'strategies': strategies  # Add strategies to the response
         }
         
     except Exception as e:
@@ -321,7 +325,8 @@ def gather_dashboard_data():
                 'hold_signals': 0,
                 'last_updated': datetime.now().isoformat()
             },
-            'recommendations': []
+            'recommendations': [],
+            'strategies': []  # Add empty strategies list for error case
         }
 
 # Cache for dashboard data with 30-second TTL
