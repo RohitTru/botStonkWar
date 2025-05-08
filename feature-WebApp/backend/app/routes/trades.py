@@ -3,10 +3,11 @@ from app import db
 from app.models.models import Trade, TradeAcceptance, UserPosition
 from sqlalchemy import desc
 
-trades_bp = Blueprint('trades', __name__, strict_slashes=False)
+trades_bp = Blueprint('trades', __name__)
 
 # Get all trades
 @trades_bp.route('/trades', methods=['GET'])
+@trades_bp.route('/trades/', methods=['GET'])
 def get_trades():
     trades = Trade.query.order_by(desc(Trade.created_at)).all()
     return jsonify([{
@@ -25,6 +26,7 @@ def get_trades():
 
 # Get latest trade recommendation
 @trades_bp.route('/latest_trade_recommendation', methods=['GET'])
+@trades_bp.route('/latest_trade_recommendation/', methods=['GET'])
 def get_latest_trade_recommendation():
     trade = Trade.query.order_by(desc(Trade.created_at)).first()
     if not trade:
@@ -45,6 +47,7 @@ def get_latest_trade_recommendation():
 
 # Trade acceptances
 @trades_bp.route('/trade_acceptances', methods=['GET', 'POST'])
+@trades_bp.route('/trade_acceptances/', methods=['GET', 'POST'])
 def trade_acceptances():
     if request.method == 'POST':
         data = request.get_json()
@@ -79,6 +82,7 @@ def trade_acceptances():
 
 # User positions
 @trades_bp.route('/user_positions', methods=['GET'])
+@trades_bp.route('/user_positions/', methods=['GET'])
 def user_positions():
     user_id = request.args.get('user_id')
     if not user_id:
