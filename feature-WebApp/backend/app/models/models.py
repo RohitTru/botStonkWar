@@ -11,7 +11,7 @@ class User(db.Model):
     full_name = db.Column(db.String(120))
     is_active = db.Column(db.Boolean, default=True)
     created_at = db.Column(db.DateTime, default=datetime.utcnow)
-    balance = db.Column(db.Float, default=0.0)
+    balance = db.Column(db.Float, default=10000.0)
     
     trades = db.relationship("Trade", back_populates="user")
     votes = db.relationship("Vote", back_populates="user")
