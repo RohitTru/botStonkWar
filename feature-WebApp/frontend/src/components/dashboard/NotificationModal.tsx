@@ -140,15 +140,15 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     if (allocType === 'dollar' && trade.action === 'BUY') {
       // Only allow positive numbers with up to 2 decimals
       if (!/^\d+(\.\d{1,2})?$/.test(allocation)) return false;
-      if (Number(allocation) <= 0) return false;
-      if (allocation.includes('-')) return false;
+      const amount = Number(allocation);
+      if (amount <= 0 || amount > (userLiquidity ?? 0)) return false;
       return true;
     }
     if (allocType === 'shares' && trade.action === 'SELL') {
       // Only allow positive whole numbers
       if (!/^\d+$/.test(allocation)) return false;
-      if (Number(allocation) <= 0) return false;
-      if (allocation.includes('-')) return false;
+      const shares = Number(allocation);
+      if (shares <= 0 || shares > userShares) return false;
       return true;
     }
     return false;
@@ -157,6 +157,14 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   const handleAccept = () => {
     setAction('ACCEPTED');
     setStep('input');
+    // Reset allocation when accepting
+    if (trade.action === 'BUY') {
+      setAllocation('1.00');
+      setSliderValue(1);
+    } else {
+      setAllocation('1');
+      setSliderValue(1);
+    }
   };
   const handleDeny = () => {
     setAction('DENIED');

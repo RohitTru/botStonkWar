@@ -97,6 +97,9 @@ export default function UserDashboard({ user }: { user: any }) {
     if (pendingTrades.length === 1) {
       setActiveTrade(pendingTrades[0]);
       setShowModal(true);
+    } else {
+      // If there are multiple pending trades or no pending trades, don't show the modal
+      setShowModal(false);
     }
   }, [allTrades]);
 
@@ -105,7 +108,7 @@ export default function UserDashboard({ user }: { user: any }) {
 
   // Notification logic
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-  // Only show multi trade card if NOT on /dashboard or /trades
+  // Only show multi trade card if there are multiple pending trades and NOT on /dashboard or /trades
   const showMultiTradeCard = activeTrades.length > 1 && !['/dashboard', '/trades'].includes(currentPath);
 
   const expiredLoadMore = () => {
