@@ -32,36 +32,83 @@ def execute_trade():
 
 @api_bp.route('/metrics', methods=['GET'])
 def get_metrics():
+    metrics = {
+        'portfolio_value': 0.0,
+        'pnl': 0.0,
+        'active_users': 0,
+        'total_trades': 0,
+        'executed_trades': 0,
+        'pending_trades': 0,
+        'expired_trades': 0,
+        'failed_trades': 0,
+        'total_allocations': 0.0,
+        'total_users': 0,
+        'avg_acceptance_time': 0,
+        'acceptance_rate': 0,
+        'avg_trade_size': 0,
+        'current_acceptances': 0,
+        'avg_execution_time': 0
+    }
+    # Individual metric try/except blocks
     try:
-        user_count = db.session.query(db.func.count(User.id)).scalar()
-        total_trades = db.session.query(db.func.count(TradeRecommendation.id)).scalar()
-        executed_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXECUTED').scalar()
-        pending_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'PENDING').scalar()
-        expired_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXPIRED').scalar()
-        failed_trades = db.session.execute(text('SELECT COUNT(*) FROM trade_execution_log WHERE status = "FAILED"')).scalar()
-        total_allocations = db.session.execute(text('SELECT COALESCE(SUM(allocation_amount),0) FROM trade_acceptances WHERE status = "ACCEPTED"')).scalar()
-
-        # MySQL-compatible metrics
-        avg_acceptance_time = db.session.execute(text('''
+        metrics['active_users'] = db.session.query(db.func.count(User.id)).scalar()
+    except Exception as e:
+        print(f"Error fetching active_users: {e}")
+    try:
+        metrics['total_trades'] = db.session.query(db.func.count(TradeRecommendation.id)).scalar()
+    except Exception as e:
+        print(f"Error fetching total_trades: {e}")
+    try:
+        metrics['executed_trades'] = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXECUTED').scalar()
+    except Exception as e:
+        print(f"Error fetching executed_trades: {e}")
+    try:
+        metrics['pending_trades'] = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'PENDING').scalar()
+    except Exception as e:
+        print(f"Error fetching pending_trades: {e}")
+    try:
+        metrics['expired_trades'] = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXPIRED').scalar()
+    except Exception as e:
+        print(f"Error fetching expired_trades: {e}")
+    try:
+        metrics['failed_trades'] = db.session.execute(text('SELECT COUNT(*) FROM trade_execution_log WHERE status = "FAILED"')).scalar()
+    except Exception as e:
+        print(f"Error fetching failed_trades: {e}")
+    try:
+        metrics['total_allocations'] = float(db.session.execute(text('SELECT COALESCE(SUM(allocation_amount),0) FROM trade_acceptances WHERE status = "ACCEPTED"')).scalar() or 0)
+    except Exception as e:
+        print(f"Error fetching total_allocations: {e}")
+    try:
+        metrics['total_users'] = db.session.query(db.func.count(User.id)).scalar()
+    except Exception as e:
+        print(f"Error fetching total_users: {e}")
+    try:
+        metrics['avg_acceptance_time'] = round(db.session.execute(text('''
             SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, updated_at))
             FROM trade_acceptances 
             WHERE status = 'ACCEPTED'
-        ''')).scalar() or 0
-
-        acceptance_rate = db.session.execute(text('''
+        ''')).scalar() or 0, 2)
+    except Exception as e:
+        print(f"Error fetching avg_acceptance_time: {e}")
+    try:
+        metrics['acceptance_rate'] = db.session.execute(text('''
             SELECT 
                 ROUND(COUNT(CASE WHEN status = 'ACCEPTED' THEN 1 END) / 
                 NULLIF(COUNT(*), 0) * 100, 2)
             FROM trade_acceptances
         ''')).scalar() or 0
-
-        avg_trade_size = db.session.execute(text('''
+    except Exception as e:
+        print(f"Error fetching acceptance_rate: {e}")
+    try:
+        metrics['avg_trade_size'] = round(db.session.execute(text('''
             SELECT AVG(amount) 
             FROM trade_recommendations 
             WHERE status = 'EXECUTED'
-        ''')).scalar() or 0
-
-        current_acceptances = db.session.execute(text('''
+        ''')).scalar() or 0, 2)
+    except Exception as e:
+        print(f"Error fetching avg_trade_size: {e}")
+    try:
+        metrics['current_acceptances'] = db.session.execute(text('''
             SELECT COUNT(*) 
             FROM trade_acceptances 
             WHERE status = 'ACCEPTED' 
@@ -69,50 +116,28 @@ def get_metrics():
                 SELECT id FROM trade_recommendations WHERE status = 'PENDING'
             )
         ''')).scalar() or 0
-
-        avg_execution_time = db.session.execute(text('''
-            SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, executed_at))
-            FROM trade_execution_log 
-            WHERE status = 'EXECUTED'
-        ''')).scalar() or 0
-
-        try:
-            alpaca = AlpacaService()
-            account = alpaca.api.get_account()
-            portfolio_value = float(account.portfolio_value)
-            pnl = float(account.equity) - float(account.last_equity)
-        except Exception as e:
-            print(f"Error fetching Alpaca data: {e}")
-            portfolio_value = 0.0
-            pnl = 0.0
-
-        metrics = {
-            'portfolio_value': portfolio_value,
-            'pnl': pnl,
-            'active_users': user_count,
-            'total_trades': total_trades,
-            'executed_trades': executed_trades,
-            'pending_trades': pending_trades,
-            'expired_trades': expired_trades,
-            'failed_trades': failed_trades,
-            'total_allocations': float(total_allocations or 0),
-            'total_users': user_count,
-            'avg_acceptance_time': round(avg_acceptance_time, 2),  # in seconds
-            'acceptance_rate': acceptance_rate,  # percentage
-            'avg_trade_size': round(avg_trade_size, 2),
-            'current_acceptances': current_acceptances,
-            'avg_execution_time': round(avg_execution_time, 2),  # in seconds
-        }
-        return jsonify(metrics)
     except Exception as e:
-        print(f"Error in metrics endpoint: {e}")
-        return jsonify({
-            'portfolio_value': 0.0, 'pnl': 0.0, 'active_users': 0, 
-            'total_trades': 0, 'executed_trades': 0, 'pending_trades': 0, 
-            'expired_trades': 0, 'failed_trades': 0, 'total_allocations': 0, 
-            'total_users': 0, 'avg_acceptance_time': 0, 'acceptance_rate': 0,
-            'avg_trade_size': 0, 'current_acceptances': 0, 'avg_execution_time': 0
-        })
+        print(f"Error fetching current_acceptances: {e}")
+    try:
+        # Fix: join trade_execution_log and trade_recommendations for avg_execution_time
+        metrics['avg_execution_time'] = round(db.session.execute(text('''
+            SELECT AVG(TIMESTAMPDIFF(SECOND, tr.created_at, tel.executed_at))
+            FROM trade_execution_log tel
+            JOIN trade_recommendations tr ON tel.trade_recommendation_id = tr.id
+            WHERE tel.status = 'EXECUTED'
+        ''')).scalar() or 0, 2)
+    except Exception as e:
+        print(f"Error fetching avg_execution_time: {e}")
+    try:
+        alpaca = AlpacaService()
+        account = alpaca.api.get_account()
+        metrics['portfolio_value'] = float(account.portfolio_value)
+        metrics['pnl'] = float(account.equity) - float(account.last_equity)
+    except Exception as e:
+        print(f"Error fetching Alpaca data: {e}")
+        metrics['portfolio_value'] = 0.0
+        metrics['pnl'] = 0.0
+    return jsonify(metrics)
 
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
 def add_funds():
