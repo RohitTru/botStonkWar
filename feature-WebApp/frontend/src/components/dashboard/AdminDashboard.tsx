@@ -11,20 +11,26 @@ const DASHBOARD_LINKS = [
 ];
 
 export default function AdminDashboard() {
-  const [activeIndex, setActiveIndex] = useState(() => {
+  const [activeIndex, setActiveIndex] = useState(0);
+
+  // On mount, set activeIndex from localStorage if available
+  useEffect(() => {
     if (typeof window !== 'undefined') {
       const stored = window.localStorage.getItem('adminDashboardActiveIndex');
-      return stored ? parseInt(stored, 10) : 0;
+      if (stored && !isNaN(Number(stored))) {
+        setActiveIndex(Number(stored));
+      }
     }
-    return 0;
-  });
-  const activeDashboard = DASHBOARD_LINKS[activeIndex];
+  }, []);
 
+  // Save to localStorage on change
   useEffect(() => {
     if (typeof window !== 'undefined') {
       window.localStorage.setItem('adminDashboardActiveIndex', String(activeIndex));
     }
   }, [activeIndex]);
+
+  const activeDashboard = DASHBOARD_LINKS[activeIndex];
 
   return (
     <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8f9fa' }}>
