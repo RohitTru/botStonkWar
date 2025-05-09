@@ -263,7 +263,10 @@
             </div>
         </section>
         <section id="trade-summary" class="section">
-            <div class="section-title">Trade &amp; Position Summaries</div>
+            <div class="section-title">Trade Recommendation Stats</div>
+            <div class="metrics-cards" id="trade-summary-stats">
+                <!-- Optionally, add summary stats for trades here -->
+            </div>
             <div class="filter-bar">
                 <input class="search-box" type="text" id="trade-search-box" placeholder="Search symbol...">
                 <select id="trade-status-filter">
@@ -278,7 +281,7 @@
             </div>
             <div class="scroll-table-wrapper">
                 <table class="trades-table">
-                    <thead><tr><th>Symbol</th><th>Type</th><th>Status</th><th>Users</th><th>Details</th><th>Created</th><th>Expires</th></tr></thead>
+                    <thead><tr><th>Symbol</th><th>Type</th><th>Status</th><th>Users</th><th>Brokerage Trade</th><th>Created</th><th>Expired At</th></tr></thead>
                     <tbody id="trades-body"></tbody>
                 </table>
             </div>
@@ -463,32 +466,70 @@
     let tradesPage = 1;
     let tradesPerPage = 20;
     let tradesTotal = 0;
-    function updateTrades() {
+    function fetchLivePrice(symbol) {
+        // Placeholder: replace with your actual price API endpoint
+        return fetch(`/api/latest_price?symbol=${symbol}`)
+            .then(res => res.json())
+            .then(data => data.price || 0)
+            .catch(() => 0);
+    }
+    async function updateTrades() {
         const search = document.getElementById('trade-search-box').value;
         const status = document.getElementById('trade-status-filter').value;
         const start = document.getElementById('trade-start-date').value;
         const end = document.getElementById('trade-end-date').value;
         let url = `/api/trades?search=${encodeURIComponent(search)}&status=${status}&start_date=${start}&end_date=${end}&page=${tradesPage}&per_page=${tradesPerPage}`;
-        fetch(url)
-            .then(res => res.json())
-            .then(data => {
-                const trades = data.trades || [];
-                tradesTotal = data.total || 0;
-                const tbody = document.getElementById('trades-body');
-                tbody.innerHTML = '';
-                if (trades.length === 0) {
-                    document.getElementById('trades-empty-msg').style.display = 'block';
-                } else {
-                    document.getElementById('trades-empty-msg').style.display = 'none';
-                    trades.forEach(t => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td>${t.details}</td><td>${t.created_at}</td><td>${t.expires_at}</td>`;
-                        tbody.appendChild(tr);
-                    });
+        const res = await fetch(url);
+        const data = await res.json();
+        const trades = data.trades || [];
+        tradesTotal = data.total || 0;
+        const tbody = document.getElementById('trades-body');
+        tbody.innerHTML = '';
+        if (trades.length === 0) {
+            document.getElementById('trades-empty-msg').style.display = 'block';
+        } else {
+            document.getElementById('trades-empty-msg').style.display = 'none';
+            for (const t of trades) {
+                const tr = document.createElement('tr');
+                // Status badge
+                let statusClass = 'badge-pending';
+                if (t.status === 'EXECUTED') statusClass = 'badge-executed';
+                else if (t.status === 'EXPIRED') statusClass = 'badge-expired';
+                // Users button
+                const usersBtn = `<button class="users-btn" data-tradeid="${t.id}" data-users="${t.users}">${t.users}</button>`;
+                // Brokerage trade (live price)
+                let brokerageTrade = '...';
+                if (t.symbol && t.shares) {
+                    const price = await fetchLivePrice(t.symbol);
+                    brokerageTrade = `${t.type} ${parseFloat(t.shares).toFixed(4)} shares at $${parseFloat(price).toFixed(2)}`;
                 }
-                document.getElementById('trade-count').textContent = `Total: ${tradesTotal}`;
-                document.getElementById('trades-page-info').textContent = `Page ${tradesPage} of ${Math.ceil(tradesTotal/tradesPerPage)}`;
-            });
+                tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td><span class="status-badge ${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
+                tbody.appendChild(tr);
+            }
+        }
+        document.getElementById('trade-count').textContent = `Total: ${tradesTotal}`;
+        document.getElementById('trades-page-info').textContent = `Page ${tradesPage} of ${Math.ceil(tradesTotal/tradesPerPage)}`;
+        // Add event listeners for users buttons
+        document.querySelectorAll('.users-btn').forEach(btn => {
+            btn.onclick = function() {
+                const tradeId = this.getAttribute('data-tradeid');
+                openTradeUsersPopup(tradeId);
+            };
+        });
+    }
+    async function openTradeUsersPopup(tradeId) {
+        // Fetch acceptances for this trade
+        const res = await fetch(`/api/trade_acceptances?trade_id=${tradeId}`);
+        const acceptances = await res.json();
+        let html = `<h3>Users Accepted Trade #${tradeId}</h3><ul>`;
+        if (acceptances.length === 0) html += '<li>No users have accepted this trade.</li>';
+        else acceptances.forEach(a => {
+            html += `<li><b>${a.username || a.user_id}</b>: $${a.allocation_amount || 0} (${a.allocation_shares || 0} shares)</li>`;
+        });
+        html += '</ul>';
+        document.getElementById('popup-content').innerHTML = html;
+        document.getElementById('user-popup').classList.add('active');
+        document.getElementById('popup-overlay').classList.add('active');
     }
     document.getElementById('trade-search-box').addEventListener('input', function() { tradesPage = 1; updateTrades(); });
     document.getElementById('trade-status-filter').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
@@ -497,6 +538,7 @@
     document.getElementById('trades-prev-page').addEventListener('click', function() { if (tradesPage > 1) { tradesPage--; updateTrades(); } });
     document.getElementById('trades-next-page').addEventListener('click', function() { if (tradesPage < Math.ceil(tradesTotal/tradesPerPage)) { tradesPage++; updateTrades(); } });
     updateTrades();
+    setInterval(updateTrades, 120000); // Refresh every 2 minutes
 
     // Fetch orders and populate live orders table
     let ordersPage = 1;

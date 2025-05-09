@@ -229,15 +229,17 @@ def get_trades():
     trade_list = []
     for t in trades:
         user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
+        expired_at = t.expires_at.isoformat() if t.status == 'EXPIRED' and t.expires_at else ''
         trade_list.append({
             'id': t.id,
             'symbol': t.symbol,
             'type': t.action,
             'status': t.status,
             'users': user_count,
-            'details': f"{t.action} {t.shares} shares at ${t.amount} (expires {t.expires_at})",
+            'shares': float(t.shares),
+            'amount': float(t.amount),
             'created_at': t.created_at.isoformat() if t.created_at else '',
-            'expires_at': t.expires_at.isoformat() if t.expires_at else '',
+            'expired_at': expired_at,
         })
     return jsonify({'total': total, 'trades': trade_list})
 
@@ -373,9 +375,13 @@ def get_trade_acceptances():
     if trade_id:
         query = query.filter_by(trade_recommendation_id=trade_id)
     acceptances = query.all()
+    # Join with User table for username
+    user_ids = [a.user_id for a in acceptances]
+    users = {u.id: u.username for u in User.query.filter(User.id.in_(user_ids)).all()}
     result = [
         {
             'user_id': a.user_id,
+            'username': users.get(a.user_id, ''),
             'trade_recommendation_id': a.trade_recommendation_id,
             'allocation_amount': float(a.allocation_amount) if a.allocation_amount else None,
             'allocation_shares': float(a.allocation_shares) if a.allocation_shares else None,
@@ -604,4 +610,13 @@ def get_brokerage_history():
         return jsonify(hist_list)
     except Exception as e:
         print(f"Error in get_brokerage_history: {e}")
-        return jsonify([]) 
+        return jsonify([])
+
+@api_bp.route('/latest_price', methods=['GET'])
+def get_latest_price():
+    symbol = request.args.get('symbol')
+    # TODO: Replace with real price fetch from brokerage or market data
+    # For now, return a mock price
+    import random
+    price = round(random.uniform(10, 500), 2)
+    return jsonify({'symbol': symbol, 'price': price}) 
