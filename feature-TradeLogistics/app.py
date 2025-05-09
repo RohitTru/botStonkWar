@@ -329,13 +329,68 @@ def gather_dashboard_data():
             'strategies': []  # Add empty strategies list for error case
         }
 
-# Cache for dashboard data with 30-second TTL
-@lru_cache(maxsize=1)
-def get_cached_dashboard_data():
-    return gather_dashboard_data()
+# Replace old caches with unified dashboard cache
+default_dashboard_cache = {
+    'metrics': {
+        'total_recommendations': 0,
+        'buy_signals': 0,
+        'sell_signals': 0,
+        'hold_signals': 0,
+        'last_updated': datetime.now().isoformat(),
+        'recommendations_last_hour': 0
+    },
+    'recommendations': [],
+    'strategies': []
+}
+_dashboard_cache = default_dashboard_cache.copy()
+_dashboard_cache_lock = threading.Lock()
 
-def clear_dashboard_cache():
-    get_cached_dashboard_data.cache_clear()
+# Update the background thread
+def update_dashboard_cache():
+    global _dashboard_cache
+    while True:
+        try:
+            # Fetch and run strategies
+            strategy_data = fetch_strategy_data()
+            new_recs = strategy_manager.run_all_strategies(strategy_data)
+            for rec in new_recs:
+                trade_db.insert(rec)
+            all_recs = trade_db.fetch_all()
+
+            # Calculate metrics
+            now = datetime.utcnow()
+            one_hour_ago = now - timedelta(hours=1)
+            recs_last_hour = [r for r in all_recs if 'created_at' in r and datetime.fromisoformat(r['created_at']) > one_hour_ago]
+            metrics = {
+                'total_recommendations': len(all_recs),
+                'buy_signals': sum(1 for r in all_recs if r.get('action') == 'buy'),
+                'sell_signals': sum(1 for r in all_recs if r.get('action') == 'sell'),
+                'hold_signals': sum(1 for r in all_recs if r.get('action') == 'hold'),
+                'last_updated': now.isoformat(),
+                'recommendations_last_hour': len(recs_last_hour)
+            }
+            strategies = strategy_manager.get_strategy_status()
+            with _dashboard_cache_lock:
+                _dashboard_cache = {
+                    'metrics': metrics,
+                    'recommendations': all_recs,
+                    'strategies': strategies
+                }
+        except Exception as e:
+            app.logger.error(f"Error updating dashboard cache: {str(e)}")
+            with _dashboard_cache_lock:
+                _dashboard_cache = default_dashboard_cache.copy()
+        time.sleep(2.5 + random.random() * 0.5)
+
+# Start the new background thread
+cache_thread = Thread(target=update_dashboard_cache, daemon=True)
+cache_thread.start()
+
+# Update /api/dashboard-data endpoint
+def get_dashboard_data():
+    with _dashboard_cache_lock:
+        return jsonify(_dashboard_cache)
+app.add_url_rule('/api/dashboard-data', 'get_dashboard_data', get_dashboard_data)
 
 @app.route('/')
 def index():
@@ -433,18 +488,6 @@ def run_analysis():
         app.logger.error(f"Error starting analysis: {str(e)}")
         return jsonify({
             'error': 'Failed to start analysis',
-            'details': str(e)
-        }), 500
-
-@app.route('/api/dashboard')
-def get_dashboard_data():
-    try:
-        data = get_cached_dashboard_data()
-        return jsonify(data)
-    except Exception as e:
-        app.logger.error(f"Error getting dashboard data: {str(e)}")
-        return jsonify({
-            'error': 'Failed to fetch dashboard data',
             'details': str(e)
         }), 500
 
