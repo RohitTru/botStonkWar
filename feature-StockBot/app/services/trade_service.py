@@ -31,12 +31,12 @@ class TradeService:
 
     def expire_recommendations(self):
         now = datetime.utcnow()
-        # Only expire 'short term' trades that are pending and created_at older than 5 minutes
+        # Only expire 'short term' trades that are pending and created_at older than 3 minutes
         short_term_expired = TradeRecommendation.query.filter(
             and_(
                 TradeRecommendation.status == 'PENDING',
                 TradeRecommendation.timeframe == 'short_term',
-                TradeRecommendation.created_at < (now - timedelta(minutes=5))
+                TradeRecommendation.created_at < (now - timedelta(minutes=3))
             )
         ).all()
         for rec in short_term_expired:
