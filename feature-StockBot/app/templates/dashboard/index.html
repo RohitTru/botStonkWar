@@ -414,14 +414,18 @@
                     const tbody = document.getElementById('brokerage-history-body');
                     tbody.innerHTML = '';
                     let graphData = {};
+                    let pnlData = {};
                     data.forEach(hist => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${hist.symbol}</td><td>${hist.total_shares}</td><td>${hist.average_price}</td><td>${hist.market_price}</td><td>${hist.total_value}</td><td>${hist.unrealized_pnl}</td><td>${hist.recorded_at}</td>`;
+                        tr.innerHTML = `<td>${hist.symbol}</td><td>${hist.shares_owned}</td><td>${hist.average_price}</td><td>${hist.market_price}</td><td>${hist.total_value}</td><td>${hist.unrealized_pnl}</td><td>${hist.recorded_at}</td>`;
                         tbody.appendChild(tr);
                         // Prepare data for graph
                         if (!graphData[hist.symbol]) graphData[hist.symbol] = {labels: [], values: []};
                         graphData[hist.symbol].labels.push(hist.recorded_at);
                         graphData[hist.symbol].values.push(hist.total_value);
+                        if (!pnlData[hist.symbol]) pnlData[hist.symbol] = {labels: [], values: []};
+                        pnlData[hist.symbol].labels.push(hist.recorded_at);
+                        pnlData[hist.symbol].values.push(hist.unrealized_pnl);
                     });
                     // Draw graph for first symbol (or all, if desired)
                     const ctx = document.getElementById('brokerage-portfolio-graph').getContext('2d');
@@ -431,12 +435,20 @@
                             type: 'line',
                             data: {
                                 labels: graphData[firstSymbol].labels,
-                                datasets: [{
-                                    label: firstSymbol + ' Portfolio Value',
-                                    data: graphData[firstSymbol].values,
-                                    borderColor: 'rgba(75,192,192,1)',
-                                    fill: false
-                                }]
+                                datasets: [
+                                    {
+                                        label: firstSymbol + ' Portfolio Value',
+                                        data: graphData[firstSymbol].values,
+                                        borderColor: 'rgba(75,192,192,1)',
+                                        fill: false
+                                    },
+                                    {
+                                        label: firstSymbol + ' P&L',
+                                        data: pnlData[firstSymbol].values,
+                                        borderColor: 'rgba(255,99,132,1)',
+                                        fill: false
+                                    }
+                                ]
                             },
                             options: {scales: {x: {display: true}, y: {display: true}}}
                         });
@@ -457,13 +469,22 @@
                 // Fetch and show user positions and history
                 fetch(`/api/user/${userId}/positions`).then(res => res.json()).then(pos => {
                     let html = '<h4>User Positions</h4><ul>';
+                    if (pos.length === 0) html += '<li>No positions</li>';
                     pos.forEach(p => { html += `<li>${p.symbol}: ${p.shares_owned} @ $${p.average_buy_price} (Value: $${p.market_value})</li>`; });
                     html += '</ul>';
                     document.getElementById('popup-content').innerHTML += html;
                 });
                 fetch(`/api/user/${userId}/history`).then(res => res.json()).then(hist => {
                     let html = '<h4>User History</h4><ul>';
+                    if (hist.length === 0) html += '<li>No history</li>';
                     hist.forEach(h => { html += `<li>${h.recorded_at}: ${h.symbol} - ${h.shares_owned} @ $${h.average_price} (Value: $${h.total_value})</li>`; });
+                    html += '</ul>';
+                    document.getElementById('popup-content').innerHTML += html;
+                });
+                fetch(`/api/failed_trades?user_id=${userId}`).then(res => res.json()).then(fails => {
+                    let html = '<h4>Failed Trades</h4><ul>';
+                    if (fails.length === 0) html += '<li>No failed trades</li>';
+                    fails.forEach(f => { html += `<li>${f.failed_at}: Trade ${f.trade_recommendation_id} - ${f.reason}</li>`; });
                     html += '</ul>';
                     document.getElementById('popup-content').innerHTML += html;
                 });
@@ -477,19 +498,27 @@
 
         // Enhance trade popup
         function openTradePopup(tradeId) {
-            let html = `<h4>Trade Acceptances</h4><ul id='acceptances-list'></ul><h4>Execution Logs</h4><ul id='logs-list'></ul>`;
+            let html = `<h4>Trade Acceptances</h4><ul id='acceptances-list'></ul><h4>Execution Logs</h4><ul id='logs-list'></ul><h4>Failed Trades</h4><ul id='failed-list'></ul>`;
             document.getElementById('popup-content').innerHTML = html;
             document.getElementById('user-popup').classList.add('active');
             document.getElementById('popup-overlay').classList.add('active');
             fetch(`/api/trade_acceptances?trade_id=${tradeId}`).then(res => res.json()).then(accs => {
                 let accHtml = '';
+                if (accs.length === 0) accHtml = '<li>No acceptances</li>';
                 accs.forEach(a => { accHtml += `<li>User ${a.user_id}: $${a.allocation_amount} (${a.status})</li>`; });
                 document.getElementById('acceptances-list').innerHTML = accHtml;
             });
             fetch(`/api/trade_execution_log?trade_id=${tradeId}`).then(res => res.json()).then(logs => {
                 let logHtml = '';
+                if (logs.length === 0) logHtml = '<li>No logs</li>';
                 logs.forEach(l => { logHtml += `<li>${l.executed_at}: ${l.status} - ${l.details}</li>`; });
                 document.getElementById('logs-list').innerHTML = logHtml;
+            });
+            fetch(`/api/failed_trades?trade_id=${tradeId}`).then(res => res.json()).then(fails => {
+                let failHtml = '';
+                if (fails.length === 0) failHtml = '<li>No failed trades</li>';
+                fails.forEach(f => { failHtml += `<li>User ${f.user_id}: ${f.failed_at} - ${f.reason}</li>`; });
+                document.getElementById('failed-list').innerHTML = failHtml;
             });
         }
     </script>
