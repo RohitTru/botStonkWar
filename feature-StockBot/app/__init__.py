@@ -8,6 +8,9 @@ from app.database import db
 from flask_migrate import Migrate
 import logging
 from sqlalchemy import text
+from apscheduler.schedulers.background import BackgroundScheduler
+from app.services.trade_service import TradeService
+import atexit
 
 def create_app():
     # Load environment variables
@@ -138,6 +141,15 @@ def create_app():
                 app.logger.error(f"Error verifying table columns: {e}")
                 db.session.rollback()
             
+        trade_service = TradeService()
+        scheduler = BackgroundScheduler()
+        def run_expiry_and_execution():
+            result = trade_service.process_expiry_and_execution()
+            app.logger.info(f"Processed expiry and execution: {result}")
+        scheduler.add_job(run_expiry_and_execution, 'interval', minutes=1)
+        scheduler.start()
+        atexit.register(lambda: scheduler.shutdown())
+        
     except Exception as e:
         app.logger.error(f"Error initializing database: {e}")
         

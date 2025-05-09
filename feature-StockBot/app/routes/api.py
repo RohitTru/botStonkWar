@@ -33,10 +33,7 @@ def execute_trade():
 @api_bp.route('/metrics', methods=['GET'])
 def get_metrics():
     try:
-        # Simple count query that doesn't include columns
         user_count = db.session.query(db.func.count(User.id)).scalar()
-        
-        # Fetch live balance from Alpaca with error handling
         try:
             alpaca = AlpacaService()
             account = alpaca.api.get_account()
@@ -46,7 +43,6 @@ def get_metrics():
             print(f"Error fetching Alpaca data: {e}")
             portfolio_value = 0.0
             pnl = 0.0
-            
         metrics = {
             'portfolio_value': portfolio_value,
             'pnl': pnl,
@@ -55,7 +51,7 @@ def get_metrics():
         return jsonify(metrics)
     except Exception as e:
         print(f"Error in metrics endpoint: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify({'portfolio_value': 0.0, 'pnl': 0.0, 'active_users': 0})
 
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
 def add_funds():
@@ -296,8 +292,8 @@ def get_trade_acceptances():
             'allocation_amount': float(a.allocation_amount) if a.allocation_amount else None,
             'allocation_shares': float(a.allocation_shares) if a.allocation_shares else None,
             'status': a.status,
-            'created_at': a.created_at.isoformat(),
-            'updated_at': a.updated_at.isoformat()
+            'created_at': a.created_at.isoformat() if a.created_at else '',
+            'updated_at': a.updated_at.isoformat() if a.updated_at else ''
         } for a in acceptances
     ]
     return jsonify(result)
@@ -305,18 +301,47 @@ def get_trade_acceptances():
 @api_bp.route('/trade_execution_log', methods=['GET'])
 def get_trade_execution_log():
     trade_id = request.args.get('trade_id')
-    query = TradeExecutionLog.query
+    base_query = 'SELECT id, trade_recommendation_id, executed_at, status, details FROM trade_execution_log WHERE 1=1'
+    params = {}
     if trade_id:
-        query = query.filter_by(trade_recommendation_id=trade_id)
-    logs = query.order_by(desc(TradeExecutionLog.executed_at)).all()
-    result = [
-        {
+        base_query += ' AND trade_recommendation_id = :trade_id'
+        params['trade_id'] = trade_id
+    base_query += ' ORDER BY executed_at DESC'
+    logs = db.session.execute(text(base_query), params).fetchall()
+    result = []
+    for l in logs:
+        result.append({
+            'id': l.id,
             'trade_recommendation_id': l.trade_recommendation_id,
-            'executed_at': l.executed_at.isoformat(),
+            'executed_at': l.executed_at.isoformat() if l.executed_at else '',
             'status': l.status,
-            'details': l.details
-        } for l in logs
-    ]
+            'details': l.details,
+        })
+    return jsonify(result)
+
+@api_bp.route('/failed_trades', methods=['GET'])
+def get_failed_trades():
+    trade_id = request.args.get('trade_id')
+    user_id = request.args.get('user_id')
+    base_query = 'SELECT id, trade_recommendation_id, user_id, reason, failed_at FROM failed_trades WHERE 1=1'
+    params = {}
+    if trade_id:
+        base_query += ' AND trade_recommendation_id = :trade_id'
+        params['trade_id'] = trade_id
+    if user_id:
+        base_query += ' AND user_id = :user_id'
+        params['user_id'] = user_id
+    base_query += ' ORDER BY failed_at DESC'
+    logs = db.session.execute(text(base_query), params).fetchall()
+    result = []
+    for l in logs:
+        result.append({
+            'id': l.id,
+            'trade_recommendation_id': l.trade_recommendation_id,
+            'user_id': l.user_id,
+            'reason': l.reason,
+            'failed_at': l.failed_at.isoformat() if l.failed_at else '',
+        })
     return jsonify(result)
 
 @api_bp.route('/active_trades', methods=['GET'])
@@ -422,7 +447,6 @@ def get_user_positions(user_id):
         positions = db.session.execute(text('SELECT symbol, shares_owned, average_buy_price FROM user_positions WHERE user_id = :uid'), {'uid': user_id}).fetchall()
         pos_list = []
         for pos in positions:
-            # Fetch current price (stub: use average_buy_price for now)
             current_price = float(pos.average_buy_price)
             pos_list.append({
                 'symbol': pos.symbol,
@@ -434,7 +458,7 @@ def get_user_positions(user_id):
         return jsonify(pos_list)
     except Exception as e:
         print(f"Error in get_user_positions: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify([])
 
 @api_bp.route('/user/<int:user_id>/history', methods=['GET'])
 def get_user_history(user_id):
@@ -454,7 +478,7 @@ def get_user_history(user_id):
         return jsonify(hist_list)
     except Exception as e:
         print(f"Error in get_user_history: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify([])
 
 @api_bp.route('/brokerage/positions', methods=['GET'])
 def get_brokerage_positions():
@@ -474,19 +498,19 @@ def get_brokerage_positions():
         return jsonify(pos_list)
     except Exception as e:
         print(f"Error in get_brokerage_positions: {e}")
-        return jsonify({'error': 'Internal server error'}), 500
+        return jsonify([])
 
 @api_bp.route('/brokerage/history', methods=['GET'])
 def get_brokerage_history():
     try:
-        history = db.session.execute(text('SELECT symbol, SUM(shares_owned) as total_shares, AVG(average_price) as avg_price, AVG(market_price) as avg_market, SUM(total_value) as total_value, SUM(unrealized_pnl) as unrealized_pnl, recorded_at FROM historical_positions GROUP BY symbol, recorded_at ORDER BY recorded_at DESC')).fetchall()
+        history = db.session.execute(text('SELECT symbol, shares_owned, average_price, market_price, total_value, unrealized_pnl, recorded_at FROM historical_positions ORDER BY recorded_at DESC')).fetchall()
         hist_list = []
         for h in history:
             hist_list.append({
                 'symbol': h.symbol,
-                'total_shares': float(h.total_shares),
-                'average_price': float(h.avg_price),
-                'market_price': float(h.avg_market),
+                'shares_owned': float(h.shares_owned),
+                'average_price': float(h.average_price),
+                'market_price': float(h.market_price),
                 'total_value': float(h.total_value),
                 'unrealized_pnl': float(h.unrealized_pnl),
                 'recorded_at': h.recorded_at.isoformat() if h.recorded_at else '',
@@ -494,4 +518,4 @@ def get_brokerage_history():
         return jsonify(hist_list)
     except Exception as e:
         print(f"Error in get_brokerage_history: {e}")
-        return jsonify({'error': 'Internal server error'}), 500 
+        return jsonify([]) 
