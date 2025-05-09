@@ -1,3 +1,4 @@
+"use client";
 import { useEffect, useState } from 'react';
 import { Box, Typography, Paper, Table, TableBody, TableCell, TableContainer, TableHead, TableRow, CircularProgress } from '@mui/material';
 
@@ -57,7 +58,7 @@ export default function LeaderboardPage() {
             </TableRow>
           </TableHead>
           <TableBody>
-            {users.map((user, idx) => (
+            {users.map((user: User, idx: number) => (
               <TableRow key={user.id}>
                 <TableCell sx={{ color: '#fff' }}>{idx + 1}</TableCell>
                 <TableCell sx={{ color: '#fff' }}>{user.username}</TableCell>
