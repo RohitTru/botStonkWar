@@ -32,22 +32,30 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   const [allocType, setAllocType] = useState<'dollar' | 'shares'>('dollar');
   const [sliderValue, setSliderValue] = useState<number>(0);
 
+  // Helper to reset allocation state
+  const resetAllocation = () => {
+    setAllocation('');
+    setSliderValue(0);
+    setError('');
+  };
+
   React.useEffect(() => {
-    // Fetch user liquidity and shares for the symbol
     if (trade && trade.action === 'BUY') {
       fetch('/api/auth/me').then(res => res.json()).then(data => {
         setUserLiquidity(data.user?.balance ?? null);
-        setSliderValue(0);
         setAllocType('dollar');
+        setAllocation('1.00');
+        setSliderValue(1);
+        setError('');
       });
     } else if (trade && trade.action === 'SELL') {
       const pos = userPositions.find(p => p.symbol === trade.symbol);
       setUserShares(pos ? pos.shares : 0);
-      setSliderValue(0);
       setAllocType('shares');
+      setAllocation('1');
+      setSliderValue(1);
+      setError('');
     }
-    setAllocation('');
-    setError('');
     setStep('choice');
     setAction(null);
   }, [trade, userPositions, open]);
@@ -60,6 +68,35 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     if (!pos || pos.shares <= 0) return null;
   }
 
+  // Handle toggle between dollar and shares
+  const handleToggleAllocType = () => {
+    if (trade?.action === 'BUY') {
+      setAllocType((prev: 'dollar' | 'shares') => prev === 'dollar' ? 'shares' : 'dollar');
+      resetAllocation();
+    }
+  };
+
+  // Handle slider change
+  const handleSliderChange = (_: any, val: number | number[]) => {
+    const value = Array.isArray(val) ? val[0] : val;
+    if (value < sliderMin || value > sliderMax) return;
+    setSliderValue(value);
+    setAllocation(String(value));
+    setError('');
+  };
+
+  // Handle input change
+  const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const value = e.target.value;
+    if (!value || isNaN(Number(value)) || Number(value) < sliderMin || Number(value) > sliderMax) {
+      setError('Enter a valid number in range.');
+    } else {
+      setError('');
+    }
+    setAllocation(value);
+    setSliderValue(Number(value));
+  };
+
   const handleAccept = () => {
     setAction('ACCEPTED');
     setStep('input');
@@ -71,8 +108,8 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   const submitResponse = async () => {
     if (action === 'ACCEPTED') {
       if (
-        (allocType === 'dollar' && trade.action === 'BUY' && (!allocation || Number(allocation) <= 0)) ||
-        (allocType === 'shares' && trade.action === 'SELL' && (!allocation || Number(allocation) <= 0))
+        (allocType === 'dollar' && trade.action === 'BUY' && (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0)) ||
+        (allocType === 'shares' && trade.action === 'SELL' && (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0))
       ) {
         setError('You must allocate a positive amount or number of shares.');
         setStep('input');
@@ -96,7 +133,10 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(body),
       });
-      if (!res.ok) throw new Error('Failed to submit');
+      if (!res.ok) {
+        const err = await res.json();
+        throw new Error(err.error || 'Failed to submit');
+      }
       setStep('done');
       onRespond();
     } catch (e: any) {
@@ -104,31 +144,11 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
       setStep('choice');
     }
   };
-  const handleInputSubmit = () => {
-    if (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0) {
-      setError('Enter a valid positive number');
-      return;
-    }
-    if (allocType === 'dollar' && trade.action === 'BUY') {
-      if (userLiquidity !== null && Number(allocation) > userLiquidity) {
-        setError('Cannot allocate more than your available liquidity');
-        return;
-      }
-    }
-    if (allocType === 'shares' && trade.action === 'SELL') {
-      if (Number(allocation) > userShares) {
-        setError('Cannot sell more shares than you own');
-        return;
-      }
-    }
-    setError('');
-    submitResponse();
-  };
 
   // Slider min/max
-  const sliderMin = 0;
-  const sliderMax = allocType === 'dollar' ? (userLiquidity ?? 1000) : userShares;
-  const sliderStep = allocType === 'dollar' ? 1 : 1;
+  const sliderMin = 1;
+  const sliderMax = allocType === 'dollar' ? (userLiquidity ?? 1000) : Math.max(userShares, 1);
+  const sliderStep = allocType === 'dollar' ? 0.01 : 1;
 
   return (
     <Modal open={open} onClose={onClose} closeAfterTransition>
@@ -139,14 +159,14 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
           right: 0,
           bottom: 0,
           mx: 'auto',
-          mb: 0,
-          bgcolor: 'rgba(255,255,255,0.95)',
-          borderRadius: '24px 24px 0 0',
-          maxWidth: 600,
-          minWidth: 340,
-          width: '90vw',
+          mb: 6,
+          bgcolor: 'rgba(255,255,255,0.97)',
+          borderRadius: 4,
+          maxWidth: 800,
+          minWidth: 400,
+          width: '95vw',
           boxShadow: 24,
-          p: 4,
+          p: 5,
           border: '1.5px solid #e5e7eb',
           zIndex: 1300,
           transition: 'all 0.4s cubic-bezier(.4,0,.2,1)',
@@ -178,7 +198,7 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
                   control={
                     <Switch
                       checked={allocType === 'dollar'}
-                      onChange={() => setAllocType(allocType === 'dollar' ? 'shares' : 'dollar')}
+                      onChange={handleToggleAllocType}
                       color="primary"
                       disabled={trade.action === 'SELL'}
                     />
@@ -194,27 +214,21 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
                 min={sliderMin}
                 max={sliderMax}
                 step={sliderStep}
-                onChange={(_, val) => {
-                  setSliderValue(Number(val));
-                  setAllocation(String(val));
-                }}
+                onChange={handleSliderChange}
                 valueLabelDisplay="auto"
                 sx={{ mb: 1 }}
               />
               <TextField
                 label={allocType === 'dollar' ? 'Dollar Amount' : 'Shares'}
                 value={allocation}
-                onChange={e => {
-                  setAllocation(e.target.value);
-                  setSliderValue(Number(e.target.value));
-                }}
+                onChange={handleInputChange}
                 type="number"
                 fullWidth
                 size="small"
                 sx={{ mb: 1 }}
               />
               {error && <Typography color="error">{error}</Typography>}
-              <Button variant="contained" onClick={handleInputSubmit} fullWidth>Submit</Button>
+              <Button variant="contained" onClick={submitResponse} fullWidth>Submit</Button>
             </Box>
           )}
           {step === 'loading' && <CircularProgress sx={{ mt: 2 }} />}
