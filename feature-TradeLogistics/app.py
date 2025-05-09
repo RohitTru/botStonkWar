@@ -394,7 +394,8 @@ app.add_url_rule('/api/dashboard-data', 'get_dashboard_data', get_dashboard_data
 
 @app.route('/')
 def index():
-    data = gather_dashboard_data()
+    with _dashboard_cache_lock:
+        data = _dashboard_cache.copy()
     ws_symbols = price_service.get_subscribed_symbols()
     return render_template('index.html', metrics=data['metrics'], strategies=data['strategies'], recommendations=data['recommendations'], ws_symbols=ws_symbols)
 
@@ -402,39 +403,6 @@ def index():
 def get_strategies():
     print("Endpoint: /api/strategies called")
     return jsonify(strategy_manager.get_all_strategies())
-
-# Add after other global variables
-_recommendations_cache = []
-_last_cache_update = 0
-_cache_lock = threading.Lock()
-
-def update_recommendations_cache():
-    """Background task to update recommendations cache"""
-    global _recommendations_cache, _last_cache_update
-    while True:
-        try:
-            # Fetch and run strategies
-            strategy_data = fetch_strategy_data()
-            new_recs = strategy_manager.run_all_strategies(strategy_data)
-            
-            # Insert new recommendations into MySQL
-            for rec in new_recs:
-                trade_db.insert(rec)
-            
-            # Update cache
-            with _cache_lock:
-                _recommendations_cache = trade_db.fetch_all()
-                _last_cache_update = time.time()
-                
-        except Exception as e:
-            app.logger.error(f"Error updating recommendations cache: {str(e)}")
-        
-        # Sleep for 2.5 seconds plus a small random jitter (0-0.5s)
-        time.sleep(2.5 + random.random() * 0.5)
-
-# Start background task
-cache_thread = Thread(target=update_recommendations_cache, daemon=True)
-cache_thread.start()
 
 @app.route('/api/recommendations')
 def get_recommendations():
@@ -448,8 +416,8 @@ def get_recommendations():
     timeframe = request.args.get('timeframe')
     
     # Get recommendations from cache
-    with _cache_lock:
-        all_recs = _recommendations_cache
+    with _dashboard_cache_lock:
+        all_recs = _dashboard_cache['recommendations']
     
     # Apply filters
     filtered = [r for r in all_recs if (
