@@ -147,7 +147,7 @@ def create_app():
             with app.app_context():
                 result = trade_service.process_expiry_and_execution()
                 app.logger.info(f"Processed expiry and execution: {result}")
-        scheduler.add_job(run_expiry_and_execution, 'interval', minutes=1)
+        scheduler.add_job(run_expiry_and_execution, 'interval', minutes=2)
         scheduler.start()
         atexit.register(lambda: scheduler.shutdown())
         
