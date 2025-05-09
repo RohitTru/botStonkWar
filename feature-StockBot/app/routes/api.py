@@ -241,7 +241,7 @@ def get_trades():
         elif hasattr(t, 'expires_at') and t.expires_at:
             expired_at = t.expires_at.isoformat()
         # Ensure metadata is JSON serializable
-        meta = getattr(t, 'metadata', None)
+        meta = getattr(t, 'metadata_json', None)
         try:
             if isinstance(meta, str):
                 meta_json = json.loads(meta)

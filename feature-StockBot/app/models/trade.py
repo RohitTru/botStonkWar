@@ -68,7 +68,7 @@ class TradeRecommendation(db.Model):
     confidence = db.Column(db.Float, nullable=True)
     reasoning = db.Column(db.Text, nullable=True)
     timeframe = db.Column(db.String(20), nullable=True)
-    metadata = db.Column(db.JSON, nullable=True)
+    metadata_json = db.Column('metadata', db.JSON, nullable=True)
     created_at = db.Column(db.DateTime, nullable=True)
     strategy_name = db.Column(db.String(50), nullable=True)
     trade_time = db.Column(db.DateTime, nullable=True)
