@@ -15,7 +15,7 @@ class SentimentConsensusStrategy(BaseStrategy):
     _alpaca_cache = {}  # symbol -> (data, timestamp)
     _alpaca_cache_ttl = timedelta(minutes=15)
 
-    def __init__(self, confidence_threshold: float = 0.8, min_articles: int = 10, window_minutes: int = 30):
+    def __init__(self, confidence_threshold: float = 0.8, min_articles: int = 3, window_minutes: int = 30):
         super().__init__(
             name="sentiment_consensus",
             description="Recommends trades only if multiple high-confidence articles agree on direction for the same ticker in a recent time window."
