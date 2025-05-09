@@ -229,27 +229,41 @@ def get_trades():
     trade_list = []
     for t in trades:
         user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
+        # Use all fields from the schema
         live_price = getattr(t, 'live_price', None)
-        strategy_name = getattr(t, 'strategy_name', '')
         shares = float(getattr(t, 'shares', 0) or 0)
         action = getattr(t, 'action', '')
         brokerage_trade = f"{action} {shares:.4f} shares at ${float(live_price):.2f}" if live_price is not None else ''
+        # Expired At logic
         expired_at = ''
         if t.timeframe and t.timeframe.lower() in ['short_term', 'short term'] and t.created_at:
             expired_at_dt = t.created_at + timedelta(minutes=2)
             expired_at = expired_at_dt.isoformat()
+        elif hasattr(t, 'expires_at') and t.expires_at:
+            expired_at = t.expires_at.isoformat()
         trade_list.append({
             'id': t.id,
             'symbol': t.symbol,
-            'strategy_name': strategy_name,
-            'price': float(live_price) if live_price is not None else None,
-            'type': action,
-            'status': t.status,
-            'users': user_count,
-            'shares': shares,
-            'amount': float(getattr(t, 'amount', 0) or 0),
-            'brokerage_trade': brokerage_trade,
+            'action': t.action,
+            'confidence': getattr(t, 'confidence', None),
+            'reasoning': getattr(t, 'reasoning', None),
+            'timeframe': t.timeframe,
+            'metadata': getattr(t, 'metadata', None),
             'created_at': t.created_at.isoformat() if t.created_at else '',
+            'strategy_name': getattr(t, 'strategy_name', ''),
+            'trade_time': getattr(t, 'trade_time', None),
+            'live_price': float(live_price) if live_price is not None else None,
+            'live_change_percent': getattr(t, 'live_change_percent', None),
+            'live_volume': getattr(t, 'live_volume', None),
+            'status': t.status,
+            'amount': float(getattr(t, 'amount', 0) or 0),
+            'shares': shares,
+            'expires_at': t.expires_at.isoformat() if hasattr(t, 'expires_at') and t.expires_at else '',
+            'required_acceptances': getattr(t, 'required_acceptances', None),
+            'updated_at': t.updated_at.isoformat() if hasattr(t, 'updated_at') and t.updated_at else '',
+            'users': user_count,
+            'price': float(live_price) if live_price is not None else None,
+            'brokerage_trade': brokerage_trade,
             'expired_at': expired_at,
         })
     return jsonify({'total': total, 'trades': trade_list})
