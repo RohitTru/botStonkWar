@@ -74,14 +74,13 @@ def get_users():
         users = query.order_by(User.balance.desc()).all()
         user_list = []
         for u in users:
-            positions = db.session.execute(text('SELECT shares_owned, average_buy_price, symbol FROM user_positions WHERE user_id = :uid'), {'uid': u.id}).fetchall()
-            equity = float(u.balance)
+            positions = db.session.execute(text('SELECT shares, symbol FROM user_positions WHERE user_id = :uid'), {'uid': u.id}).fetchall()
+            equity = float(u.balance) if u.balance else 0.0
             pnl = 0.0
             for pos in positions:
-                current_price = float(pos.average_buy_price)
-                shares = float(pos.shares_owned)
-                equity += shares * current_price
-                pnl += shares * (current_price - float(pos.average_buy_price))
+                shares = float(pos.shares)
+                equity += 0
+                pnl += 0
             user_list.append({
                 'id': u.id,
                 'username': u.username,
@@ -212,14 +211,11 @@ def get_logs():
 @api_bp.route('/latest_trade_recommendation', methods=['GET'])
 def latest_trade_recommendation():
     try:
-        # First check if the table exists
         try:
             db.session.execute(text("SELECT 1 FROM trade_recommendations LIMIT 1"))
         except Exception as e:
             print(f"Table trade_recommendations does not exist: {e}")
             return jsonify({'error': 'No trade recommendations found'}), 404
-            
-        # If table exists, try to get the latest recommendation
         try:
             result = db.session.execute(text("""
                 SELECT id, symbol, action, amount, shares, timeframe, expires_at, 
@@ -228,26 +224,23 @@ def latest_trade_recommendation():
                 ORDER BY created_at DESC 
                 LIMIT 1
             """)).fetchone()
-            
             if result:
                 return jsonify({
                     'id': result.id,
                     'symbol': result.symbol,
                     'action': result.action,
-                    'status': 'PENDING',  # Default status if column doesn't exist
+                    'status': 'PENDING',
                     'amount': float(result.amount),
                     'shares': float(result.shares),
                     'timeframe': result.timeframe,
-                    'expires_at': result.expires_at.isoformat(),
+                    'expires_at': result.expires_at.isoformat() if result.expires_at else '',
                     'required_acceptances': result.required_acceptances,
-                    'created_at': result.created_at.isoformat(),
+                    'created_at': result.created_at.isoformat() if result.created_at else '',
                 })
             return jsonify({'error': 'No trade recommendations found'}), 404
-            
         except Exception as e:
             print(f"Error querying trade_recommendations: {e}")
             return jsonify({'error': 'No trade recommendations found'}), 404
-            
     except Exception as e:
         print(f"Error in latest_trade_recommendation: {e}")
         return jsonify({'error': 'Internal server error'}), 500
@@ -444,16 +437,14 @@ def get_executed_trades():
 @api_bp.route('/user/<int:user_id>/positions', methods=['GET'])
 def get_user_positions(user_id):
     try:
-        positions = db.session.execute(text('SELECT symbol, shares_owned, average_buy_price FROM user_positions WHERE user_id = :uid'), {'uid': user_id}).fetchall()
+        positions = db.session.execute(text('SELECT symbol, shares FROM user_positions WHERE user_id = :uid'), {'uid': user_id}).fetchall()
         pos_list = []
         for pos in positions:
-            current_price = float(pos.average_buy_price)
             pos_list.append({
                 'symbol': pos.symbol,
-                'shares_owned': float(pos.shares_owned),
-                'average_buy_price': float(pos.average_buy_price),
-                'current_price': current_price,
-                'market_value': round(float(pos.shares_owned) * current_price, 2),
+                'shares': float(pos.shares),
+                'current_price': None,
+                'market_value': None,
             })
         return jsonify(pos_list)
     except Exception as e:

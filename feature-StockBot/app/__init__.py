@@ -144,9 +144,8 @@ def create_app():
         trade_service = TradeService()
         scheduler = BackgroundScheduler()
         def run_expiry_and_execution():
-            with app.app_context():
-                result = trade_service.process_expiry_and_execution()
-                app.logger.info(f"Processed expiry and execution: {result}")
+            result = trade_service.process_expiry_and_execution()
+            app.logger.info(f"Processed expiry and execution: {result}")
         scheduler.add_job(run_expiry_and_execution, 'interval', minutes=1)
         scheduler.start()
         atexit.register(lambda: scheduler.shutdown())
