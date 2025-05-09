@@ -211,6 +211,19 @@
             .metrics-cards { flex-direction: column; gap: 1rem; }
             .section { padding: 1rem 0.5rem; }
         }
+        .status-badge {
+            display: inline-block;
+            padding: 0.3em 0.9em;
+            border-radius: 8px;
+            font-weight: 600;
+            font-size: 0.95em;
+            color: #fff;
+            letter-spacing: 0.5px;
+            margin-right: 2px;
+        }
+        .status-badge.EXPIRED { background: #ef4444; }
+        .status-badge.PENDING { background: #fbbf24; color: #1e293b; }
+        .status-badge.EXECUTED { background: #22c55e; }
     </style>
 </head>
 <body>
@@ -485,9 +498,7 @@
             for (const t of trades) {
                 const tr = document.createElement('tr');
                 // Status badge
-                let statusClass = 'badge-pending';
-                if (t.status === 'EXECUTED') statusClass = 'badge-executed';
-                else if (t.status === 'EXPIRED') statusClass = 'badge-expired';
+                let statusClass = 'status-badge ' + t.status;
                 // Users button
                 const usersBtn = `<button class="users-btn" data-tradeid="${t.id}" data-users="${t.users}">${t.users}</button>`;
                 // Brokerage trade (from API)
@@ -496,7 +507,7 @@
                 let price = t.price !== null && t.price !== undefined ? `$${parseFloat(t.price).toFixed(2)}` : '';
                 // Strategy column
                 let strategy = t.strategy_name || '';
-                tr.innerHTML = `<td>${t.symbol}</td><td>${strategy}</td><td>${price}</td><td>${t.type}</td><td><span class="status-badge ${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
+                tr.innerHTML = `<td>${t.symbol}</td><td>${strategy}</td><td>${price}</td><td>${t.type}</td><td><span class="${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
                 tbody.appendChild(tr);
             }
         }

@@ -8,6 +8,7 @@ from datetime import datetime, timedelta
 from app.models.trade import TradeAcceptance, TradeExecutionLog, TradeRecommendation
 from sqlalchemy import desc, text
 from decimal import Decimal
+import json
 
 api_bp = Blueprint('api', __name__)
 trade_service = TradeService()
@@ -229,18 +230,27 @@ def get_trades():
     trade_list = []
     for t in trades:
         user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
-        # Use all fields from the schema
         live_price = getattr(t, 'live_price', None)
         shares = float(getattr(t, 'shares', 0) or 0)
         action = getattr(t, 'action', '')
         brokerage_trade = f"{action} {shares:.4f} shares at ${float(live_price):.2f}" if live_price is not None else ''
-        # Expired At logic
         expired_at = ''
         if t.timeframe and t.timeframe.lower() in ['short_term', 'short term'] and t.created_at:
             expired_at_dt = t.created_at + timedelta(minutes=2)
             expired_at = expired_at_dt.isoformat()
         elif hasattr(t, 'expires_at') and t.expires_at:
             expired_at = t.expires_at.isoformat()
+        # Ensure metadata is JSON serializable
+        meta = getattr(t, 'metadata', None)
+        try:
+            if isinstance(meta, str):
+                meta_json = json.loads(meta)
+            elif isinstance(meta, dict):
+                meta_json = meta
+            else:
+                meta_json = None
+        except Exception:
+            meta_json = None
         trade_list.append({
             'id': t.id,
             'symbol': t.symbol,
@@ -248,7 +258,7 @@ def get_trades():
             'confidence': getattr(t, 'confidence', None),
             'reasoning': getattr(t, 'reasoning', None),
             'timeframe': t.timeframe,
-            'metadata': getattr(t, 'metadata', None),
+            'metadata': meta_json,
             'created_at': t.created_at.isoformat() if t.created_at else '',
             'strategy_name': getattr(t, 'strategy_name', ''),
             'trade_time': getattr(t, 'trade_time', None),
