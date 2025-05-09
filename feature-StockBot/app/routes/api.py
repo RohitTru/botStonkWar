@@ -229,15 +229,28 @@ def get_trades():
     trade_list = []
     for t in trades:
         user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
-        expired_at = t.expires_at.isoformat() if t.status == 'EXPIRED' and t.expires_at else ''
+        # Use live_price from the table
+        live_price = getattr(t, 'live_price', None)
+        # Compute brokerage_trade string
+        brokerage_trade = f"{t.action} {float(t.shares):.4f} shares at ${float(live_price):.2f}" if live_price is not None else ''
+        # Expired At logic
+        expired_at = ''
+        if t.status == 'EXPIRED':
+            if t.timeframe and t.timeframe.lower() == 'short term' and t.created_at:
+                expired_at_dt = t.created_at + timedelta(minutes=2)
+                expired_at = expired_at_dt.isoformat()
+            elif hasattr(t, 'expires_at') and t.expires_at:
+                expired_at = t.expires_at.isoformat()
         trade_list.append({
             'id': t.id,
             'symbol': t.symbol,
+            'price': float(live_price) if live_price is not None else None,
             'type': t.action,
             'status': t.status,
             'users': user_count,
             'shares': float(t.shares),
             'amount': float(t.amount),
+            'brokerage_trade': brokerage_trade,
             'created_at': t.created_at.isoformat() if t.created_at else '',
             'expired_at': expired_at,
         })
@@ -610,13 +623,4 @@ def get_brokerage_history():
         return jsonify(hist_list)
     except Exception as e:
         print(f"Error in get_brokerage_history: {e}")
-        return jsonify([])
-
-@api_bp.route('/latest_price', methods=['GET'])
-def get_latest_price():
-    symbol = request.args.get('symbol')
-    # TODO: Replace with real price fetch from brokerage or market data
-    # For now, return a mock price
-    import random
-    price = round(random.uniform(10, 500), 2)
-    return jsonify({'symbol': symbol, 'price': price}) 
+        return jsonify([]) 

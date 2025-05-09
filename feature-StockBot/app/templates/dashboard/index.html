@@ -281,7 +281,7 @@
             </div>
             <div class="scroll-table-wrapper">
                 <table class="trades-table">
-                    <thead><tr><th>Symbol</th><th>Type</th><th>Status</th><th>Users</th><th>Brokerage Trade</th><th>Created</th><th>Expired At</th></tr></thead>
+                    <thead><tr><th>Symbol</th><th>Price</th><th>Type</th><th>Status</th><th>Users</th><th>Brokerage Trade</th><th>Created</th><th>Expired At</th></tr></thead>
                     <tbody id="trades-body"></tbody>
                 </table>
             </div>
@@ -466,13 +466,6 @@
     let tradesPage = 1;
     let tradesPerPage = 20;
     let tradesTotal = 0;
-    function fetchLivePrice(symbol) {
-        // Placeholder: replace with your actual price API endpoint
-        return fetch(`/api/latest_price?symbol=${symbol}`)
-            .then(res => res.json())
-            .then(data => data.price || 0)
-            .catch(() => 0);
-    }
     async function updateTrades() {
         const search = document.getElementById('trade-search-box').value;
         const status = document.getElementById('trade-status-filter').value;
@@ -497,13 +490,11 @@
                 else if (t.status === 'EXPIRED') statusClass = 'badge-expired';
                 // Users button
                 const usersBtn = `<button class="users-btn" data-tradeid="${t.id}" data-users="${t.users}">${t.users}</button>`;
-                // Brokerage trade (live price)
-                let brokerageTrade = '...';
-                if (t.symbol && t.shares) {
-                    const price = await fetchLivePrice(t.symbol);
-                    brokerageTrade = `${t.type} ${parseFloat(t.shares).toFixed(4)} shares at $${parseFloat(price).toFixed(2)}`;
-                }
-                tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td><span class="status-badge ${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
+                // Brokerage trade (from API)
+                let brokerageTrade = t.brokerage_trade || '';
+                // Price column
+                let price = t.price !== null && t.price !== undefined ? `$${parseFloat(t.price).toFixed(2)}` : '';
+                tr.innerHTML = `<td>${t.symbol}</td><td>${price}</td><td>${t.type}</td><td><span class="status-badge ${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
                 tbody.appendChild(tr);
             }
         }
