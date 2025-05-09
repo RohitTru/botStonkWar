@@ -1,7 +1,7 @@
 from app.services.alpaca_service import AlpacaService
 from app.database import db
 from app.models.trade import TradeExecution, TradeRecommendation, TradeAcceptance, TradeExecutionLog
-from datetime import datetime
+from datetime import datetime, timedelta
 from sqlalchemy import and_
 
 class TradeService:
@@ -31,14 +31,29 @@ class TradeService:
 
     def expire_recommendations(self):
         now = datetime.utcnow()
+        # Expire trades where expires_at < now and status is PENDING (existing logic)
         expired = TradeRecommendation.query.filter(
             and_(TradeRecommendation.expires_at < now, TradeRecommendation.status == 'PENDING')
         ).all()
         for rec in expired:
             rec.status = 'EXPIRED'
             db.session.add(rec)
+
+        # Expire 'short term' trades that are pending and created_at older than 2 minutes
+        short_term_expired = TradeRecommendation.query.filter(
+            and_(
+                TradeRecommendation.status == 'PENDING',
+                TradeRecommendation.timeframe == 'short term',
+                TradeRecommendation.created_at < (now - timedelta(minutes=2))
+            )
+        ).all()
+        for rec in short_term_expired:
+            rec.status = 'EXPIRED'
+            rec.expires_at = now
+            db.session.add(rec)
+
         db.session.commit()
-        return len(expired)
+        return len(expired) + len(short_term_expired)
 
     def execute_eligible_recommendations(self):
         now = datetime.utcnow()
