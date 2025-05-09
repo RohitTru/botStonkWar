@@ -235,12 +235,11 @@ def get_trades():
         brokerage_trade = f"{t.action} {float(t.shares):.4f} shares at ${float(live_price):.2f}" if live_price is not None else ''
         # Expired At logic
         expired_at = ''
-        if t.status == 'EXPIRED':
-            if t.timeframe and t.timeframe.lower() == 'short term' and t.created_at:
-                expired_at_dt = t.created_at + timedelta(minutes=2)
-                expired_at = expired_at_dt.isoformat()
-            elif hasattr(t, 'expires_at') and t.expires_at:
-                expired_at = t.expires_at.isoformat()
+        if t.timeframe and t.timeframe.lower() in ['short_term', 'short term'] and t.created_at:
+            expired_at_dt = t.created_at + timedelta(minutes=2)
+            expired_at = expired_at_dt.isoformat()
+        # Add strategy_name
+        strategy_name = getattr(t, 'strategy_name', '')
         trade_list.append({
             'id': t.id,
             'symbol': t.symbol,
@@ -248,11 +247,12 @@ def get_trades():
             'type': t.action,
             'status': t.status,
             'users': user_count,
-            'shares': float(t.shares),
-            'amount': float(t.amount),
+            'shares': float(t.shares) if hasattr(t, 'shares') and t.shares is not None else None,
+            'amount': float(t.amount) if hasattr(t, 'amount') and t.amount is not None else None,
             'brokerage_trade': brokerage_trade,
             'created_at': t.created_at.isoformat() if t.created_at else '',
             'expired_at': expired_at,
+            'strategy_name': strategy_name,
         })
     return jsonify({'total': total, 'trades': trade_list})
 

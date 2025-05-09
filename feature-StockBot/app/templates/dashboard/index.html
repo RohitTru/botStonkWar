@@ -281,7 +281,7 @@
             </div>
             <div class="scroll-table-wrapper">
                 <table class="trades-table">
-                    <thead><tr><th>Symbol</th><th>Price</th><th>Type</th><th>Status</th><th>Users</th><th>Brokerage Trade</th><th>Created</th><th>Expired At</th></tr></thead>
+                    <thead><tr><th>Symbol</th><th>Strategy</th><th>Price</th><th>Type</th><th>Status</th><th>Users</th><th>Brokerage Trade</th><th>Created</th><th>Expired At</th></tr></thead>
                     <tbody id="trades-body"></tbody>
                 </table>
             </div>
@@ -494,7 +494,9 @@
                 let brokerageTrade = t.brokerage_trade || '';
                 // Price column
                 let price = t.price !== null && t.price !== undefined ? `$${parseFloat(t.price).toFixed(2)}` : '';
-                tr.innerHTML = `<td>${t.symbol}</td><td>${price}</td><td>${t.type}</td><td><span class="status-badge ${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
+                // Strategy column
+                let strategy = t.strategy_name || '';
+                tr.innerHTML = `<td>${t.symbol}</td><td>${strategy}</td><td>${price}</td><td>${t.type}</td><td><span class="status-badge ${statusClass}">${t.status}</span></td><td>${usersBtn}</td><td>${brokerageTrade}</td><td>${t.created_at}</td><td>${t.expired_at || ''}</td>`;
                 tbody.appendChild(tr);
             }
         }
