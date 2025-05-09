@@ -2,6 +2,7 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models.models import TradeRecommendation, TradeAcceptance, UserPosition
 from sqlalchemy import desc
+from datetime import datetime
 
 trades_bp = Blueprint('trades', __name__)
 
@@ -96,4 +97,46 @@ def user_positions():
         'symbol': p.symbol,
         'shares': p.shares,
         'updated_at': p.updated_at
-    } for p in positions]) 
+    } for p in positions])
+
+@trades_bp.route('/user_trade_recommendations', methods=['GET'])
+def user_trade_recommendations():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'user_id required'}), 400
+    now = datetime.utcnow()
+    trades = TradeRecommendation.query.order_by(desc(TradeRecommendation.created_at)).all()
+    acceptances = TradeAcceptance.query.filter_by(user_id=user_id).all()
+    acceptance_map = {(a.trade_id, a.user_id): a for a in acceptances}
+    result = []
+    for t in trades:
+        acceptance = acceptance_map.get((t.id, int(user_id)))
+        expires_at = t.created_at
+        if hasattr(t, 'expires_at') and t.expires_at:
+            expires_at = t.expires_at
+        is_expired = expires_at and expires_at < now
+        user_status = acceptance.status if acceptance else 'PENDING'
+        is_active = not is_expired and user_status == 'PENDING'
+        result.append({
+            'id': t.id,
+            'symbol': t.symbol,
+            'action': t.action,
+            'confidence': t.confidence,
+            'reasoning': t.reasoning,
+            'timeframe': t.timeframe,
+            'created_at': t.created_at,
+            'strategy_name': t.strategy_name,
+            'trade_time': t.trade_time,
+            'live_price': t.live_price,
+            'live_change_percent': t.live_change_percent,
+            'live_volume': t.live_volume,
+            'expires_at': getattr(t, 'expires_at', None),
+            'user_status': user_status,
+            'is_active': is_active,
+            'is_expired': is_expired,
+            'acceptance_id': acceptance.id if acceptance else None,
+            'allocation_amount': acceptance.allocation_amount if acceptance else None,
+            'allocation_shares': acceptance.allocation_shares if acceptance else None,
+            'acceptance_created_at': acceptance.created_at if acceptance else None
+        })
+    return jsonify(result) 

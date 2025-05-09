@@ -2,54 +2,49 @@
 
 import { useEffect, useState } from 'react';
 import NotificationModal from './NotificationModal';
-import { Box, Typography, Paper, Card, CardContent } from '@mui/material';
+import { Box, Typography, Paper, Card, CardContent, Button, Chip } from '@mui/material';
 
 export default function UserDashboard({ user }: { user: any }) {
-  const [latestTrade, setLatestTrade] = useState<any>(null);
+  const [allTrades, setAllTrades] = useState<any[]>([]);
+  const [activeTrade, setActiveTrade] = useState<any>(null);
   const [showModal, setShowModal] = useState(false);
   const [userPositions, setUserPositions] = useState<{ symbol: string; shares: number }[]>([]);
   const [lastRespondedTradeId, setLastRespondedTradeId] = useState<number | null>(null);
 
-  // Poll for latest trade recommendation
+  // Poll for all trade recommendations for the user
   useEffect(() => {
     let interval: any;
-    const fetchLatest = async () => {
+    const fetchAll = async () => {
       try {
-        const res = await fetch('/api/latest_trade_recommendation');
+        const res = await fetch(`/api/user_trade_recommendations?user_id=${user.id}`);
         if (!res.ok) return;
-        const trade = await res.json();
+        const trades = await res.json();
+        setAllTrades(trades);
+        // Find the first active, unresponded trade
+        const firstActive = trades.find((t: any) => t.is_active);
+        setActiveTrade(firstActive || null);
+        setShowModal(!!firstActive);
         // Fetch user positions for SELL
         const posRes = await fetch(`/api/user_positions?user_id=${user.id}`);
         const positions = await posRes.json();
         setUserPositions(positions);
-        // Check if user has responded
-        const resp = await fetch(`/api/trade_acceptances?trade_id=${trade.id}&user_id=${user.id}`);
-        const acceptances = await resp.json();
-        let shouldShow = false;
-        if (!acceptances.length || lastRespondedTradeId !== trade.id) {
-          if (trade.action === 'SELL') {
-            const pos = positions.find((p: any) => p.symbol === trade.symbol);
-            if (pos && pos.shares > 0) {
-              shouldShow = true;
-            }
-          } else if (trade.action === 'BUY') {
-            shouldShow = true;
-          }
-        }
-        setLatestTrade(shouldShow ? trade : null);
-        setShowModal(shouldShow);
-        setLastRespondedTradeId(acceptances.length ? trade.id : null);
+        setLastRespondedTradeId(firstActive ? null : lastRespondedTradeId);
       } catch (e) {
         // Ignore errors for now
       }
     };
-    fetchLatest();
-    interval = setInterval(fetchLatest, 15000);
+    fetchAll();
+    interval = setInterval(fetchAll, 15000);
     return () => clearInterval(interval);
   }, [user.id, lastRespondedTradeId]);
 
   const handleModalClose = () => setShowModal(false);
   const handleRespond = () => setShowModal(false);
+
+  // Group trades
+  const activeTrades = allTrades.filter(t => t.is_active);
+  const expiredTrades = allTrades.filter(t => t.is_expired);
+  const respondedTrades = allTrades.filter(t => !t.is_active && !t.is_expired && t.user_status !== 'PENDING');
 
   return (
     <Box
@@ -65,7 +60,7 @@ export default function UserDashboard({ user }: { user: any }) {
     >
       <NotificationModal
         open={showModal}
-        trade={latestTrade}
+        trade={activeTrade}
         userId={user.id}
         onClose={handleModalClose}
         onRespond={handleRespond}
@@ -109,7 +104,6 @@ export default function UserDashboard({ user }: { user: any }) {
       <Paper
         sx={{
           p: 4,
-          textAlign: 'center',
           background: '#232526',
           color: '#fff',
           borderRadius: 3,
@@ -120,11 +114,63 @@ export default function UserDashboard({ user }: { user: any }) {
         }}
       >
         <Typography variant="h4" component="h1" gutterBottom sx={{ color: '#fff' }}>
-          Welcome to Your Dashboard
+          Trade Recommendations
         </Typography>
-        <Typography variant="body1" sx={{ color: '#bdbddd' }}>
-          This dashboard is currently under development. More features will be available soon.
-        </Typography>
+        <Box sx={{ mt: 3 }}>
+          <Typography variant="h6" sx={{ color: '#bdbddd', mb: 1 }}>Active</Typography>
+          {activeTrades.length === 0 && <Typography sx={{ color: '#888' }}>No active trade recommendations.</Typography>}
+          {activeTrades.map(trade => (
+            <Paper key={trade.id} sx={{ mb: 2, p: 2, background: '#282a36', borderRadius: 2 }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography><b>{trade.symbol}</b> ({trade.action})</Typography>
+                  <Typography variant="caption">Strategy: {trade.strategy_name ?? '-'}</Typography>
+                  <Typography variant="caption" sx={{ ml: 2 }}>Expires: {trade.expires_at ? new Date(trade.expires_at).toLocaleString() : '-'}</Typography>
+                </Box>
+                <Chip label="Active" color="success" />
+              </Box>
+              <Box mt={1} display="flex" gap={2}>
+                <Button variant="contained" size="small" color="success" onClick={() => setActiveTrade(trade) && setShowModal(true)}>Accept</Button>
+                <Button variant="outlined" size="small" color="error" onClick={() => setActiveTrade(trade) && setShowModal(true)}>Deny</Button>
+              </Box>
+            </Paper>
+          ))}
+        </Box>
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ color: '#bdbddd', mb: 1 }}>Responded</Typography>
+          {respondedTrades.length === 0 && <Typography sx={{ color: '#888' }}>No responded trades.</Typography>}
+          {respondedTrades.map(trade => (
+            <Paper key={trade.id} sx={{ mb: 2, p: 2, background: '#232526', borderRadius: 2 }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography><b>{trade.symbol}</b> ({trade.action})</Typography>
+                  <Typography variant="caption">Strategy: {trade.strategy_name ?? '-'}</Typography>
+                  <Typography variant="caption" sx={{ ml: 2 }}>Expires: {trade.expires_at ? new Date(trade.expires_at).toLocaleString() : '-'}</Typography>
+                </Box>
+                <Chip label={trade.user_status} color={trade.user_status === 'ACCEPTED' ? 'success' : 'error'} />
+              </Box>
+              <Box mt={1}>
+                <Typography variant="caption">Allocated: {trade.allocation_amount ? `$${trade.allocation_amount}` : trade.allocation_shares ? `${trade.allocation_shares} shares` : '-'}</Typography>
+              </Box>
+            </Paper>
+          ))}
+        </Box>
+        <Box sx={{ mt: 4 }}>
+          <Typography variant="h6" sx={{ color: '#bdbddd', mb: 1 }}>Expired</Typography>
+          {expiredTrades.length === 0 && <Typography sx={{ color: '#888' }}>No expired trades.</Typography>}
+          {expiredTrades.map(trade => (
+            <Paper key={trade.id} sx={{ mb: 2, p: 2, background: '#232526', borderRadius: 2, opacity: 0.6 }}>
+              <Box display="flex" alignItems="center" justifyContent="space-between">
+                <Box>
+                  <Typography><b>{trade.symbol}</b> ({trade.action})</Typography>
+                  <Typography variant="caption">Strategy: {trade.strategy_name ?? '-'}</Typography>
+                  <Typography variant="caption" sx={{ ml: 2 }}>Expired: {trade.expires_at ? new Date(trade.expires_at).toLocaleString() : '-'}</Typography>
+                </Box>
+                <Chip label="Expired" color="default" />
+              </Box>
+            </Paper>
+          ))}
+        </Box>
       </Paper>
     </Box>
   );
