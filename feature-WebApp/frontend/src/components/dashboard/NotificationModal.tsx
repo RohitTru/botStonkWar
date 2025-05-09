@@ -69,6 +69,16 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     submitResponse();
   };
   const submitResponse = async () => {
+    if (action === 'ACCEPTED') {
+      if (
+        (allocType === 'dollar' && trade.action === 'BUY' && (!allocation || Number(allocation) <= 0)) ||
+        (allocType === 'shares' && trade.action === 'SELL' && (!allocation || Number(allocation) <= 0))
+      ) {
+        setError('You must allocate a positive amount or number of shares.');
+        setStep('input');
+        return;
+      }
+    }
     setStep('loading');
     setError('');
     try {

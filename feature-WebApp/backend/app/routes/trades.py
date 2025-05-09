@@ -57,6 +57,12 @@ def trade_acceptances():
         # Validate status
         if data.get('status') not in ('ACCEPTED', 'DENIED'):
             return jsonify({'error': 'Invalid status, must be ACCEPTED or DENIED'}), 400
+        # Validate allocation for ACCEPTED
+        if data['status'] == 'ACCEPTED':
+            alloc_amt = data.get('allocation_amount')
+            alloc_shares = data.get('allocation_shares')
+            if not ((alloc_amt is not None and float(alloc_amt) > 0) or (alloc_shares is not None and float(alloc_shares) > 0)):
+                return jsonify({'error': 'Must allocate amount or shares for acceptance'}), 400
         acceptance = TradeAcceptance(
             user_id=data['user_id'],
             trade_id=data['trade_id'],
