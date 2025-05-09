@@ -105,10 +105,8 @@ def user_trade_recommendations():
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
     now = datetime.utcnow()
-    # Only fetch trades with status = 'PENDING'
-    trades = TradeRecommendation.query.filter(
-        TradeRecommendation.status == 'PENDING'
-    ).order_by(desc(TradeRecommendation.created_at)).all()
+    # Fetch all trades, not just PENDING
+    trades = TradeRecommendation.query.order_by(desc(TradeRecommendation.created_at)).all()
     acceptances = TradeAcceptance.query.filter_by(user_id=user_id).all()
     acceptance_map = {(a.trade_id, a.user_id): a for a in acceptances}
     result = []
@@ -120,7 +118,7 @@ def user_trade_recommendations():
         is_expired = expires_at and expires_at < now
         acceptance = acceptance_map.get((t.id, int(user_id)))
         user_status = acceptance.status if acceptance else 'PENDING'
-        is_active = not is_expired and user_status == 'PENDING'
+        is_active = (t.status == 'PENDING') and not is_expired and user_status == 'PENDING'
         # Include all trades (active, expired, and responded)
         result.append({
             'id': t.id,
@@ -136,6 +134,7 @@ def user_trade_recommendations():
             'live_change_percent': t.live_change_percent,
             'live_volume': t.live_volume,
             'expires_at': expires_at,
+            'status': t.status,
             'user_status': user_status,
             'is_active': is_active,
             'is_expired': is_expired,

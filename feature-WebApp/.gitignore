@@ -75,3 +75,6 @@ logs/
 
 # Schema dump
 schema_dump.sql
+
+
+db_exporter/
