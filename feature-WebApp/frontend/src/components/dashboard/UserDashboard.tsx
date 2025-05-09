@@ -130,8 +130,8 @@ export default function UserDashboard({ user }: { user: any }) {
                 <Chip label="Active" color="success" />
               </Box>
               <Box mt={1} display="flex" gap={2}>
-                <Button variant="contained" size="small" color="success" onClick={() => setActiveTrade(trade) && setShowModal(true)}>Accept</Button>
-                <Button variant="outlined" size="small" color="error" onClick={() => setActiveTrade(trade) && setShowModal(true)}>Deny</Button>
+                <Button variant="contained" size="small" color="success" onClick={() => { setActiveTrade(trade); setShowModal(true); }}>Accept</Button>
+                <Button variant="outlined" size="small" color="error" onClick={() => { setActiveTrade(trade); setShowModal(true); }}>Deny</Button>
               </Box>
             </Paper>
           ))}
