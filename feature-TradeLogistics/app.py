@@ -624,15 +624,61 @@ def schedule_periodic_tasks():
 # Schedule tasks on startup
 schedule_periodic_tasks()
 
+# In-memory tracker for last processed article ID per strategy
+last_processed_article_id = {}
+
 def run_strategies_live():
+    global last_processed_article_id
     while True:
         try:
-            strategy_data = fetch_strategy_data()
-            new_recs = strategy_manager.run_all_strategies(strategy_data)
-            for rec in new_recs:
-                trade_db.insert(rec)
+            # Fetch all sentiment-analyzed articles and their sentiment scores
+            data = fetch_strategy_data(fetch_all=True) if 'fetch_all' in fetch_strategy_data.__code__.co_varnames else fetch_strategy_data()
+            articles = data['articles']
+            sentiment_scores = data['sentiment_scores']
+            active_strategies = strategy_manager.get_active_strategies()
+            for strategy in active_strategies:
+                strat_name = getattr(strategy, 'name', None) or strategy.__class__.__name__
+                # Get last processed article ID for this strategy
+                last_id = last_processed_article_id.get(strat_name, 0)
+                # Only process new articles
+                new_articles = [a for a in articles if a['id'] > last_id]
+                if not new_articles:
+                    continue
+                # Prepare data for the strategy
+                new_data = {
+                    'articles': new_articles,
+                    'sentiment_scores': {k: v for k, v in sentiment_scores.items() if k in [a['id'] for a in new_articles]}
+                }
+                try:
+                    recs = strategy.analyze(new_data)
+                except Exception as e:
+                    logging.error(f"Error analyzing with {strat_name}: {e}")
+                    continue
+                for rec in recs:
+                    # Deduplication: check if rec already exists in DB
+                    try:
+                        # Use your trade_db interface to check for duplicates
+                        exists = trade_db.exists(
+                            symbol=rec['symbol'],
+                            action=rec['action'],
+                            strategy_name=rec.get('strategy_name'),
+                            created_at=rec.get('created_at')
+                        ) if hasattr(trade_db, 'exists') else False
+                        if exists:
+                            logging.info(f"Duplicate recommendation skipped: {rec['symbol']} {rec['action']} {rec.get('strategy_name')}")
+                            continue
+                        trade_db.insert(rec)
+                    except Exception as e:
+                        # Handle DB unique constraint error gracefully
+                        if 'Duplicate' in str(e) or 'UNIQUE' in str(e):
+                            logging.info(f"DB duplicate recommendation skipped: {rec['symbol']} {rec['action']} {rec.get('strategy_name')}")
+                        else:
+                            logging.error(f"Error inserting recommendation: {e}")
+                # Update last processed article ID for this strategy
+                if new_articles:
+                    last_processed_article_id[strat_name] = max(a['id'] for a in new_articles)
         except Exception as e:
-            app.logger.error(f"Error running live strategies: {str(e)}")
+            logging.error(f"Error running live strategies: {str(e)}")
         time.sleep(2.5 + random.random() * 0.5)
 
 # Start the live strategy runner thread
