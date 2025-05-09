@@ -86,15 +86,25 @@ export default function UserDashboard({ user }: { user: any }) {
   const userSymbols = new Set(userPositions.map((p: { symbol: string }) => p.symbol));
   const activeTrades = allTrades.filter((t: any) => {
     if (t.status !== 'PENDING' || t.is_expired) return false;
+    // Only show SELL trades if user owns the symbol
     if (t.action === 'SELL' && !userSymbols.has(t.symbol)) return false;
     return true;
   });
+
+  // Auto-show modal for single pending trade
+  useEffect(() => {
+    const pendingTrades = allTrades.filter((t: any) => t.status === 'PENDING' && !t.is_expired);
+    if (pendingTrades.length === 1) {
+      setActiveTrade(pendingTrades[0]);
+      setShowModal(true);
+    }
+  }, [allTrades]);
+
   const expiredTrades = allTrades.filter((t: any) => t.is_expired).slice(0, expiredPage * expiredPageSize);
   const respondedTrades = allTrades.filter((t: any) => t.status !== 'PENDING' && !t.is_expired && t.user_status !== 'PENDING');
 
   // Notification logic
   const currentPath = typeof window !== 'undefined' ? window.location.pathname : '';
-  const showSingleTradeModal = activeTrades.length === 1;
   // Only show multi trade card if NOT on /dashboard or /trades
   const showMultiTradeCard = activeTrades.length > 1 && !['/dashboard', '/trades'].includes(currentPath);
 

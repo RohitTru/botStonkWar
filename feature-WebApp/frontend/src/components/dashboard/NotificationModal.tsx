@@ -303,7 +303,14 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
                 sx={{ mb: 1 }}
               />
               {error && <Typography color="error">{error}</Typography>}
-              <Button variant="contained" onClick={submitResponse} fullWidth disabled={!isValidAllocation()}>Submit</Button>
+              <Button 
+                variant="contained" 
+                onClick={submitResponse} 
+                fullWidth 
+                disabled={!isValidAllocation() || !action}
+              >
+                Submit
+              </Button>
             </Box>
           )}
           {step === 'loading' && <CircularProgress sx={{ mt: 2 }} />}
