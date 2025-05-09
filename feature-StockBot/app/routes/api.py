@@ -7,9 +7,15 @@ from sqlalchemy.exc import NoResultFound
 from datetime import datetime, timedelta
 from app.models.trade import TradeAcceptance, TradeExecutionLog, TradeRecommendation
 from sqlalchemy import desc, text
+from decimal import Decimal
 
 api_bp = Blueprint('api', __name__)
 trade_service = TradeService()
+
+def safe_float(val):
+    if isinstance(val, Decimal):
+        return float(val)
+    return float(val) if isinstance(val, (int, float)) else 0.0
 
 @api_bp.route('/trade', methods=['POST'])
 def execute_trade():
@@ -137,6 +143,9 @@ def get_metrics():
         print(f"Error fetching Alpaca data: {e}")
         metrics['portfolio_value'] = 0.0
         metrics['pnl'] = 0.0
+    # Ensure all values are JSON serializable
+    for k, v in metrics.items():
+        metrics[k] = safe_float(v)
     return jsonify(metrics)
 
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
