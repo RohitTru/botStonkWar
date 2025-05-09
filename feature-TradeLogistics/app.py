@@ -345,6 +345,24 @@ default_dashboard_cache = {
 _dashboard_cache = default_dashboard_cache.copy()
 _dashboard_cache_lock = threading.Lock()
 
+# Add this helper at the top (after imports)
+def parse_created_at(val):
+    from datetime import datetime
+    if val is None:
+        return None
+    if isinstance(val, datetime):
+        return val
+    if isinstance(val, str):
+        try:
+            return datetime.fromisoformat(val)
+        except Exception:
+            # Try parsing common MySQL datetime format
+            try:
+                return datetime.strptime(val, '%Y-%m-%d %H:%M:%S')
+            except Exception:
+                return None
+    return None
+
 # Update the dashboard cache thread
 def update_dashboard_cache():
     global _dashboard_cache
@@ -355,9 +373,8 @@ def update_dashboard_cache():
             # Calculate metrics from all recommendations
             recs_last_hour = [
                 r for r in all_recs
-                if 'created_at' in r and isinstance(r['created_at'], str)
-                and safe_fromisoformat(r['created_at']) is not None
-                and (now - safe_fromisoformat(r['created_at'])).total_seconds() < 3600
+                if 'created_at' in r and parse_created_at(r['created_at']) is not None
+                and (now - parse_created_at(r['created_at'])).total_seconds() < 3600
             ]
             metrics = {
                 'total_recommendations': len(all_recs),
