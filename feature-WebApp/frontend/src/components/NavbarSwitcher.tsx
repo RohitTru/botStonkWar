@@ -12,9 +12,13 @@ export default function NavbarSwitcher() {
   if (pathname.startsWith('/admin-dashboard')) {
     return <AdminNavbar />;
   }
-  if (pathname.startsWith('/dashboard')) {
+  if (
+    pathname.startsWith('/dashboard') ||
+    pathname.startsWith('/trades') ||
+    pathname.startsWith('/portfolio') ||
+    pathname.startsWith('/leaderboard')
+  ) {
     return <InternalNavbar />;
-  } else {
-    return <ExternalNavbar />;
   }
+  return <ExternalNavbar />;
 } 

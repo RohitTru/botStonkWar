@@ -137,7 +137,7 @@ def user_trade_recommendations():
         if acceptance and failed_log:
             user_status = 'FAILED'
         is_active = (t.status == 'PENDING') and not is_expired and user_status == 'PENDING'
-        # Only recommend SELL trades if user owns the symbol
+        # Only recommend SELL trades if user owns the symbol (clarified)
         if t.action == 'SELL' and t.symbol not in user_symbols:
             continue
         # Include all trades (active, expired, and responded)

@@ -56,23 +56,6 @@ export default function InternalNavbar({ user }: { user?: any }) {
             }}
             size={isMobile ? 'small' : 'medium'}
           >
-            Dashboard
-          </Button>
-          <Button
-            component={Link}
-            href="/trades"
-            sx={{
-              color: '#fff',
-              fontWeight: pathname === '/trades' ? 700 : 400,
-              background: pathname === '/trades' ? 'linear-gradient(90deg, #7c5fff 0%, #6c47ff 100%)' : 'none',
-              borderRadius: 2,
-              px: 2,
-              textTransform: 'none',
-              boxShadow: pathname === '/trades' ? '0 2px 8px 0 rgba(124,95,255,0.10)' : 'none',
-              transition: 'background 0.2s',
-            }}
-            size={isMobile ? 'small' : 'medium'}
-          >
             Trades
           </Button>
           <Button
