@@ -54,6 +54,9 @@ def get_latest_trade_recommendation():
 def trade_acceptances():
     if request.method == 'POST':
         data = request.get_json()
+        # Validate status
+        if data.get('status') not in ('ACCEPTED', 'DENIED'):
+            return jsonify({'error': 'Invalid status, must be ACCEPTED or DENIED'}), 400
         acceptance = TradeAcceptance(
             user_id=data['user_id'],
             trade_id=data['trade_id'],
