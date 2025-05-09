@@ -9,3 +9,4 @@ python-dotenv==1.0.0
 bcrypt==4.0.1
 black==25.1.0
 flake8==7.1.2
+requests==2.31.0
