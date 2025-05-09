@@ -229,30 +229,28 @@ def get_trades():
     trade_list = []
     for t in trades:
         user_count = TradeAcceptance.query.filter_by(trade_recommendation_id=t.id, status='ACCEPTED').count()
-        # Use live_price from the table
         live_price = getattr(t, 'live_price', None)
-        # Compute brokerage_trade string
-        brokerage_trade = f"{t.action} {float(t.shares):.4f} shares at ${float(live_price):.2f}" if live_price is not None else ''
-        # Expired At logic
+        strategy_name = getattr(t, 'strategy_name', '')
+        shares = float(getattr(t, 'shares', 0) or 0)
+        action = getattr(t, 'action', '')
+        brokerage_trade = f"{action} {shares:.4f} shares at ${float(live_price):.2f}" if live_price is not None else ''
         expired_at = ''
         if t.timeframe and t.timeframe.lower() in ['short_term', 'short term'] and t.created_at:
             expired_at_dt = t.created_at + timedelta(minutes=2)
             expired_at = expired_at_dt.isoformat()
-        # Add strategy_name
-        strategy_name = getattr(t, 'strategy_name', '')
         trade_list.append({
             'id': t.id,
             'symbol': t.symbol,
+            'strategy_name': strategy_name,
             'price': float(live_price) if live_price is not None else None,
-            'type': t.action,
+            'type': action,
             'status': t.status,
             'users': user_count,
-            'shares': float(t.shares) if hasattr(t, 'shares') and t.shares is not None else None,
-            'amount': float(t.amount) if hasattr(t, 'amount') and t.amount is not None else None,
+            'shares': shares,
+            'amount': float(getattr(t, 'amount', 0) or 0),
             'brokerage_trade': brokerage_trade,
             'created_at': t.created_at.isoformat() if t.created_at else '',
             'expired_at': expired_at,
-            'strategy_name': strategy_name,
         })
     return jsonify({'total': total, 'trades': trade_list})
 
