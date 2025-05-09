@@ -34,6 +34,12 @@ def execute_trade():
 def get_metrics():
     try:
         user_count = db.session.query(db.func.count(User.id)).scalar()
+        total_trades = db.session.query(db.func.count(TradeRecommendation.id)).scalar()
+        executed_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXECUTED').scalar()
+        pending_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'PENDING').scalar()
+        expired_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXPIRED').scalar()
+        failed_trades = db.session.execute(text('SELECT COUNT(*) FROM trade_execution_log WHERE status = "FAILED"')).scalar()
+        total_allocations = db.session.execute(text('SELECT COALESCE(SUM(allocation_amount),0) FROM trade_acceptances WHERE status = "ACCEPTED"')).scalar()
         try:
             alpaca = AlpacaService()
             account = alpaca.api.get_account()
@@ -46,12 +52,19 @@ def get_metrics():
         metrics = {
             'portfolio_value': portfolio_value,
             'pnl': pnl,
-            'active_users': user_count
+            'active_users': user_count,
+            'total_trades': total_trades,
+            'executed_trades': executed_trades,
+            'pending_trades': pending_trades,
+            'expired_trades': expired_trades,
+            'failed_trades': failed_trades,
+            'total_allocations': float(total_allocations or 0),
+            'total_users': user_count
         }
         return jsonify(metrics)
     except Exception as e:
         print(f"Error in metrics endpoint: {e}")
-        return jsonify({'portfolio_value': 0.0, 'pnl': 0.0, 'active_users': 0})
+        return jsonify({'portfolio_value': 0.0, 'pnl': 0.0, 'active_users': 0, 'total_trades': 0, 'executed_trades': 0, 'pending_trades': 0, 'expired_trades': 0, 'failed_trades': 0, 'total_allocations': 0, 'total_users': 0})
 
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
 def add_funds():

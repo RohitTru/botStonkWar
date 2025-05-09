@@ -8,8 +8,12 @@
         :root {
             --primary: #2563eb;
             --primary-light: #3b82f6;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --warning: #fbbf24;
+            --info: #06b6d4;
             --bg: #f8fafc;
-            --card-bg: #fff;
+            --card-bg: rgba(255,255,255,0.85);
             --border: #e5e7eb;
             --text: #1e293b;
             --muted: #64748b;
@@ -17,43 +21,16 @@
         }
         html, body { height: 100%; margin: 0; padding: 0; }
         body { font-family: 'Inter', Arial, sans-serif; background: var(--bg); color: var(--text); }
-        .dashboard-container { display: flex; min-height: 100vh; }
-        .sidebar {
-            width: 220px;
-            background: var(--primary);
-            color: #fff;
-            display: flex;
-            flex-direction: column;
-            padding: 2rem 1rem 1rem 1rem;
-            gap: 1.5rem;
-            min-height: 100vh;
-            position: sticky;
-            top: 0;
-        }
-        .sidebar h2 { font-size: 1.3rem; margin-bottom: 2rem; letter-spacing: 1px; }
-        .sidebar a {
-            color: #fff;
-            text-decoration: none;
-            font-weight: 500;
-            padding: 0.7rem 1rem;
-            border-radius: 6px;
-            transition: background 0.15s;
-            display: block;
-        }
-        .sidebar a.active, .sidebar a:hover {
-            background: var(--primary-light);
-        }
         main {
-            flex: 1;
-            padding: 2rem 2vw;
             max-width: 1200px;
             margin: 0 auto;
+            padding: 2rem 2vw;
         }
         .section {
             margin-bottom: 2.5rem;
             background: var(--card-bg);
-            border-radius: 10px;
-            box-shadow: 0 2px 8px rgba(30,41,59,0.04);
+            border-radius: 14px;
+            box-shadow: 0 2px 12px rgba(30,41,59,0.07);
             padding: 2rem 1.5rem 1.5rem 1.5rem;
             border: 1px solid var(--border);
         }
@@ -68,20 +45,34 @@
             display: flex;
             gap: 2rem;
             margin-bottom: 2rem;
+            flex-wrap: wrap;
         }
         .card {
-            background: var(--primary-light);
-            color: #fff;
-            border-radius: 8px;
+            background: var(--card-bg);
+            color: var(--text);
+            border-radius: 10px;
             padding: 1.5rem 2.5rem;
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 500;
             box-shadow: 0 1px 4px rgba(30,41,59,0.07);
             min-width: 180px;
             display: flex;
             flex-direction: column;
             align-items: flex-start;
+            margin-bottom: 1rem;
+            border: 1.5px solid var(--border);
+            transition: box-shadow 0.15s;
         }
+        .card.metric-portfolio { background: linear-gradient(90deg, #3b82f6cc, #06b6d4cc); color: #fff; }
+        .card.metric-pnl { background: linear-gradient(90deg, #22c55ecc, #fbbf24cc); color: #fff; }
+        .card.metric-users { background: linear-gradient(90deg, #a78bfa99, #2563ebcc); color: #fff; }
+        .card.metric-trades { background: linear-gradient(90deg, #fbbf24cc, #ef4444cc); color: #fff; }
+        .card.metric-alloc { background: linear-gradient(90deg, #06b6d4cc, #22c55ecc); color: #fff; }
+        .card.metric-executed { background: linear-gradient(90deg, #22c55ecc, #3b82f6cc); color: #fff; }
+        .card.metric-pending { background: linear-gradient(90deg, #fbbf24cc, #a78bfa99); color: #fff; }
+        .card.metric-expired { background: linear-gradient(90deg, #64748bcc, #ef4444cc); color: #fff; }
+        .card.metric-failed { background: linear-gradient(90deg, #ef4444cc, #fbbf24cc); color: #fff; }
+        .card.metric-totalusers { background: linear-gradient(90deg, #06b6d4cc, #a78bfa99); color: #fff; }
         .card span { font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem; }
         .filter-bar {
             margin-bottom: 1rem;
@@ -89,14 +80,42 @@
             gap: 1rem;
             align-items: center;
             flex-wrap: wrap;
+            background: rgba(59,130,246,0.07);
+            border-radius: 8px;
+            padding: 0.7rem 1rem;
         }
         .search-box {
-            padding: 0.5rem 1rem;
+            padding: 0.5rem 1rem 0.5rem 2.2rem;
             border: 1px solid var(--border);
-            border-radius: 6px;
+            border-radius: 8px;
             font-size: 1rem;
+            background: #f1f5f9 url('data:image/svg+xml;utf8,<svg fill="%2364748b" height="18" viewBox="0 0 24 24" width="18" xmlns="http://www.w3.org/2000/svg"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0016 9.5 6.5 6.5 0 109.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99a1 1 0 001.41-1.41l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"></path></svg>') no-repeat 0.7rem center;
+            color: var(--text);
+        }
+        .filter-bar select, .filter-bar input[type="date"] {
+            padding: 0.5rem 1rem;
+            border-radius: 8px;
+            border: 1px solid var(--border);
             background: #f1f5f9;
             color: var(--text);
+            font-size: 1rem;
+            margin-right: 0.2rem;
+        }
+        .filter-bar input[type="date"]::-webkit-calendar-picker-indicator {
+            filter: invert(0.5);
+        }
+        .filter-bar button {
+            padding: 0.5rem 1.2rem;
+            border-radius: 8px;
+            border: none;
+            background: var(--primary);
+            color: #fff;
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .filter-bar button:hover {
+            background: var(--primary-light);
         }
         .scroll-table-wrapper {
             max-height: 320px;
@@ -123,20 +142,9 @@
             top: 0;
             z-index: 1;
         }
+        tr.user-row { cursor: pointer; transition: background 0.13s; }
+        tr.user-row:hover { background: #e0e7ef; }
         tr:hover { background: #f3f4f6; }
-        .filter-bar button, .filter-bar select {
-            padding: 0.5rem 1rem;
-            border-radius: 6px;
-            border: 1px solid var(--border);
-            background: #fff;
-            color: var(--text);
-            font-size: 1rem;
-            cursor: pointer;
-            transition: background 0.15s;
-        }
-        .filter-bar button:hover, .filter-bar select:focus {
-            background: #e0e7ef;
-        }
         .popup {
             display: none;
             position: fixed;
@@ -171,11 +179,9 @@
         }
         .overlay.active { display: block; }
         @media (max-width: 900px) {
-            .dashboard-container { flex-direction: column; }
-            .sidebar { flex-direction: row; width: 100vw; min-height: unset; position: static; padding: 1rem; }
-            .sidebar h2 { display: none; }
-            .sidebar a { font-size: 0.98rem; padding: 0.5rem 0.7rem; }
             main { padding: 1rem 2vw; }
+            .metrics-cards { flex-direction: column; gap: 1rem; }
+            .section { padding: 1rem 0.5rem; }
         }
         @media (max-width: 600px) {
             .metrics-cards { flex-direction: column; gap: 1rem; }
@@ -185,20 +191,18 @@
 </head>
 <body>
 <div class="dashboard-container">
-    <nav class="sidebar">
-        <h2>StockBot Admin</h2>
-        <a href="#metrics-cards" class="nav-link active">Metrics</a>
-        <a href="#user-search" class="nav-link">Users</a>
-        <a href="#trade-summary" class="nav-link">Trades</a>
-        <a href="#orders-section" class="nav-link">Orders</a>
-        <a href="#logs-section" class="nav-link">Logs</a>
-        <a href="#brokerage-section" class="nav-link">Brokerage</a>
-    </nav>
     <main>
         <section id="metrics-cards" class="metrics-cards section">
-            <div class="card">Portfolio Value <span id="portfolio-value">$0.00</span></div>
-            <div class="card">P&amp;L <span id="pnl">$0.00</span></div>
-            <div class="card">Active Users <span id="active-users">0</span></div>
+            <div class="card metric-portfolio">Portfolio Value <span id="portfolio-value">$0.00</span></div>
+            <div class="card metric-pnl">P&amp;L <span id="pnl">$0.00</span></div>
+            <div class="card metric-users">Active Users <span id="active-users">0</span></div>
+            <div class="card metric-trades">Total Trades <span id="total-trades">0</span></div>
+            <div class="card metric-alloc">Total Allocations <span id="total-allocations">$0.00</span></div>
+            <div class="card metric-executed" style="background:linear-gradient(90deg,#22c55ecc,#3b82f6cc);color:#fff;">Executed Trades <span id="executed-trades">0</span></div>
+            <div class="card metric-pending" style="background:linear-gradient(90deg,#fbbf24cc,#a78bfa99);color:#fff;">Pending Trades <span id="pending-trades">0</span></div>
+            <div class="card metric-expired" style="background:linear-gradient(90deg,#64748bcc,#ef4444cc);color:#fff;">Expired Trades <span id="expired-trades">0</span></div>
+            <div class="card metric-failed" style="background:linear-gradient(90deg,#ef4444cc,#fbbf24cc);color:#fff;">Failed Trades <span id="failed-trades">0</span></div>
+            <div class="card metric-totalusers" style="background:linear-gradient(90deg,#06b6d4cc,#a78bfa99);color:#fff;">Total Users <span id="total-users">0</span></div>
         </section>
         <section id="user-search" class="section">
             <div class="section-title">User Search &amp; Leaderboard</div>
@@ -218,7 +222,7 @@
             </div>
             <div class="scroll-table-wrapper">
                 <table class="leaderboard">
-                    <thead><tr><th>Username</th><th>Equity</th><th>P&amp;L</th><th>Actions</th></tr></thead>
+                    <thead><tr><th>Username</th><th>Equity</th><th>P&amp;L</th></tr></thead>
                     <tbody id="leaderboard-body"></tbody>
                 </table>
             </div>
@@ -357,6 +361,13 @@
                 document.getElementById('portfolio-value').textContent = `$${data.portfolio_value.toLocaleString()}`;
                 document.getElementById('pnl').textContent = `$${data.pnl.toLocaleString()}`;
                 document.getElementById('active-users').textContent = data.active_users;
+                document.getElementById('total-trades').textContent = data.total_trades;
+                document.getElementById('total-allocations').textContent = `$${data.total_allocations.toLocaleString()}`;
+                document.getElementById('executed-trades').textContent = data.executed_trades;
+                document.getElementById('pending-trades').textContent = data.pending_trades;
+                document.getElementById('expired-trades').textContent = data.expired_trades;
+                document.getElementById('failed-trades').textContent = data.failed_trades;
+                document.getElementById('total-users').textContent = data.total_users;
             });
     }
     updateMetrics();
@@ -377,7 +388,9 @@
                     document.getElementById('user-empty-msg').style.display = 'none';
                     users.forEach(u => {
                         const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}', ${u.id})\">View</button></td>`;
+                        tr.className = 'user-row';
+                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td>`;
+                        tr.onclick = function() { openPopup('User: ' + u.username, u.id); };
                         tbody.appendChild(tr);
                     });
                 }
@@ -652,32 +665,6 @@
         document.getElementById('popup-overlay').classList.remove('active');
     }
     document.getElementById('popup-overlay').onclick = closePopup;
-
-    // Enhance trade popup
-    function openTradePopup(tradeId) {
-        let html = `<h4>Trade Acceptances</h4><ul id='acceptances-list'></ul><h4>Execution Logs</h4><ul id='logs-list'></ul><h4>Failed Trades</h4><ul id='failed-list'></ul>`;
-        document.getElementById('popup-content').innerHTML = html;
-        document.getElementById('user-popup').classList.add('active');
-        document.getElementById('popup-overlay').classList.add('active');
-        fetch(`/api/trade_acceptances?trade_id=${tradeId}`).then(res => res.json()).then(accs => {
-            let accHtml = '';
-            if (accs.length === 0) accHtml = '<li>No acceptances</li>';
-            accs.forEach(a => { accHtml += `<li>User ${a.user_id}: $${a.allocation_amount} (${a.status})</li>`; });
-            document.getElementById('acceptances-list').innerHTML = accHtml;
-        });
-        fetch(`/api/trade_execution_log?trade_id=${tradeId}`).then(res => res.json()).then(logs => {
-            let logHtml = '';
-            if (logs.length === 0) logHtml = '<li>No logs</li>';
-            logs.forEach(l => { logHtml += `<li>${l.executed_at}: ${l.status} - ${l.details}</li>`; });
-            document.getElementById('logs-list').innerHTML = logHtml;
-        });
-        fetch(`/api/failed_trades?trade_id=${tradeId}`).then(res => res.json()).then(fails => {
-            let failHtml = '';
-            if (fails.length === 0) failHtml = '<li>No failed trades</li>';
-            fails.forEach(f => { failHtml += `<li>User ${f.user_id}: ${f.failed_at} - ${f.reason}</li>`; });
-            document.getElementById('failed-list').innerHTML = failHtml;
-        });
-    }
 
     // Modern sidebar navigation
     const navLinks = document.querySelectorAll('.nav-link');
