@@ -117,10 +117,10 @@ export default function UserDashboard({ user }: { user: any }) {
         justifyContent: 'flex-start',
       }}
     >
-      {showSingleTradeModal && (
+      {activeTrade && (
         <NotificationModal
           open={showModal}
-          trade={activeTrades[0]}
+          trade={activeTrade}
           userId={user.id}
           onClose={handleModalClose}
           onRespond={handleRespond}
