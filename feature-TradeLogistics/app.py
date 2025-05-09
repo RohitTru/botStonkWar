@@ -345,22 +345,20 @@ default_dashboard_cache = {
 _dashboard_cache = default_dashboard_cache.copy()
 _dashboard_cache_lock = threading.Lock()
 
-# Update the background thread
+# Update the dashboard cache thread
 def update_dashboard_cache():
     global _dashboard_cache
     while True:
         try:
-            # Fetch and run strategies
-            strategy_data = fetch_strategy_data()
-            new_recs = strategy_manager.run_all_strategies(strategy_data)
-            for rec in new_recs:
-                trade_db.insert(rec)
-            all_recs = trade_db.fetch_all()
-
-            # Calculate metrics
+            all_recs = trade_db.fetch_all()  # Fetch all recommendations, no time window
             now = datetime.utcnow()
-            one_hour_ago = now - timedelta(hours=1)
-            recs_last_hour = [r for r in all_recs if 'created_at' in r and datetime.fromisoformat(r['created_at']) > one_hour_ago]
+            # Calculate metrics from all recommendations
+            recs_last_hour = [
+                r for r in all_recs
+                if 'created_at' in r and isinstance(r['created_at'], str)
+                and safe_fromisoformat(r['created_at']) is not None
+                and (now - safe_fromisoformat(r['created_at'])).total_seconds() < 3600
+            ]
             metrics = {
                 'total_recommendations': len(all_recs),
                 'buy_signals': sum(1 for r in all_recs if r.get('action') == 'buy'),
@@ -381,6 +379,15 @@ def update_dashboard_cache():
             with _dashboard_cache_lock:
                 _dashboard_cache = default_dashboard_cache.copy()
         time.sleep(2.5 + random.random() * 0.5)
+
+# Helper for robust fromisoformat
+from datetime import datetime
+
+def safe_fromisoformat(val):
+    try:
+        return datetime.fromisoformat(val)
+    except Exception:
+        return None
 
 # Start the new background thread
 cache_thread = Thread(target=update_dashboard_cache, daemon=True)
