@@ -617,6 +617,21 @@ def schedule_periodic_tasks():
 # Schedule tasks on startup
 schedule_periodic_tasks()
 
+def run_strategies_live():
+    while True:
+        try:
+            strategy_data = fetch_strategy_data()
+            new_recs = strategy_manager.run_all_strategies(strategy_data)
+            for rec in new_recs:
+                trade_db.insert(rec)
+        except Exception as e:
+            app.logger.error(f"Error running live strategies: {str(e)}")
+        time.sleep(2.5 + random.random() * 0.5)
+
+# Start the live strategy runner thread
+live_strat_thread = Thread(target=run_strategies_live, daemon=True)
+live_strat_thread.start()
+
 if __name__ == '__main__':
     port = int(os.getenv('PORT', 5008))
     app.run(host='0.0.0.0', port=port)
