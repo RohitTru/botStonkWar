@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react';
 import NotificationModal from './NotificationModal';
 import { Box, Typography, Paper, Card, CardContent, Button, Chip } from '@mui/material';
+import TradeHistory from './TradeHistory';
 
 export default function UserDashboard({ user }: { user: any }) {
   const [allTrades, setAllTrades] = useState<any[]>([]);
@@ -10,6 +11,10 @@ export default function UserDashboard({ user }: { user: any }) {
   const [showModal, setShowModal] = useState(false);
   const [userPositions, setUserPositions] = useState<{ symbol: string; shares: number }[]>([]);
   const [lastRespondedTradeId, setLastRespondedTradeId] = useState<number | null>(null);
+  // Pagination for expired trades
+  const [expiredPage, setExpiredPage] = useState(1);
+  const [expiredHasMore, setExpiredHasMore] = useState(true);
+  const expiredPageSize = 20;
 
   // Poll for all trade recommendations for the user
   useEffect(() => {
@@ -21,7 +26,7 @@ export default function UserDashboard({ user }: { user: any }) {
         const trades = await res.json();
         setAllTrades(trades);
         // Find the first active, unresponded trade
-        const firstActive = trades.find((t: any) => t.is_active);
+        const firstActive = trades.find((t: any) => t.status === 'PENDING' && !t.is_expired);
         setActiveTrade(firstActive || null);
         setShowModal(!!firstActive);
         // Fetch user positions for SELL
@@ -42,9 +47,16 @@ export default function UserDashboard({ user }: { user: any }) {
   const handleRespond = () => setShowModal(false);
 
   // Group trades
-  const activeTrades = allTrades.filter(t => t.is_active);
-  const expiredTrades = allTrades.filter(t => t.is_expired);
-  const respondedTrades = allTrades.filter(t => !t.is_active && !t.is_expired && t.user_status !== 'PENDING');
+  const activeTrades = allTrades.filter(t => t.status === 'PENDING' && !t.is_expired);
+  const expiredTrades = allTrades.filter(t => t.is_expired).slice(0, expiredPage * expiredPageSize);
+  const respondedTrades = allTrades.filter(t => t.status !== 'PENDING' && !t.is_expired && t.user_status !== 'PENDING');
+
+  const expiredLoadMore = () => {
+    setExpiredPage(p => p + 1);
+    if (expiredTrades.length < expiredPage * expiredPageSize) {
+      setExpiredHasMore(false);
+    }
+  };
 
   return (
     <Box
@@ -116,61 +128,16 @@ export default function UserDashboard({ user }: { user: any }) {
         <Typography variant="h4" component="h1" gutterBottom sx={{ color: '#fff' }}>
           Trade Recommendations
         </Typography>
-        <Box sx={{ mt: 3 }}>
-          <Typography variant="h6" sx={{ color: '#bdbddd', mb: 1 }}>Active</Typography>
-          {activeTrades.length === 0 && <Typography sx={{ color: '#888' }}>No active trade recommendations.</Typography>}
-          {activeTrades.map(trade => (
-            <Paper key={trade.id} sx={{ mb: 2, p: 2, background: '#282a36', borderRadius: 2 }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography><b>{trade.symbol}</b> ({trade.action})</Typography>
-                  <Typography variant="caption">Strategy: {trade.strategy_name ?? '-'}</Typography>
-                  <Typography variant="caption" sx={{ ml: 2 }}>Expires: {trade.expires_at ? new Date(trade.expires_at).toLocaleString() : '-'}</Typography>
-                </Box>
-                <Chip label="Active" color="success" />
-              </Box>
-              <Box mt={1} display="flex" gap={2}>
-                <Button variant="contained" size="small" color="success" onClick={() => { setActiveTrade(trade); setShowModal(true); }}>Accept</Button>
-                <Button variant="outlined" size="small" color="error" onClick={() => { setActiveTrade(trade); setShowModal(true); }}>Deny</Button>
-              </Box>
-            </Paper>
-          ))}
-        </Box>
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" sx={{ color: '#bdbddd', mb: 1 }}>Responded</Typography>
-          {respondedTrades.length === 0 && <Typography sx={{ color: '#888' }}>No responded trades.</Typography>}
-          {respondedTrades.map(trade => (
-            <Paper key={trade.id} sx={{ mb: 2, p: 2, background: '#232526', borderRadius: 2 }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography><b>{trade.symbol}</b> ({trade.action})</Typography>
-                  <Typography variant="caption">Strategy: {trade.strategy_name ?? '-'}</Typography>
-                  <Typography variant="caption" sx={{ ml: 2 }}>Expires: {trade.expires_at ? new Date(trade.expires_at).toLocaleString() : '-'}</Typography>
-                </Box>
-                <Chip label={trade.user_status} color={trade.user_status === 'ACCEPTED' ? 'success' : 'error'} />
-              </Box>
-              <Box mt={1}>
-                <Typography variant="caption">Allocated: {trade.allocation_amount ? `$${trade.allocation_amount}` : trade.allocation_shares ? `${trade.allocation_shares} shares` : '-'}</Typography>
-              </Box>
-            </Paper>
-          ))}
-        </Box>
-        <Box sx={{ mt: 4 }}>
-          <Typography variant="h6" sx={{ color: '#bdbddd', mb: 1 }}>Expired</Typography>
-          {expiredTrades.length === 0 && <Typography sx={{ color: '#888' }}>No expired trades.</Typography>}
-          {expiredTrades.map(trade => (
-            <Paper key={trade.id} sx={{ mb: 2, p: 2, background: '#232526', borderRadius: 2, opacity: 0.6 }}>
-              <Box display="flex" alignItems="center" justifyContent="space-between">
-                <Box>
-                  <Typography><b>{trade.symbol}</b> ({trade.action})</Typography>
-                  <Typography variant="caption">Strategy: {trade.strategy_name ?? '-'}</Typography>
-                  <Typography variant="caption" sx={{ ml: 2 }}>Expired: {trade.expires_at ? new Date(trade.expires_at).toLocaleString() : '-'}</Typography>
-                </Box>
-                <Chip label="Expired" color="default" />
-              </Box>
-            </Paper>
-          ))}
-        </Box>
+        <TradeHistory
+          activeTrades={activeTrades}
+          respondedTrades={respondedTrades}
+          expiredTrades={expiredTrades}
+          onAccept={trade => { setActiveTrade(trade); setShowModal(true); }}
+          onDeny={trade => { setActiveTrade(trade); setShowModal(true); }}
+          onShowModal={trade => { setActiveTrade(trade); setShowModal(true); }}
+          expiredLoadMore={expiredLoadMore}
+          expiredHasMore={expiredHasMore}
+        />
       </Paper>
     </Box>
   );
