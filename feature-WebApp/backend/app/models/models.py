@@ -53,13 +53,19 @@ class TradeRecommendation(db.Model):
     confidence = db.Column(db.Float)
     reasoning = db.Column(db.Text)
     timeframe = db.Column(db.String(20))
-    meta_data = db.Column('metadata', db.JSON)
+    metadata = db.Column(db.JSON)
     created_at = db.Column(db.DateTime)
     strategy_name = db.Column(db.String(50))
     trade_time = db.Column(db.DateTime)
     live_price = db.Column(db.Float)
     live_change_percent = db.Column(db.Float)
     live_volume = db.Column(db.BigInteger)
+    status = db.Column(db.String(20), nullable=False, default='PENDING')
+    amount = db.Column(db.Numeric(10,2), nullable=False, default=0.00)
+    shares = db.Column(db.Numeric(10,4), nullable=False, default=0.0000)
+    expires_at = db.Column(db.DateTime, nullable=False)
+    required_acceptances = db.Column(db.Integer, nullable=False, default=1)
+    updated_at = db.Column(db.DateTime)
 
 class TradeAcceptance(db.Model):
     __tablename__ = "trade_acceptances"
