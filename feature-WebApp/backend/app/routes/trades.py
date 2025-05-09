@@ -2,7 +2,7 @@ from flask import Blueprint, request, jsonify
 from app import db
 from app.models.models import TradeRecommendation, TradeAcceptance, UserPosition
 from sqlalchemy import desc
-from datetime import datetime
+from datetime import datetime, timedelta
 
 trades_bp = Blueprint('trades', __name__)
 
@@ -105,18 +105,23 @@ def user_trade_recommendations():
     if not user_id:
         return jsonify({'error': 'user_id required'}), 400
     now = datetime.utcnow()
-    trades = TradeRecommendation.query.order_by(desc(TradeRecommendation.created_at)).all()
+    # Only fetch trades with status = 'PENDING'
+    trades = TradeRecommendation.query.filter(
+        TradeRecommendation.status == 'PENDING'
+    ).order_by(desc(TradeRecommendation.created_at)).all()
     acceptances = TradeAcceptance.query.filter_by(user_id=user_id).all()
     acceptance_map = {(a.trade_id, a.user_id): a for a in acceptances}
     result = []
     for t in trades:
-        acceptance = acceptance_map.get((t.id, int(user_id)))
-        expires_at = t.created_at
-        if hasattr(t, 'expires_at') and t.expires_at:
-            expires_at = t.expires_at
+        # Expiry logic
+        expires_at = t.expires_at
+        if t.timeframe and t.timeframe.lower() in ['short_term', 'short term'] and t.created_at:
+            expires_at = t.created_at + timedelta(minutes=2)
         is_expired = expires_at and expires_at < now
+        acceptance = acceptance_map.get((t.id, int(user_id)))
         user_status = acceptance.status if acceptance else 'PENDING'
         is_active = not is_expired and user_status == 'PENDING'
+        # Include all trades (active, expired, and responded)
         result.append({
             'id': t.id,
             'symbol': t.symbol,
@@ -130,7 +135,7 @@ def user_trade_recommendations():
             'live_price': t.live_price,
             'live_change_percent': t.live_change_percent,
             'live_volume': t.live_volume,
-            'expires_at': getattr(t, 'expires_at', None),
+            'expires_at': expires_at,
             'user_status': user_status,
             'is_active': is_active,
             'is_expired': is_expired,
