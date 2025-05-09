@@ -27,3 +27,4 @@ main/
 
 # Ignore schema_dump.sql
 schema_dump.sql
+fresh_scraping_db_schema.sql
