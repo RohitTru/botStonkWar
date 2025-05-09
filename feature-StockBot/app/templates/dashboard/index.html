@@ -42,18 +42,32 @@
             letter-spacing: 0.5px;
         }
         .metrics-cards {
-            display: grid;
-            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
-            gap: 1rem;
+            display: flex;
+            flex-direction: row;
+            gap: 0.75rem;
             margin-bottom: 2rem;
-            padding: 1rem;
+            padding: 0.5rem 0.5rem 0.5rem 0.5rem;
+            overflow-x: auto;
+            overflow-y: hidden;
+            white-space: nowrap;
+            scrollbar-width: thin;
+            border-radius: 12px;
+            background: rgba(255,255,255,0.7);
+        }
+        .metrics-cards::-webkit-scrollbar {
+            height: 8px;
+        }
+        .metrics-cards::-webkit-scrollbar-thumb {
+            background: #e5e7eb;
+            border-radius: 8px;
         }
         .card {
-            background: var(--card-bg);
-            color: var(--text);
+            min-width: 170px;
+            max-width: 200px;
+            height: 60px;
             border-radius: 8px;
-            padding: 1rem;
-            font-size: 0.9rem;
+            padding: 0.7rem 1rem;
+            font-size: 0.85rem;
             font-weight: 500;
             box-shadow: 0 1px 4px rgba(30,41,59,0.07);
             display: flex;
@@ -61,30 +75,29 @@
             align-items: flex-start;
             border: 1.5px solid var(--border);
             transition: box-shadow 0.15s;
-            height: 80px;
             justify-content: center;
+            margin: 0;
         }
         .card span {
-            font-size: 1.2rem;
+            font-size: 1.1rem;
             font-weight: 700;
-            margin-top: 0.3rem;
+            margin-top: 0.2rem;
         }
-        .card.metric-portfolio { background: linear-gradient(90deg, #3b82f6cc, #06b6d4cc); color: #fff; }
-        .card.metric-pnl { background: linear-gradient(90deg, #22c55ecc, #fbbf24cc); color: #fff; }
-        .card.metric-users { background: linear-gradient(90deg, #a78bfa99, #2563ebcc); color: #fff; }
-        .card.metric-trades { background: linear-gradient(90deg, #fbbf24cc, #ef4444cc); color: #fff; }
-        .card.metric-alloc { background: linear-gradient(90deg, #06b6d4cc, #22c55ecc); color: #fff; }
-        .card.metric-executed { background: linear-gradient(90deg, #22c55ecc, #3b82f6cc); color: #fff; }
-        .card.metric-pending { background: linear-gradient(90deg, #fbbf24cc, #a78bfa99); color: #fff; }
-        .card.metric-expired { background: linear-gradient(90deg, #64748bcc, #ef4444cc); color: #fff; }
-        .card.metric-failed { background: linear-gradient(90deg, #ef4444cc, #fbbf24cc); color: #fff; }
-        .card.metric-totalusers { background: linear-gradient(90deg, #06b6d4cc, #a78bfa99); color: #fff; }
-        .card.metric-acceptance { background: linear-gradient(90deg, #22c55ecc, #3b82f6cc); color: #fff; }
-        .card.metric-time { background: linear-gradient(90deg, #fbbf24cc, #a78bfa99); color: #fff; }
-        .card.metric-size { background: linear-gradient(90deg, #64748bcc, #ef4444cc); color: #fff; }
-        .card.metric-exec { background: linear-gradient(90deg, #ef4444cc, #fbbf24cc); color: #fff; }
-        .card.metric-req { background: linear-gradient(90deg, #06b6d4cc, #a78bfa99); color: #fff; }
-        .card.metric-cur { background: linear-gradient(90deg, #22c55ecc, #3b82f6cc); color: #fff; }
+        .card.metric-portfolio { background: linear-gradient(90deg, #3b82f6cc, #60a5facc); color: #fff; }
+        .card.metric-pnl { background: linear-gradient(90deg, #22c55ecc, #4ade80cc); color: #fff; }
+        .card.metric-users { background: linear-gradient(90deg, #a78bfa99, #818cf8cc); color: #fff; }
+        .card.metric-trades { background: linear-gradient(90deg, #fbbf24cc, #fde68acc); color: #fff; }
+        .card.metric-alloc { background: linear-gradient(90deg, #06b6d4cc, #67e8f9cc); color: #fff; }
+        .card.metric-executed { background: linear-gradient(90deg, #22c55ecc, #38bdf8cc); color: #fff; }
+        .card.metric-pending { background: linear-gradient(90deg, #fbbf24cc, #facc15cc); color: #fff; }
+        .card.metric-expired { background: linear-gradient(90deg, #64748bcc, #a1a1aa); color: #fff; }
+        .card.metric-failed { background: linear-gradient(90deg, #ef4444cc, #f87171cc); color: #fff; }
+        .card.metric-totalusers { background: linear-gradient(90deg, #06b6d4cc, #818cf8cc); color: #fff; }
+        .card.metric-acceptance { background: linear-gradient(90deg, #38bdf8cc, #4ade80cc); color: #fff; }
+        .card.metric-time { background: linear-gradient(90deg, #fbbf24cc, #fcd34dcc); color: #fff; }
+        .card.metric-size { background: linear-gradient(90deg, #818cf8cc, #a78bfa99); color: #fff; }
+        .card.metric-exec { background: linear-gradient(90deg, #f87171cc, #fbbf24cc); color: #fff; }
+        .card.metric-cur { background: linear-gradient(90deg, #60a5facc, #38bdf8cc); color: #fff; }
         .filter-bar {
             margin-bottom: 1rem;
             display: flex;
@@ -214,12 +227,11 @@
             <div class="card metric-expired">Expired Trades <span id="expired-trades">0</span></div>
             <div class="card metric-failed">Failed Trades <span id="failed-trades">0</span></div>
             <div class="card metric-totalusers">Total Users <span id="total-users">0</span></div>
-            <div class="card metric-acceptance" style="background:linear-gradient(90deg,#22c55ecc,#3b82f6cc);color:#fff;">Acceptance Rate <span id="acceptance-rate">0%</span></div>
-            <div class="card metric-time" style="background:linear-gradient(90deg,#fbbf24cc,#a78bfa99);color:#fff;">Avg Acceptance Time <span id="avg-acceptance-time">0s</span></div>
-            <div class="card metric-size" style="background:linear-gradient(90deg,#64748bcc,#ef4444cc);color:#fff;">Avg Trade Size <span id="avg-trade-size">$0</span></div>
-            <div class="card metric-exec" style="background:linear-gradient(90deg,#ef4444cc,#fbbf24cc);color:#fff;">Avg Execution Time <span id="avg-execution-time">0s</span></div>
-            <div class="card metric-req" style="background:linear-gradient(90deg,#06b6d4cc,#a78bfa99);color:#fff;">Required Acceptances <span id="total-required-acceptances">0</span></div>
-            <div class="card metric-cur" style="background:linear-gradient(90deg,#22c55ecc,#3b82f6cc);color:#fff;">Current Acceptances <span id="current-acceptances">0</span></div>
+            <div class="card metric-acceptance">Acceptance Rate <span id="acceptance-rate">0%</span></div>
+            <div class="card metric-time">Avg Acceptance Time <span id="avg-acceptance-time">0s</span></div>
+            <div class="card metric-size">Avg Trade Size <span id="avg-trade-size">$0</span></div>
+            <div class="card metric-exec">Avg Execution Time <span id="avg-execution-time">0s</span></div>
+            <div class="card metric-cur">Current Acceptances <span id="current-acceptances">0</span></div>
         </section>
         <section id="user-search" class="section">
             <div class="section-title">User Search &amp; Leaderboard</div>
@@ -390,7 +402,6 @@
                 document.getElementById('avg-acceptance-time').textContent = `${data.avg_acceptance_time}s`;
                 document.getElementById('avg-trade-size').textContent = `$${data.avg_trade_size.toLocaleString()}`;
                 document.getElementById('avg-execution-time').textContent = `${data.avg_execution_time}s`;
-                document.getElementById('total-required-acceptances').textContent = data.total_required_acceptances;
                 document.getElementById('current-acceptances').textContent = data.current_acceptances;
             });
     }

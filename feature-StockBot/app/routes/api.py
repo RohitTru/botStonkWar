@@ -40,33 +40,27 @@ def get_metrics():
         expired_trades = db.session.query(db.func.count(TradeRecommendation.id)).filter(TradeRecommendation.status == 'EXPIRED').scalar()
         failed_trades = db.session.execute(text('SELECT COUNT(*) FROM trade_execution_log WHERE status = "FAILED"')).scalar()
         total_allocations = db.session.execute(text('SELECT COALESCE(SUM(allocation_amount),0) FROM trade_acceptances WHERE status = "ACCEPTED"')).scalar()
-        
-        # New metrics for trade recommendation system
+
+        # MySQL-compatible metrics
         avg_acceptance_time = db.session.execute(text('''
-            SELECT AVG(EXTRACT(EPOCH FROM (updated_at - created_at)))
+            SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, updated_at))
             FROM trade_acceptances 
             WHERE status = 'ACCEPTED'
         ''')).scalar() or 0
-        
+
         acceptance_rate = db.session.execute(text('''
             SELECT 
-                ROUND(COUNT(CASE WHEN status = 'ACCEPTED' THEN 1 END)::float / 
+                ROUND(COUNT(CASE WHEN status = 'ACCEPTED' THEN 1 END) / 
                 NULLIF(COUNT(*), 0) * 100, 2)
             FROM trade_acceptances
         ''')).scalar() or 0
-        
+
         avg_trade_size = db.session.execute(text('''
             SELECT AVG(amount) 
             FROM trade_recommendations 
             WHERE status = 'EXECUTED'
         ''')).scalar() or 0
-        
-        total_required_acceptances = db.session.execute(text('''
-            SELECT SUM(required_acceptances) 
-            FROM trade_recommendations 
-            WHERE status = 'PENDING'
-        ''')).scalar() or 0
-        
+
         current_acceptances = db.session.execute(text('''
             SELECT COUNT(*) 
             FROM trade_acceptances 
@@ -75,13 +69,13 @@ def get_metrics():
                 SELECT id FROM trade_recommendations WHERE status = 'PENDING'
             )
         ''')).scalar() or 0
-        
+
         avg_execution_time = db.session.execute(text('''
-            SELECT AVG(EXTRACT(EPOCH FROM (executed_at - created_at)))
+            SELECT AVG(TIMESTAMPDIFF(SECOND, created_at, executed_at))
             FROM trade_execution_log 
             WHERE status = 'EXECUTED'
         ''')).scalar() or 0
-        
+
         try:
             alpaca = AlpacaService()
             account = alpaca.api.get_account()
@@ -91,7 +85,7 @@ def get_metrics():
             print(f"Error fetching Alpaca data: {e}")
             portfolio_value = 0.0
             pnl = 0.0
-            
+
         metrics = {
             'portfolio_value': portfolio_value,
             'pnl': pnl,
@@ -103,11 +97,9 @@ def get_metrics():
             'failed_trades': failed_trades,
             'total_allocations': float(total_allocations or 0),
             'total_users': user_count,
-            # New metrics
             'avg_acceptance_time': round(avg_acceptance_time, 2),  # in seconds
             'acceptance_rate': acceptance_rate,  # percentage
             'avg_trade_size': round(avg_trade_size, 2),
-            'total_required_acceptances': total_required_acceptances,
             'current_acceptances': current_acceptances,
             'avg_execution_time': round(avg_execution_time, 2),  # in seconds
         }
@@ -119,8 +111,7 @@ def get_metrics():
             'total_trades': 0, 'executed_trades': 0, 'pending_trades': 0, 
             'expired_trades': 0, 'failed_trades': 0, 'total_allocations': 0, 
             'total_users': 0, 'avg_acceptance_time': 0, 'acceptance_rate': 0,
-            'avg_trade_size': 0, 'total_required_acceptances': 0,
-            'current_acceptances': 0, 'avg_execution_time': 0
+            'avg_trade_size': 0, 'current_acceptances': 0, 'avg_execution_time': 0
         })
 
 @api_bp.route('/brokerage/add_funds', methods=['POST'])
