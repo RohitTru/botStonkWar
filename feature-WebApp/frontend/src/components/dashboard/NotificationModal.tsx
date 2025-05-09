@@ -1,5 +1,6 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Box, Modal, Typography, Button, TextField, CircularProgress, Slider, Switch, FormControlLabel, Fade } from '@mui/material';
+import CloseIcon from '@mui/icons-material/Close';
 
 interface Trade {
   id: number;
@@ -20,9 +21,11 @@ interface NotificationModalProps {
   onClose: () => void;
   onRespond: () => void;
   userPositions: { symbol: string; shares: number }[];
+  liquidity: number;
+  setDisplayedLiquidity: (val: number) => void;
 }
 
-export default function NotificationModal({ open, trade, userId, onClose, onRespond, userPositions }: NotificationModalProps) {
+export default function NotificationModal({ open, trade, userId, onClose, onRespond, userPositions, liquidity, setDisplayedLiquidity }: NotificationModalProps) {
   const [step, setStep] = useState<'choice' | 'input' | 'loading' | 'done'>('choice');
   const [allocation, setAllocation] = useState('');
   const [error, setError] = useState('');
@@ -31,6 +34,8 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   const [userShares, setUserShares] = useState<number>(0);
   const [allocType, setAllocType] = useState<'dollar' | 'shares'>('dollar');
   const [sliderValue, setSliderValue] = useState<number>(0);
+  const [livePrice, setLivePrice] = useState<number | null>(null);
+  const [livePriceLoading, setLivePriceLoading] = useState(false);
 
   // Helper to reset allocation state
   const resetAllocation = () => {
@@ -59,6 +64,38 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     setStep('choice');
     setAction(null);
   }, [trade, userPositions, open]);
+
+  // Fetch live price
+  useEffect(() => {
+    let interval: any;
+    const fetchPrice = async () => {
+      if (!trade?.symbol) return;
+      setLivePriceLoading(true);
+      try {
+        const res = await fetch(`/api/live_price?symbol=${trade.symbol}`);
+        const data = await res.json();
+        if (data.price) setLivePrice(Number(data.price));
+      } catch {}
+      setLivePriceLoading(false);
+    };
+    if (open && trade?.symbol) {
+      fetchPrice();
+      interval = setInterval(fetchPrice, 15000);
+    }
+    return () => interval && clearInterval(interval);
+  }, [open, trade?.symbol]);
+
+  // Update displayed liquidity as allocation changes
+  useEffect(() => {
+    if (!open || !trade) return;
+    let used = 0;
+    if (trade.action === 'BUY' && allocType === 'dollar') {
+      used = Number(allocation) || 0;
+    } else if (trade.action === 'SELL' && allocType === 'shares' && livePrice) {
+      used = (Number(allocation) || 0) * livePrice;
+    }
+    setDisplayedLiquidity(Math.max(0, liquidity - used));
+  }, [allocation, allocType, livePrice, open, trade, liquidity, setDisplayedLiquidity]);
 
   if (!trade) return null;
 
@@ -97,6 +134,26 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     setSliderValue(Number(value));
   };
 
+  // Helper to validate allocation input
+  const isValidAllocation = () => {
+    if (!allocation) return false;
+    if (allocType === 'dollar' && trade.action === 'BUY') {
+      // Only allow positive numbers with up to 2 decimals
+      if (!/^\d+(\.\d{1,2})?$/.test(allocation)) return false;
+      if (Number(allocation) <= 0) return false;
+      if (allocation.includes('-')) return false;
+      return true;
+    }
+    if (allocType === 'shares' && trade.action === 'SELL') {
+      // Only allow positive whole numbers
+      if (!/^\d+$/.test(allocation)) return false;
+      if (Number(allocation) <= 0) return false;
+      if (allocation.includes('-')) return false;
+      return true;
+    }
+    return false;
+  };
+
   const handleAccept = () => {
     setAction('ACCEPTED');
     setStep('input');
@@ -106,7 +163,20 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     submitResponse();
   };
   const submitResponse = async () => {
+    if (!isValidAllocation()) {
+      setError('Invalid allocation input.');
+      setStep('input');
+      return;
+    }
     if (action === 'ACCEPTED') {
+      let used = 0;
+      if (allocType === 'dollar' && trade.action === 'BUY') used = Number(allocation) || 0;
+      if (allocType === 'shares' && trade.action === 'SELL' && livePrice) used = (Number(allocation) || 0) * livePrice;
+      if (used > liquidity) {
+        setError('Cannot allocate more than your available liquidity.');
+        setStep('input');
+        return;
+      }
       if (
         (allocType === 'dollar' && trade.action === 'BUY' && (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0)) ||
         (allocType === 'shares' && trade.action === 'SELL' && (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0))
@@ -171,12 +241,17 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
           zIndex: 1300,
           transition: 'all 0.4s cubic-bezier(.4,0,.2,1)',
         }}>
+          <Box sx={{ position: 'absolute', top: 16, right: 16, zIndex: 1400 }}>
+            <Button onClick={onClose} sx={{ minWidth: 0, p: 0.5, color: '#888', background: 'transparent', '&:hover': { color: '#333' } }}>
+              <CloseIcon />
+            </Button>
+          </Box>
           <Typography variant="h6" gutterBottom>Trade Recommendation</Typography>
           <Box display="flex" flexDirection="row" gap={3} mb={2}>
             <Box flex={1}>
               <Typography>Symbol: <b>{trade.symbol}</b></Typography>
               <Typography>Action: <b>{trade.action}</b></Typography>
-              <Typography>Price: ${trade.live_price ?? '-'}</Typography>
+              <Typography>Price: ${livePriceLoading ? '...' : (livePrice ?? trade.live_price ?? '-')}</Typography>
               <Typography>Status: {trade.status ?? '-'}</Typography>
             </Box>
             <Box flex={1}>
@@ -228,7 +303,7 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
                 sx={{ mb: 1 }}
               />
               {error && <Typography color="error">{error}</Typography>}
-              <Button variant="contained" onClick={submitResponse} fullWidth>Submit</Button>
+              <Button variant="contained" onClick={submitResponse} fullWidth disabled={!isValidAllocation()}>Submit</Button>
             </Box>
           )}
           {step === 'loading' && <CircularProgress sx={{ mt: 2 }} />}

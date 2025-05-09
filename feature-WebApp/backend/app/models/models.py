@@ -91,4 +91,13 @@ class TradingStrategy(db.Model):
     __tablename__ = "trading_strategies"
     id = db.Column(db.Integer, primary_key=True)
     name = db.Column(db.String(100), nullable=False)
-    description = db.Column(db.Text) 
+    description = db.Column(db.Text)
+
+class TradeExecutionLog(db.Model):
+    __tablename__ = "trade_execution_log"
+
+    id = db.Column(db.Integer, primary_key=True, autoincrement=True)
+    trade_recommendation_id = db.Column(db.BigInteger, db.ForeignKey("trade_recommendations.id"))
+    executed_at = db.Column(db.DateTime, default=datetime.utcnow)
+    status = db.Column(db.String(32), nullable=False)
+    details = db.Column(db.Text) 

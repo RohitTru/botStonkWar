@@ -58,7 +58,57 @@ export default function InternalNavbar({ user }: { user?: any }) {
           >
             Dashboard
           </Button>
-          {/* Add more internal links here */}
+          <Button
+            component={Link}
+            href="/trades"
+            sx={{
+              color: '#fff',
+              fontWeight: pathname === '/trades' ? 700 : 400,
+              background: pathname === '/trades' ? 'linear-gradient(90deg, #7c5fff 0%, #6c47ff 100%)' : 'none',
+              borderRadius: 2,
+              px: 2,
+              textTransform: 'none',
+              boxShadow: pathname === '/trades' ? '0 2px 8px 0 rgba(124,95,255,0.10)' : 'none',
+              transition: 'background 0.2s',
+            }}
+            size={isMobile ? 'small' : 'medium'}
+          >
+            Trades
+          </Button>
+          <Button
+            component={Link}
+            href="/leaderboard"
+            sx={{
+              color: '#fff',
+              fontWeight: pathname === '/leaderboard' ? 700 : 400,
+              background: pathname === '/leaderboard' ? 'linear-gradient(90deg, #7c5fff 0%, #6c47ff 100%)' : 'none',
+              borderRadius: 2,
+              px: 2,
+              textTransform: 'none',
+              boxShadow: pathname === '/leaderboard' ? '0 2px 8px 0 rgba(124,95,255,0.10)' : 'none',
+              transition: 'background 0.2s',
+            }}
+            size={isMobile ? 'small' : 'medium'}
+          >
+            Leaderboard
+          </Button>
+          <Button
+            component={Link}
+            href="/portfolio"
+            sx={{
+              color: '#fff',
+              fontWeight: pathname === '/portfolio' ? 700 : 400,
+              background: pathname === '/portfolio' ? 'linear-gradient(90deg, #7c5fff 0%, #6c47ff 100%)' : 'none',
+              borderRadius: 2,
+              px: 2,
+              textTransform: 'none',
+              boxShadow: pathname === '/portfolio' ? '0 2px 8px 0 rgba(124,95,255,0.10)' : 'none',
+              transition: 'background 0.2s',
+            }}
+            size={isMobile ? 'small' : 'medium'}
+          >
+            Portfolio
+          </Button>
           <Button
             sx={{ color: '#fff', border: '1px solid #7c5fff', borderRadius: 2, px: 2, ml: 1, textTransform: 'none', background: 'rgba(124,95,255,0.08)' }}
             onClick={handleLogout}

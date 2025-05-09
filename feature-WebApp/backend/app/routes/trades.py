@@ -1,8 +1,10 @@
 from flask import Blueprint, request, jsonify
 from app import db
-from app.models.models import TradeRecommendation, TradeAcceptance, UserPosition
+from app.models.models import TradeRecommendation, TradeAcceptance, UserPosition, User, TradeExecutionLog
 from sqlalchemy import desc
 from datetime import datetime, timedelta
+import os
+import requests
 
 trades_bp = Blueprint('trades', __name__)
 
@@ -118,6 +120,9 @@ def user_trade_recommendations():
     trades = TradeRecommendation.query.order_by(desc(TradeRecommendation.created_at)).all()
     acceptances = TradeAcceptance.query.filter_by(user_id=user_id).all()
     acceptance_map = {(a.trade_id, a.user_id): a for a in acceptances}
+    # Fetch user positions for SELL filtering
+    user_positions = UserPosition.query.filter_by(user_id=user_id).all()
+    user_symbols = set(p.symbol for p in user_positions)
     result = []
     for t in trades:
         # Expiry logic
@@ -127,7 +132,14 @@ def user_trade_recommendations():
         is_expired = expires_at and expires_at < now
         acceptance = acceptance_map.get((t.id, int(user_id)))
         user_status = acceptance.status if acceptance else 'PENDING'
+        # Check for failed execution
+        failed_log = TradeExecutionLog.query.filter_by(trade_recommendation_id=t.id, status='FAILED').first()
+        if acceptance and failed_log:
+            user_status = 'FAILED'
         is_active = (t.status == 'PENDING') and not is_expired and user_status == 'PENDING'
+        # Only recommend SELL trades if user owns the symbol
+        if t.action == 'SELL' and t.symbol not in user_symbols:
+            continue
         # Include all trades (active, expired, and responded)
         result.append({
             'id': t.id,
@@ -152,4 +164,105 @@ def user_trade_recommendations():
             'allocation_shares': acceptance.allocation_shares if acceptance else None,
             'acceptance_created_at': acceptance.created_at if acceptance else None
         })
-    return jsonify(result) 
+    return jsonify(result)
+
+@trades_bp.route('/api/users', methods=['GET'])
+def get_users():
+    users = User.query.all()
+    return jsonify([
+        {
+            'id': u.id,
+            'username': u.username,
+            'balance': u.balance
+        } for u in users
+    ])
+
+@trades_bp.route('/api/live_price', methods=['GET'])
+def get_live_price():
+    symbol = request.args.get('symbol')
+    if not symbol:
+        return jsonify({'error': 'symbol required'}), 400
+    alpaca_key = os.environ.get('ALPACA_KEY')
+    alpaca_secret = os.environ.get('ALPACA_SECRET')
+    if not alpaca_key or not alpaca_secret:
+        return jsonify({'error': 'Alpaca API credentials not set'}), 500
+    url = f'https://paper-api.alpaca.markets/v2/stocks/{symbol}/quotes/latest'
+    headers = {
+        'APCA-API-KEY-ID': alpaca_key,
+        'APCA-API-SECRET-KEY': alpaca_secret
+    }
+    try:
+        resp = requests.get(url, headers=headers, timeout=5)
+        if resp.status_code != 200:
+            return jsonify({'error': f'Alpaca API error: {resp.text}'}), 502
+        data = resp.json()
+        # The latest price is in the 'ap' (ask price) or 'bp' (bid price) or 'p' (price) field
+        price = None
+        if 'quote' in data:
+            price = data['quote'].get('ap') or data['quote'].get('bp') or data['quote'].get('p')
+        if price is None:
+            return jsonify({'error': 'No price found for symbol'}), 404
+        return jsonify({'symbol': symbol, 'price': float(price)})
+    except Exception as e:
+        return jsonify({'error': str(e)}), 500
+
+@trades_bp.route('/api/user_equity', methods=['GET'])
+def user_equity():
+    user_id = request.args.get('user_id')
+    if not user_id:
+        return jsonify({'error': 'user_id required'}), 400
+    # Get user positions
+    positions = UserPosition.query.filter_by(user_id=user_id).all()
+    # Get live prices for all symbols
+    symbols = [p.symbol for p in positions]
+    prices = {}
+    alpaca_key = os.environ.get('ALPACA_KEY')
+    alpaca_secret = os.environ.get('ALPACA_SECRET')
+    for symbol in symbols:
+        try:
+            url = f'https://paper-api.alpaca.markets/v2/stocks/{symbol}/quotes/latest'
+            headers = {
+                'APCA-API-KEY-ID': alpaca_key,
+                'APCA-API-SECRET-KEY': alpaca_secret
+            }
+            resp = requests.get(url, headers=headers, timeout=5)
+            if resp.status_code == 200:
+                data = resp.json()
+                price = None
+                if 'quote' in data:
+                    price = data['quote'].get('ap') or data['quote'].get('bp') or data['quote'].get('p')
+                if price:
+                    prices[symbol] = float(price)
+        except Exception:
+            pass
+    # Calculate equity
+    equity = 0
+    breakdown = {}
+    for p in positions:
+        price = prices.get(p.symbol, 0)
+        value = p.shares * price
+        equity += value
+        breakdown[p.symbol] = {'shares': p.shares, 'price': price, 'value': value}
+    # Pending allocations (PENDING acceptances not yet executed or failed)
+    from app.models.models import TradeAcceptance, TradeRecommendation, TradeExecutionLog
+    pending_acceptances = TradeAcceptance.query.filter_by(user_id=user_id, status='ACCEPTED').all()
+    pending_total = 0
+    for acc in pending_acceptances:
+        trade = TradeRecommendation.query.filter_by(id=acc.trade_id).first()
+        if not trade or trade.status != 'PENDING':
+            continue
+        # Check if this trade has a FAILED execution log
+        failed_log = TradeExecutionLog.query.filter_by(trade_recommendation_id=trade.id, status='FAILED').first()
+        if failed_log:
+            continue  # skip, funds should be returned
+        amt = acc.allocation_amount or 0
+        shares = acc.allocation_shares or 0
+        price = prices.get(trade.symbol, 0)
+        pending_total += float(amt) + float(shares) * price
+    total = equity + pending_total
+    return jsonify({
+        'equity': equity,
+        'pending_allocations': pending_total,
+        'total': total,
+        'breakdown': breakdown
+    }) 
