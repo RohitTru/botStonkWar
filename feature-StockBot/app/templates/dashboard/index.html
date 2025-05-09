@@ -3,44 +3,204 @@
 <head>
     <meta charset="UTF-8">
     <title>StockBot Admin Dashboard</title>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <style>
-        body { font-family: Arial, sans-serif; background: #f4f4f4; margin: 0; padding: 0; }
-        main { max-width: 1100px; margin: 2rem auto; padding: 1rem; background: #fff; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.1); }
-        #metrics-cards { display: flex; gap: 1rem; margin-bottom: 2rem; }
-        .card { background: #e3e8f0; padding: 1rem 2rem; border-radius: 6px; font-size: 1.2rem; box-shadow: 0 1px 3px rgba(0,0,0,0.07); min-width: 180px; }
-        #user-search, #trade-summary, #orders-section, #logs-section, #trade-acceptances-section { margin-bottom: 2rem; }
-        .section-title { font-weight: bold; margin-bottom: 0.5rem; }
-        .leaderboard, .trade-table, .orders-table, .logs-table, .acceptances-table { width: 100%; border-collapse: collapse; }
-        .leaderboard th, .trade-table th, .orders-table th, .logs-table th, .acceptances-table th { background: #e3e8f0; }
-        .leaderboard th, .leaderboard td, .trade-table th, .trade-table td, .orders-table th, .orders-table td, .logs-table th, .logs-table td, .acceptances-table th, .acceptances-table td { padding: 0.5rem; border: 1px solid #ddd; text-align: left; }
-        .acceptances-table { background: #f9f9f9; border-radius: 6px; box-shadow: 0 1px 3px rgba(0,0,0,0.07); margin-top: 1rem; }
-        .search-box { padding: 0.5rem; width: 250px; margin-bottom: 1rem; }
-        .popup { display: none; position: fixed; top: 50%; left: 50%; transform: translate(-50%, -50%); background: #fff; border: 1px solid #ccc; border-radius: 8px; box-shadow: 0 2px 8px rgba(0,0,0,0.2); padding: 2rem; z-index: 1000; }
-        .popup.active { display: block; }
-        .popup-close { float: right; cursor: pointer; color: #888; font-size: 1.2rem; }
-        .overlay { display: none; position: fixed; top: 0; left: 0; width: 100vw; height: 100vh; background: rgba(0,0,0,0.3); z-index: 999; }
-        .overlay.active { display: block; }
-        .scroll-table-wrapper {
-            max-height: 300px;
-            overflow-y: auto;
+        :root {
+            --primary: #2563eb;
+            --primary-light: #3b82f6;
+            --bg: #f8fafc;
+            --card-bg: #fff;
+            --border: #e5e7eb;
+            --text: #1e293b;
+            --muted: #64748b;
+            --accent: #fbbf24;
+        }
+        html, body { height: 100%; margin: 0; padding: 0; }
+        body { font-family: 'Inter', Arial, sans-serif; background: var(--bg); color: var(--text); }
+        .dashboard-container { display: flex; min-height: 100vh; }
+        .sidebar {
+            width: 220px;
+            background: var(--primary);
+            color: #fff;
+            display: flex;
+            flex-direction: column;
+            padding: 2rem 1rem 1rem 1rem;
+            gap: 1.5rem;
+            min-height: 100vh;
+            position: sticky;
+            top: 0;
+        }
+        .sidebar h2 { font-size: 1.3rem; margin-bottom: 2rem; letter-spacing: 1px; }
+        .sidebar a {
+            color: #fff;
+            text-decoration: none;
+            font-weight: 500;
+            padding: 0.7rem 1rem;
+            border-radius: 6px;
+            transition: background 0.15s;
             display: block;
         }
+        .sidebar a.active, .sidebar a:hover {
+            background: var(--primary-light);
+        }
+        main {
+            flex: 1;
+            padding: 2rem 2vw;
+            max-width: 1200px;
+            margin: 0 auto;
+        }
+        .section {
+            margin-bottom: 2.5rem;
+            background: var(--card-bg);
+            border-radius: 10px;
+            box-shadow: 0 2px 8px rgba(30,41,59,0.04);
+            padding: 2rem 1.5rem 1.5rem 1.5rem;
+            border: 1px solid var(--border);
+        }
+        .section-title {
+            font-size: 1.2rem;
+            font-weight: 600;
+            margin-bottom: 1.2rem;
+            color: var(--primary);
+            letter-spacing: 0.5px;
+        }
+        .metrics-cards {
+            display: flex;
+            gap: 2rem;
+            margin-bottom: 2rem;
+        }
+        .card {
+            background: var(--primary-light);
+            color: #fff;
+            border-radius: 8px;
+            padding: 1.5rem 2.5rem;
+            font-size: 1.2rem;
+            font-weight: 500;
+            box-shadow: 0 1px 4px rgba(30,41,59,0.07);
+            min-width: 180px;
+            display: flex;
+            flex-direction: column;
+            align-items: flex-start;
+        }
+        .card span { font-size: 1.5rem; font-weight: 700; margin-top: 0.5rem; }
         .filter-bar {
-            margin-bottom: 0.5rem;
+            margin-bottom: 1rem;
             display: flex;
             gap: 1rem;
             align-items: center;
+            flex-wrap: wrap;
+        }
+        .search-box {
+            padding: 0.5rem 1rem;
+            border: 1px solid var(--border);
+            border-radius: 6px;
+            font-size: 1rem;
+            background: #f1f5f9;
+            color: var(--text);
+        }
+        .scroll-table-wrapper {
+            max-height: 320px;
+            overflow-y: auto;
+            border-radius: 8px;
+            border: 1px solid var(--border);
+            background: #f9fafb;
+        }
+        table {
+            width: 100%;
+            border-collapse: collapse;
+            font-size: 0.98rem;
+        }
+        th, td {
+            padding: 0.7rem 0.5rem;
+            border-bottom: 1px solid var(--border);
+            text-align: left;
+        }
+        th {
+            background: #f1f5f9;
+            color: var(--muted);
+            font-weight: 600;
+            position: sticky;
+            top: 0;
+            z-index: 1;
+        }
+        tr:hover { background: #f3f4f6; }
+        .filter-bar button, .filter-bar select {
+            padding: 0.5rem 1rem;
+            border-radius: 6px;
+            border: 1px solid var(--border);
+            background: #fff;
+            color: var(--text);
+            font-size: 1rem;
+            cursor: pointer;
+            transition: background 0.15s;
+        }
+        .filter-bar button:hover, .filter-bar select:focus {
+            background: #e0e7ef;
+        }
+        .popup {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            background: #fff;
+            border: 1px solid var(--border);
+            border-radius: 12px;
+            box-shadow: 0 4px 24px rgba(30,41,59,0.18);
+            padding: 2.5rem 2rem;
+            z-index: 1000;
+            min-width: 350px;
+            max-width: 90vw;
+            max-height: 80vh;
+            overflow-y: auto;
+        }
+        .popup.active { display: block; }
+        .popup-close {
+            float: right;
+            cursor: pointer;
+            color: var(--muted);
+            font-size: 1.5rem;
+            font-weight: 700;
+        }
+        .overlay {
+            display: none;
+            position: fixed;
+            top: 0; left: 0;
+            width: 100vw; height: 100vh;
+            background: rgba(30,41,59,0.18);
+            z-index: 999;
+        }
+        .overlay.active { display: block; }
+        @media (max-width: 900px) {
+            .dashboard-container { flex-direction: column; }
+            .sidebar { flex-direction: row; width: 100vw; min-height: unset; position: static; padding: 1rem; }
+            .sidebar h2 { display: none; }
+            .sidebar a { font-size: 0.98rem; padding: 0.5rem 0.7rem; }
+            main { padding: 1rem 2vw; }
+        }
+        @media (max-width: 600px) {
+            .metrics-cards { flex-direction: column; gap: 1rem; }
+            .section { padding: 1rem 0.5rem; }
         }
     </style>
 </head>
 <body>
+<div class="dashboard-container">
+    <nav class="sidebar">
+        <h2>StockBot Admin</h2>
+        <a href="#metrics-cards" class="nav-link active">Metrics</a>
+        <a href="#user-search" class="nav-link">Users</a>
+        <a href="#trade-summary" class="nav-link">Trades</a>
+        <a href="#orders-section" class="nav-link">Orders</a>
+        <a href="#logs-section" class="nav-link">Logs</a>
+        <a href="#brokerage-section" class="nav-link">Brokerage</a>
+    </nav>
     <main>
-        <section id="metrics-cards">
-            <div class="card">Portfolio Value: <span id="portfolio-value">$0.00</span></div>
-            <div class="card">P&amp;L: <span id="pnl">$0.00</span></div>
-            <div class="card">Active Users: <span id="active-users">0</span></div>
+        <section id="metrics-cards" class="metrics-cards section">
+            <div class="card">Portfolio Value <span id="portfolio-value">$0.00</span></div>
+            <div class="card">P&amp;L <span id="pnl">$0.00</span></div>
+            <div class="card">Active Users <span id="active-users">0</span></div>
         </section>
-        <section id="user-search">
+        <section id="user-search" class="section">
             <div class="section-title">User Search &amp; Leaderboard</div>
             <div class="filter-bar">
                 <input class="search-box" type="text" id="user-search-box" placeholder="Search users...">
@@ -59,9 +219,7 @@
             <div class="scroll-table-wrapper">
                 <table class="leaderboard">
                     <thead><tr><th>Username</th><th>Equity</th><th>P&amp;L</th><th>Actions</th></tr></thead>
-                    <tbody id="leaderboard-body">
-                        <!-- User rows will be populated here -->
-                    </tbody>
+                    <tbody id="leaderboard-body"></tbody>
                 </table>
             </div>
             <div id="user-empty-msg" style="color:#888;text-align:center;display:none;">No users found.</div>
@@ -71,7 +229,7 @@
                 <button id="user-next-page">Next &gt;</button>
             </div>
         </section>
-        <section id="trade-summary">
+        <section id="trade-summary" class="section">
             <div class="section-title">Trade &amp; Position Summaries</div>
             <div class="filter-bar">
                 <input class="search-box" type="text" id="trade-search-box" placeholder="Search symbol...">
@@ -98,7 +256,7 @@
                 <button id="trades-next-page">Next &gt;</button>
             </div>
         </section>
-        <section id="orders-section">
+        <section id="orders-section" class="section">
             <div class="section-title">Live Orders</div>
             <div class="filter-bar">
                 <input class="search-box" type="text" id="orders-symbol-search" placeholder="Symbol...">
@@ -133,7 +291,7 @@
                 <button id="orders-next-page">Next &gt;</button>
             </div>
         </section>
-        <section id="logs-section">
+        <section id="logs-section" class="section">
             <div class="section-title">Logs &amp; Monitoring</div>
             <div class="filter-bar">
                 <select id="logs-event-filter">
@@ -159,16 +317,14 @@
                 <button id="logs-next-page">Next &gt;</button>
             </div>
         </section>
-        <section id="trade-acceptances-section">
+        <section id="trade-acceptances-section" class="section">
             <div class="section-title">User Acceptances & Allocations (Latest Trade)</div>
             <table class="acceptances-table">
                 <thead><tr><th>User ID</th><th>Allocation ($)</th><th>Allocation (Shares)</th><th>Status</th><th>Updated At</th></tr></thead>
-                <tbody id="acceptances-body">
-                    <!-- Acceptances will be populated here -->
-                </tbody>
+                <tbody id="acceptances-body"></tbody>
             </table>
         </section>
-        <section id="brokerage-section">
+        <section id="brokerage-section" class="section">
             <div class="section-title">Brokerage-Wide Positions</div>
             <table class="leaderboard">
                 <thead><tr><th>Symbol</th><th>Total Shares</th><th>Avg Price</th><th>Current Price</th><th>Total Value</th><th>Unrealized P&L</th></tr></thead>
@@ -182,345 +338,358 @@
             <canvas id="brokerage-portfolio-graph" height="100"></canvas>
         </section>
     </main>
-    <div class="overlay" id="popup-overlay"></div>
-    <div class="popup" id="user-popup">
-        <span class="popup-close" onclick="closePopup()">&times;</span>
-        <div id="popup-content">User details will appear here.</div>
-    </div>
-    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
-    <script>
-        let userPage = 1;
-        let userPerPage = 20;
-        let userTotal = 0;
-        // Fetch metrics and update dashboard cards
-        function updateMetrics() {
-            fetch('/api/metrics')
-                .then(res => res.json())
-                .then(data => {
-                    document.getElementById('portfolio-value').textContent = `$${data.portfolio_value.toLocaleString()}`;
-                    document.getElementById('pnl').textContent = `$${data.pnl.toLocaleString()}`;
-                    document.getElementById('active-users').textContent = data.active_users;
-                });
-        }
-        updateMetrics();
-        setInterval(updateMetrics, 30000);
+</div>
+<div class="overlay" id="popup-overlay"></div>
+<div class="popup" id="user-popup">
+    <span class="popup-close" onclick="closePopup()">&times;</span>
+    <div id="popup-content">User details will appear here.</div>
+</div>
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+<script>
+    let userPage = 1;
+    let userPerPage = 20;
+    let userTotal = 0;
+    // Fetch metrics and update dashboard cards
+    function updateMetrics() {
+        fetch('/api/metrics')
+            .then(res => res.json())
+            .then(data => {
+                document.getElementById('portfolio-value').textContent = `$${data.portfolio_value.toLocaleString()}`;
+                document.getElementById('pnl').textContent = `$${data.pnl.toLocaleString()}`;
+                document.getElementById('active-users').textContent = data.active_users;
+            });
+    }
+    updateMetrics();
+    setInterval(updateMetrics, 30000);
 
-        // Fetch users and populate leaderboard
-        function updateUsers(search = '', sort = 'equity', pnlFilter = 'all', page = 1) {
-            fetch(`/api/users?search=${encodeURIComponent(search)}&sort=${sort}&pnl_filter=${pnlFilter}&page=${page}&per_page=${userPerPage}`)
-                .then(res => res.json())
-                .then(data => {
-                    const users = data.users || [];
-                    userTotal = data.total || 0;
-                    const tbody = document.getElementById('leaderboard-body');
-                    tbody.innerHTML = '';
-                    if (users.length === 0) {
-                        document.getElementById('user-empty-msg').style.display = 'block';
-                    } else {
-                        document.getElementById('user-empty-msg').style.display = 'none';
-                        users.forEach(u => {
+    // Fetch users and populate leaderboard
+    function updateUsers(search = '', sort = 'equity', pnlFilter = 'all', page = 1) {
+        fetch(`/api/users?search=${encodeURIComponent(search)}&sort=${sort}&pnl_filter=${pnlFilter}&page=${page}&per_page=${userPerPage}`)
+            .then(res => res.json())
+            .then(data => {
+                const users = data.users || [];
+                userTotal = data.total || 0;
+                const tbody = document.getElementById('leaderboard-body');
+                tbody.innerHTML = '';
+                if (users.length === 0) {
+                    document.getElementById('user-empty-msg').style.display = 'block';
+                } else {
+                    document.getElementById('user-empty-msg').style.display = 'none';
+                    users.forEach(u => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}', ${u.id})\">View</button></td>`;
+                        tbody.appendChild(tr);
+                    });
+                }
+                document.getElementById('user-count').textContent = `Total: ${userTotal}`;
+                document.getElementById('user-page-info').textContent = `Page ${userPage} of ${Math.ceil(userTotal/userPerPage)}`;
+            });
+    }
+    document.getElementById('user-search-box').addEventListener('input', function() {
+        userPage = 1;
+        updateUsers(this.value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
+    });
+    document.getElementById('user-sort').addEventListener('change', function() {
+        userPage = 1;
+        updateUsers(document.getElementById('user-search-box').value, this.value, document.getElementById('user-pnl-filter').value, userPage);
+    });
+    document.getElementById('user-pnl-filter').addEventListener('change', function() {
+        userPage = 1;
+        updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, this.value, userPage);
+    });
+    document.getElementById('user-prev-page').addEventListener('click', function() {
+        if (userPage > 1) {
+            userPage--;
+            updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
+        }
+    });
+    document.getElementById('user-next-page').addEventListener('click', function() {
+        if (userPage < Math.ceil(userTotal/userPerPage)) {
+            userPage++;
+            updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
+        }
+    });
+    updateUsers();
+
+    // Fetch trades and populate trade summary
+    let tradesPage = 1;
+    let tradesPerPage = 20;
+    let tradesTotal = 0;
+    function updateTrades() {
+        const search = document.getElementById('trade-search-box').value;
+        const status = document.getElementById('trade-status-filter').value;
+        const start = document.getElementById('trade-start-date').value;
+        const end = document.getElementById('trade-end-date').value;
+        let url = `/api/trades?search=${encodeURIComponent(search)}&status=${status}&start_date=${start}&end_date=${end}&page=${tradesPage}&per_page=${tradesPerPage}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const trades = data.trades || [];
+                tradesTotal = data.total || 0;
+                const tbody = document.getElementById('trades-body');
+                tbody.innerHTML = '';
+                if (trades.length === 0) {
+                    document.getElementById('trades-empty-msg').style.display = 'block';
+                } else {
+                    document.getElementById('trades-empty-msg').style.display = 'none';
+                    trades.forEach(t => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td>${t.details}</td><td>${t.created_at}</td><td>${t.expires_at}</td>`;
+                        tbody.appendChild(tr);
+                    });
+                }
+                document.getElementById('trade-count').textContent = `Total: ${tradesTotal}`;
+                document.getElementById('trades-page-info').textContent = `Page ${tradesPage} of ${Math.ceil(tradesTotal/tradesPerPage)}`;
+            });
+    }
+    document.getElementById('trade-search-box').addEventListener('input', function() { tradesPage = 1; updateTrades(); });
+    document.getElementById('trade-status-filter').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
+    document.getElementById('trade-start-date').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
+    document.getElementById('trade-end-date').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
+    document.getElementById('trades-prev-page').addEventListener('click', function() { if (tradesPage > 1) { tradesPage--; updateTrades(); } });
+    document.getElementById('trades-next-page').addEventListener('click', function() { if (tradesPage < Math.ceil(tradesTotal/tradesPerPage)) { tradesPage++; updateTrades(); } });
+    updateTrades();
+
+    // Fetch orders and populate live orders table
+    let ordersPage = 1;
+    let ordersPerPage = 20;
+    let ordersTotal = 0;
+    function updateOrders() {
+        const symbol = document.getElementById('orders-symbol-search').value;
+        const status = document.getElementById('orders-status-filter').value;
+        let url = `/api/orders?symbol=${encodeURIComponent(symbol)}&status=${status}&page=${ordersPage}&per_page=${ordersPerPage}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const orders = data.orders || [];
+                ordersTotal = data.total || 0;
+                const tbody = document.getElementById('orders-body');
+                tbody.innerHTML = '';
+                if (orders.length === 0) {
+                    document.getElementById('orders-empty-msg').style.display = 'block';
+                } else {
+                    document.getElementById('orders-empty-msg').style.display = 'none';
+                    orders.forEach(o => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${o.symbol}</td><td>${o.qty}</td><td>${o.side}</td><td>${o.status}</td><td>${o.filled_avg_price || '-'}</td><td>${o.submitted_at}</td>`;
+                        tbody.appendChild(tr);
+                    });
+                }
+                document.getElementById('orders-count').textContent = `Total: ${ordersTotal}`;
+                document.getElementById('orders-page-info').textContent = `Page ${ordersPage} of ${Math.ceil(ordersTotal/ordersPerPage)}`;
+            });
+    }
+    document.getElementById('orders-symbol-search').addEventListener('input', function() { ordersPage = 1; updateOrders(); });
+    document.getElementById('orders-status-filter').addEventListener('change', function() { ordersPage = 1; updateOrders(); });
+    document.getElementById('orders-prev-page').addEventListener('click', function() { if (ordersPage > 1) { ordersPage--; updateOrders(); } });
+    document.getElementById('orders-next-page').addEventListener('click', function() { if (ordersPage < Math.ceil(ordersTotal/ordersPerPage)) { ordersPage++; updateOrders(); } });
+    updateOrders();
+
+    // Fetch logs and populate logs table
+    let logsPage = 1;
+    let logsPerPage = 20;
+    let logsTotal = 0;
+    function updateLogs() {
+        const event = document.getElementById('logs-event-filter').value;
+        const start = document.getElementById('logs-start-date').value;
+        const end = document.getElementById('logs-end-date').value;
+        let url = `/api/logs?event=${event}&start_date=${start}&end_date=${end}&page=${logsPage}&per_page=${logsPerPage}`;
+        fetch(url)
+            .then(res => res.json())
+            .then(data => {
+                const logs = data.logs || [];
+                logsTotal = data.total || 0;
+                const tbody = document.getElementById('logs-body');
+                tbody.innerHTML = '';
+                if (logs.length === 0) {
+                    document.getElementById('logs-empty-msg').style.display = 'block';
+                } else {
+                    document.getElementById('logs-empty-msg').style.display = 'none';
+                    logs.forEach(l => {
+                        const tr = document.createElement('tr');
+                        tr.innerHTML = `<td>${l.timestamp}</td><td>${l.event}</td><td>${l.details}</td><td>${l.trade_recommendation_id}</td>`;
+                        tbody.appendChild(tr);
+                    });
+                }
+                document.getElementById('logs-count').textContent = `Total: ${logsTotal}`;
+                document.getElementById('logs-page-info').textContent = `Page ${logsPage} of ${Math.ceil(logsTotal/logsPerPage)}`;
+            });
+    }
+    document.getElementById('logs-event-filter').addEventListener('change', function() { logsPage = 1; updateLogs(); });
+    document.getElementById('logs-start-date').addEventListener('change', function() { logsPage = 1; updateLogs(); });
+    document.getElementById('logs-end-date').addEventListener('change', function() { logsPage = 1; updateLogs(); });
+    document.getElementById('logs-prev-page').addEventListener('click', function() { if (logsPage > 1) { logsPage--; updateLogs(); } });
+    document.getElementById('logs-next-page').addEventListener('click', function() { if (logsPage < Math.ceil(logsTotal/logsPerPage)) { logsPage++; updateLogs(); } });
+    updateLogs();
+
+    // Fetch and display user acceptances for the latest trade recommendation
+    function updateAcceptances() {
+        fetch('/api/latest_trade_recommendation')
+            .then(res => res.json())
+            .then(trade => {
+                if (!trade.id) return;
+                fetch('/api/trade_acceptances?trade_id=' + trade.id)
+                    .then(res => res.json())
+                    .then(acceptances => {
+                        const tbody = document.getElementById('acceptances-body');
+                        tbody.innerHTML = '';
+                        if (acceptances.length === 0) {
                             const tr = document.createElement('tr');
-                            tr.innerHTML = `<td>${u.username}</td><td>$${u.equity.toLocaleString()}</td><td>$${u.pnl.toLocaleString()}</td><td><button onclick=\"openPopup('User: ${u.username}', ${u.id})\">View</button></td>`;
+                            tr.innerHTML = `<td colspan="5" style="text-align:center;color:#888;">No user acceptances yet</td>`;
                             tbody.appendChild(tr);
-                        });
-                    }
-                    document.getElementById('user-count').textContent = `Total: ${userTotal}`;
-                    document.getElementById('user-page-info').textContent = `Page ${userPage} of ${Math.ceil(userTotal/userPerPage)}`;
-                });
-        }
-        document.getElementById('user-search-box').addEventListener('input', function() {
-            userPage = 1;
-            updateUsers(this.value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
-        });
-        document.getElementById('user-sort').addEventListener('change', function() {
-            userPage = 1;
-            updateUsers(document.getElementById('user-search-box').value, this.value, document.getElementById('user-pnl-filter').value, userPage);
-        });
-        document.getElementById('user-pnl-filter').addEventListener('change', function() {
-            userPage = 1;
-            updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, this.value, userPage);
-        });
-        document.getElementById('user-prev-page').addEventListener('click', function() {
-            if (userPage > 1) {
-                userPage--;
-                updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
-            }
-        });
-        document.getElementById('user-next-page').addEventListener('click', function() {
-            if (userPage < Math.ceil(userTotal/userPerPage)) {
-                userPage++;
-                updateUsers(document.getElementById('user-search-box').value, document.getElementById('user-sort').value, document.getElementById('user-pnl-filter').value, userPage);
-            }
-        });
-        updateUsers();
-
-        // Fetch trades and populate trade summary
-        let tradesPage = 1;
-        let tradesPerPage = 20;
-        let tradesTotal = 0;
-        function updateTrades() {
-            const search = document.getElementById('trade-search-box').value;
-            const status = document.getElementById('trade-status-filter').value;
-            const start = document.getElementById('trade-start-date').value;
-            const end = document.getElementById('trade-end-date').value;
-            let url = `/api/trades?search=${encodeURIComponent(search)}&status=${status}&start_date=${start}&end_date=${end}&page=${tradesPage}&per_page=${tradesPerPage}`;
-            fetch(url)
-                .then(res => res.json())
-                .then(data => {
-                    const trades = data.trades || [];
-                    tradesTotal = data.total || 0;
-                    const tbody = document.getElementById('trades-body');
-                    tbody.innerHTML = '';
-                    if (trades.length === 0) {
-                        document.getElementById('trades-empty-msg').style.display = 'block';
-                    } else {
-                        document.getElementById('trades-empty-msg').style.display = 'none';
-                        trades.forEach(t => {
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `<td>${t.symbol}</td><td>${t.type}</td><td>${t.status}</td><td>${t.users}</td><td>${t.details}</td><td>${t.created_at}</td><td>${t.expires_at}</td>`;
-                            tbody.appendChild(tr);
-                        });
-                    }
-                    document.getElementById('trade-count').textContent = `Total: ${tradesTotal}`;
-                    document.getElementById('trades-page-info').textContent = `Page ${tradesPage} of ${Math.ceil(tradesTotal/tradesPerPage)}`;
-                });
-        }
-        document.getElementById('trade-search-box').addEventListener('input', function() { tradesPage = 1; updateTrades(); });
-        document.getElementById('trade-status-filter').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
-        document.getElementById('trade-start-date').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
-        document.getElementById('trade-end-date').addEventListener('change', function() { tradesPage = 1; updateTrades(); });
-        document.getElementById('trades-prev-page').addEventListener('click', function() { if (tradesPage > 1) { tradesPage--; updateTrades(); } });
-        document.getElementById('trades-next-page').addEventListener('click', function() { if (tradesPage < Math.ceil(tradesTotal/tradesPerPage)) { tradesPage++; updateTrades(); } });
-        updateTrades();
-
-        // Fetch orders and populate live orders table
-        let ordersPage = 1;
-        let ordersPerPage = 20;
-        let ordersTotal = 0;
-        function updateOrders() {
-            const symbol = document.getElementById('orders-symbol-search').value;
-            const status = document.getElementById('orders-status-filter').value;
-            let url = `/api/orders?symbol=${encodeURIComponent(symbol)}&status=${status}&page=${ordersPage}&per_page=${ordersPerPage}`;
-            fetch(url)
-                .then(res => res.json())
-                .then(data => {
-                    const orders = data.orders || [];
-                    ordersTotal = data.total || 0;
-                    const tbody = document.getElementById('orders-body');
-                    tbody.innerHTML = '';
-                    if (orders.length === 0) {
-                        document.getElementById('orders-empty-msg').style.display = 'block';
-                    } else {
-                        document.getElementById('orders-empty-msg').style.display = 'none';
-                        orders.forEach(o => {
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `<td>${o.symbol}</td><td>${o.qty}</td><td>${o.side}</td><td>${o.status}</td><td>${o.filled_avg_price || '-'}</td><td>${o.submitted_at}</td>`;
-                            tbody.appendChild(tr);
-                        });
-                    }
-                    document.getElementById('orders-count').textContent = `Total: ${ordersTotal}`;
-                    document.getElementById('orders-page-info').textContent = `Page ${ordersPage} of ${Math.ceil(ordersTotal/ordersPerPage)}`;
-                });
-        }
-        document.getElementById('orders-symbol-search').addEventListener('input', function() { ordersPage = 1; updateOrders(); });
-        document.getElementById('orders-status-filter').addEventListener('change', function() { ordersPage = 1; updateOrders(); });
-        document.getElementById('orders-prev-page').addEventListener('click', function() { if (ordersPage > 1) { ordersPage--; updateOrders(); } });
-        document.getElementById('orders-next-page').addEventListener('click', function() { if (ordersPage < Math.ceil(ordersTotal/ordersPerPage)) { ordersPage++; updateOrders(); } });
-        updateOrders();
-
-        // Fetch logs and populate logs table
-        let logsPage = 1;
-        let logsPerPage = 20;
-        let logsTotal = 0;
-        function updateLogs() {
-            const event = document.getElementById('logs-event-filter').value;
-            const start = document.getElementById('logs-start-date').value;
-            const end = document.getElementById('logs-end-date').value;
-            let url = `/api/logs?event=${event}&start_date=${start}&end_date=${end}&page=${logsPage}&per_page=${logsPerPage}`;
-            fetch(url)
-                .then(res => res.json())
-                .then(data => {
-                    const logs = data.logs || [];
-                    logsTotal = data.total || 0;
-                    const tbody = document.getElementById('logs-body');
-                    tbody.innerHTML = '';
-                    if (logs.length === 0) {
-                        document.getElementById('logs-empty-msg').style.display = 'block';
-                    } else {
-                        document.getElementById('logs-empty-msg').style.display = 'none';
-                        logs.forEach(l => {
-                            const tr = document.createElement('tr');
-                            tr.innerHTML = `<td>${l.timestamp}</td><td>${l.event}</td><td>${l.details}</td><td>${l.trade_recommendation_id}</td>`;
-                            tbody.appendChild(tr);
-                        });
-                    }
-                    document.getElementById('logs-count').textContent = `Total: ${logsTotal}`;
-                    document.getElementById('logs-page-info').textContent = `Page ${logsPage} of ${Math.ceil(logsTotal/logsPerPage)}`;
-                });
-        }
-        document.getElementById('logs-event-filter').addEventListener('change', function() { logsPage = 1; updateLogs(); });
-        document.getElementById('logs-start-date').addEventListener('change', function() { logsPage = 1; updateLogs(); });
-        document.getElementById('logs-end-date').addEventListener('change', function() { logsPage = 1; updateLogs(); });
-        document.getElementById('logs-prev-page').addEventListener('click', function() { if (logsPage > 1) { logsPage--; updateLogs(); } });
-        document.getElementById('logs-next-page').addEventListener('click', function() { if (logsPage < Math.ceil(logsTotal/logsPerPage)) { logsPage++; updateLogs(); } });
-        updateLogs();
-
-        // Fetch and display user acceptances for the latest trade recommendation
-        function updateAcceptances() {
-            fetch('/api/latest_trade_recommendation')
-                .then(res => res.json())
-                .then(trade => {
-                    if (!trade.id) return;
-                    fetch('/api/trade_acceptances?trade_id=' + trade.id)
-                        .then(res => res.json())
-                        .then(acceptances => {
-                            const tbody = document.getElementById('acceptances-body');
-                            tbody.innerHTML = '';
-                            if (acceptances.length === 0) {
+                        } else {
+                            acceptances.forEach(a => {
                                 const tr = document.createElement('tr');
-                                tr.innerHTML = `<td colspan="5" style="text-align:center;color:#888;">No user acceptances yet</td>`;
+                                tr.innerHTML = `<td>${a.user_id}</td><td>${a.allocation_amount || '-'}</td><td>${a.allocation_shares || '-'}</td><td>${a.status}</td><td>${a.updated_at}</td>`;
                                 tbody.appendChild(tr);
-                            } else {
-                                acceptances.forEach(a => {
-                                    const tr = document.createElement('tr');
-                                    tr.innerHTML = `<td>${a.user_id}</td><td>${a.allocation_amount || '-'}</td><td>${a.allocation_shares || '-'}</td><td>${a.status}</td><td>${a.updated_at}</td>`;
-                                    tbody.appendChild(tr);
-                                });
-                            }
-                        });
-                });
-        }
-        updateAcceptances();
-        setInterval(updateAcceptances, 30000);
-
-        // Brokerage-wide positions
-        function updateBrokeragePositions() {
-            fetch('/api/brokerage/positions')
-                .then(res => res.json())
-                .then(data => {
-                    const tbody = document.getElementById('brokerage-positions-body');
-                    tbody.innerHTML = '';
-                    data.forEach(pos => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${pos.symbol}</td><td>${pos.total_shares}</td><td>${pos.average_price}</td><td>${pos.current_price}</td><td>${pos.total_value}</td><td>${pos.unrealized_pnl}</td>`;
-                        tbody.appendChild(tr);
+                            });
+                        }
                     });
+            });
+    }
+    updateAcceptances();
+    setInterval(updateAcceptances, 30000);
+
+    // Brokerage-wide positions
+    function updateBrokeragePositions() {
+        fetch('/api/brokerage/positions')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('brokerage-positions-body');
+                tbody.innerHTML = '';
+                data.forEach(pos => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${pos.symbol}</td><td>${pos.total_shares}</td><td>${pos.average_price}</td><td>${pos.current_price}</td><td>${pos.total_value}</td><td>${pos.unrealized_pnl}</td>`;
+                    tbody.appendChild(tr);
                 });
-        }
-        function updateBrokerageHistory() {
-            fetch('/api/brokerage/history')
-                .then(res => res.json())
-                .then(data => {
-                    const tbody = document.getElementById('brokerage-history-body');
-                    tbody.innerHTML = '';
-                    let graphData = {};
-                    let pnlData = {};
-                    data.forEach(hist => {
-                        const tr = document.createElement('tr');
-                        tr.innerHTML = `<td>${hist.symbol}</td><td>${hist.shares_owned}</td><td>${hist.average_price}</td><td>${hist.market_price}</td><td>${hist.total_value}</td><td>${hist.unrealized_pnl}</td><td>${hist.recorded_at}</td>`;
-                        tbody.appendChild(tr);
-                        // Prepare data for graph
-                        if (!graphData[hist.symbol]) graphData[hist.symbol] = {labels: [], values: []};
-                        graphData[hist.symbol].labels.push(hist.recorded_at);
-                        graphData[hist.symbol].values.push(hist.total_value);
-                        if (!pnlData[hist.symbol]) pnlData[hist.symbol] = {labels: [], values: []};
-                        pnlData[hist.symbol].labels.push(hist.recorded_at);
-                        pnlData[hist.symbol].values.push(hist.unrealized_pnl);
+            });
+    }
+    function updateBrokerageHistory() {
+        fetch('/api/brokerage/history')
+            .then(res => res.json())
+            .then(data => {
+                const tbody = document.getElementById('brokerage-history-body');
+                tbody.innerHTML = '';
+                let graphData = {};
+                let pnlData = {};
+                data.forEach(hist => {
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `<td>${hist.symbol}</td><td>${hist.shares_owned}</td><td>${hist.average_price}</td><td>${hist.market_price}</td><td>${hist.total_value}</td><td>${hist.unrealized_pnl}</td><td>${hist.recorded_at}</td>`;
+                    tbody.appendChild(tr);
+                    // Prepare data for graph
+                    if (!graphData[hist.symbol]) graphData[hist.symbol] = {labels: [], values: []};
+                    graphData[hist.symbol].labels.push(hist.recorded_at);
+                    graphData[hist.symbol].values.push(hist.total_value);
+                    if (!pnlData[hist.symbol]) pnlData[hist.symbol] = {labels: [], values: []};
+                    pnlData[hist.symbol].labels.push(hist.recorded_at);
+                    pnlData[hist.symbol].values.push(hist.unrealized_pnl);
+                });
+                // Draw graph for first symbol (or all, if desired)
+                const ctx = document.getElementById('brokerage-portfolio-graph').getContext('2d');
+                if (Object.keys(graphData).length > 0) {
+                    const firstSymbol = Object.keys(graphData)[0];
+                    new Chart(ctx, {
+                        type: 'line',
+                        data: {
+                            labels: graphData[firstSymbol].labels,
+                            datasets: [
+                                {
+                                    label: firstSymbol + ' Portfolio Value',
+                                    data: graphData[firstSymbol].values,
+                                    borderColor: 'rgba(75,192,192,1)',
+                                    fill: false
+                                },
+                                {
+                                    label: firstSymbol + ' P&L',
+                                    data: pnlData[firstSymbol].values,
+                                    borderColor: 'rgba(255,99,132,1)',
+                                    fill: false
+                                }
+                            ]
+                        },
+                        options: {scales: {x: {display: true}, y: {display: true}}}
                     });
-                    // Draw graph for first symbol (or all, if desired)
-                    const ctx = document.getElementById('brokerage-portfolio-graph').getContext('2d');
-                    if (Object.keys(graphData).length > 0) {
-                        const firstSymbol = Object.keys(graphData)[0];
-                        new Chart(ctx, {
-                            type: 'line',
-                            data: {
-                                labels: graphData[firstSymbol].labels,
-                                datasets: [
-                                    {
-                                        label: firstSymbol + ' Portfolio Value',
-                                        data: graphData[firstSymbol].values,
-                                        borderColor: 'rgba(75,192,192,1)',
-                                        fill: false
-                                    },
-                                    {
-                                        label: firstSymbol + ' P&L',
-                                        data: pnlData[firstSymbol].values,
-                                        borderColor: 'rgba(255,99,132,1)',
-                                        fill: false
-                                    }
-                                ]
-                            },
-                            options: {scales: {x: {display: true}, y: {display: true}}}
-                        });
-                    }
-                });
-        }
-        updateBrokeragePositions();
-        updateBrokerageHistory();
-        setInterval(updateBrokeragePositions, 30000);
-        setInterval(updateBrokerageHistory, 30000);
+                }
+            });
+    }
+    updateBrokeragePositions();
+    updateBrokerageHistory();
+    setInterval(updateBrokeragePositions, 30000);
+    setInterval(updateBrokerageHistory, 30000);
 
-        // Popup logic
-        function openPopup(content, userId) {
-            document.getElementById('popup-content').innerHTML = content;
-            document.getElementById('user-popup').classList.add('active');
-            document.getElementById('popup-overlay').classList.add('active');
-            if (userId) {
-                // Fetch and show user positions and history
-                fetch(`/api/user/${userId}/positions`).then(res => res.json()).then(pos => {
-                    let html = '<h4>User Positions</h4><ul>';
-                    if (pos.length === 0) html += '<li>No positions</li>';
-                    pos.forEach(p => { html += `<li>${p.symbol}: ${p.shares_owned} @ $${p.average_buy_price} (Value: $${p.market_value})</li>`; });
-                    html += '</ul>';
-                    document.getElementById('popup-content').innerHTML += html;
-                });
-                fetch(`/api/user/${userId}/history`).then(res => res.json()).then(hist => {
-                    let html = '<h4>User History</h4><ul>';
-                    if (hist.length === 0) html += '<li>No history</li>';
-                    hist.forEach(h => { html += `<li>${h.recorded_at}: ${h.symbol} - ${h.shares_owned} @ $${h.average_price} (Value: $${h.total_value})</li>`; });
-                    html += '</ul>';
-                    document.getElementById('popup-content').innerHTML += html;
-                });
-                fetch(`/api/failed_trades?user_id=${userId}`).then(res => res.json()).then(fails => {
-                    let html = '<h4>Failed Trades</h4><ul>';
-                    if (fails.length === 0) html += '<li>No failed trades</li>';
-                    fails.forEach(f => { html += `<li>${f.failed_at}: Trade ${f.trade_recommendation_id} - ${f.reason}</li>`; });
-                    html += '</ul>';
-                    document.getElementById('popup-content').innerHTML += html;
-                });
-            }
+    // Popup logic
+    function openPopup(content, userId) {
+        document.getElementById('popup-content').innerHTML = content;
+        document.getElementById('user-popup').classList.add('active');
+        document.getElementById('popup-overlay').classList.add('active');
+        if (userId) {
+            // Fetch and show user positions and history
+            fetch(`/api/user/${userId}/positions`).then(res => res.json()).then(pos => {
+                let html = '<h4>User Positions</h4><ul>';
+                if (pos.length === 0) html += '<li>No positions</li>';
+                pos.forEach(p => { html += `<li>${p.symbol}: ${p.shares_owned} @ $${p.average_buy_price} (Value: $${p.market_value})</li>`; });
+                html += '</ul>';
+                document.getElementById('popup-content').innerHTML += html;
+            });
+            fetch(`/api/user/${userId}/history`).then(res => res.json()).then(hist => {
+                let html = '<h4>User History</h4><ul>';
+                if (hist.length === 0) html += '<li>No history</li>';
+                hist.forEach(h => { html += `<li>${h.recorded_at}: ${h.symbol} - ${h.shares_owned} @ $${h.average_price} (Value: $${h.total_value})</li>`; });
+                html += '</ul>';
+                document.getElementById('popup-content').innerHTML += html;
+            });
+            fetch(`/api/failed_trades?user_id=${userId}`).then(res => res.json()).then(fails => {
+                let html = '<h4>Failed Trades</h4><ul>';
+                if (fails.length === 0) html += '<li>No failed trades</li>';
+                fails.forEach(f => { html += `<li>${f.failed_at}: Trade ${f.trade_recommendation_id} - ${f.reason}</li>`; });
+                html += '</ul>';
+                document.getElementById('popup-content').innerHTML += html;
+            });
         }
-        function closePopup() {
-            document.getElementById('user-popup').classList.remove('active');
-            document.getElementById('popup-overlay').classList.remove('active');
-        }
-        document.getElementById('popup-overlay').onclick = closePopup;
+    }
+    function closePopup() {
+        document.getElementById('user-popup').classList.remove('active');
+        document.getElementById('popup-overlay').classList.remove('active');
+    }
+    document.getElementById('popup-overlay').onclick = closePopup;
 
-        // Enhance trade popup
-        function openTradePopup(tradeId) {
-            let html = `<h4>Trade Acceptances</h4><ul id='acceptances-list'></ul><h4>Execution Logs</h4><ul id='logs-list'></ul><h4>Failed Trades</h4><ul id='failed-list'></ul>`;
-            document.getElementById('popup-content').innerHTML = html;
-            document.getElementById('user-popup').classList.add('active');
-            document.getElementById('popup-overlay').classList.add('active');
-            fetch(`/api/trade_acceptances?trade_id=${tradeId}`).then(res => res.json()).then(accs => {
-                let accHtml = '';
-                if (accs.length === 0) accHtml = '<li>No acceptances</li>';
-                accs.forEach(a => { accHtml += `<li>User ${a.user_id}: $${a.allocation_amount} (${a.status})</li>`; });
-                document.getElementById('acceptances-list').innerHTML = accHtml;
-            });
-            fetch(`/api/trade_execution_log?trade_id=${tradeId}`).then(res => res.json()).then(logs => {
-                let logHtml = '';
-                if (logs.length === 0) logHtml = '<li>No logs</li>';
-                logs.forEach(l => { logHtml += `<li>${l.executed_at}: ${l.status} - ${l.details}</li>`; });
-                document.getElementById('logs-list').innerHTML = logHtml;
-            });
-            fetch(`/api/failed_trades?trade_id=${tradeId}`).then(res => res.json()).then(fails => {
-                let failHtml = '';
-                if (fails.length === 0) failHtml = '<li>No failed trades</li>';
-                fails.forEach(f => { failHtml += `<li>User ${f.user_id}: ${f.failed_at} - ${f.reason}</li>`; });
-                document.getElementById('failed-list').innerHTML = failHtml;
-            });
-        }
-    </script>
+    // Enhance trade popup
+    function openTradePopup(tradeId) {
+        let html = `<h4>Trade Acceptances</h4><ul id='acceptances-list'></ul><h4>Execution Logs</h4><ul id='logs-list'></ul><h4>Failed Trades</h4><ul id='failed-list'></ul>`;
+        document.getElementById('popup-content').innerHTML = html;
+        document.getElementById('user-popup').classList.add('active');
+        document.getElementById('popup-overlay').classList.add('active');
+        fetch(`/api/trade_acceptances?trade_id=${tradeId}`).then(res => res.json()).then(accs => {
+            let accHtml = '';
+            if (accs.length === 0) accHtml = '<li>No acceptances</li>';
+            accs.forEach(a => { accHtml += `<li>User ${a.user_id}: $${a.allocation_amount} (${a.status})</li>`; });
+            document.getElementById('acceptances-list').innerHTML = accHtml;
+        });
+        fetch(`/api/trade_execution_log?trade_id=${tradeId}`).then(res => res.json()).then(logs => {
+            let logHtml = '';
+            if (logs.length === 0) logHtml = '<li>No logs</li>';
+            logs.forEach(l => { logHtml += `<li>${l.executed_at}: ${l.status} - ${l.details}</li>`; });
+            document.getElementById('logs-list').innerHTML = logHtml;
+        });
+        fetch(`/api/failed_trades?trade_id=${tradeId}`).then(res => res.json()).then(fails => {
+            let failHtml = '';
+            if (fails.length === 0) failHtml = '<li>No failed trades</li>';
+            fails.forEach(f => { failHtml += `<li>User ${f.user_id}: ${f.failed_at} - ${f.reason}</li>`; });
+            document.getElementById('failed-list').innerHTML = failHtml;
+        });
+    }
+
+    // Modern sidebar navigation
+    const navLinks = document.querySelectorAll('.nav-link');
+    navLinks.forEach(link => {
+        link.addEventListener('click', function(e) {
+            e.preventDefault();
+            navLinks.forEach(l => l.classList.remove('active'));
+            this.classList.add('active');
+            const section = document.querySelector(this.getAttribute('href'));
+            if (section) section.scrollIntoView({behavior: 'smooth'});
+        });
+    });
+</script>
 </body>
 </html> 
