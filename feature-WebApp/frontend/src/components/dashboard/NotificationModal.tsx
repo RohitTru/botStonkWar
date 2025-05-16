@@ -47,7 +47,9 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   React.useEffect(() => {
     if (trade && trade.action === 'BUY') {
       fetch('/api/auth/me').then(res => res.json()).then(data => {
-        setUserLiquidity(data.user?.balance ?? null);
+        const balance = data.user?.balance ?? 0;
+        console.log('Initializing BUY trade state:', { balance });
+        setUserLiquidity(balance);
         setAllocType('dollar');
         setAllocation('1.00');
         setSliderValue(1);
@@ -55,7 +57,9 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
       });
     } else if (trade && trade.action === 'SELL') {
       const pos = userPositions.find(p => p.symbol === trade.symbol);
-      setUserShares(pos ? pos.shares : 0);
+      const shares = pos ? pos.shares : 0;
+      console.log('Initializing SELL trade state:', { shares, symbol: trade.symbol });
+      setUserShares(shares);
       setAllocType('shares');
       setAllocation('1');
       setSliderValue(1);
@@ -116,41 +120,89 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   // Handle slider change
   const handleSliderChange = (_: any, val: number | number[]) => {
     const value = Array.isArray(val) ? val[0] : val;
+    console.log('Slider changed:', { value, sliderMin, sliderMax });
     if (value < sliderMin || value > sliderMax) return;
     setSliderValue(value);
-    setAllocation(String(value));
+    // Format the value based on allocation type
+    const formattedValue = allocType === 'dollar' ? value.toFixed(2) : value.toString();
+    setAllocation(formattedValue);
     setError('');
   };
 
   // Handle input change
   const handleInputChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const value = e.target.value;
-    if (!value || isNaN(Number(value)) || Number(value) < sliderMin || Number(value) > sliderMax) {
+    console.log('Input changed:', { value, allocType });
+    
+    // Validate input format
+    let isValid = false;
+    if (allocType === 'dollar') {
+      isValid = /^\d+(\.\d{0,2})?$/.test(value);
+    } else {
+      isValid = /^\d*$/.test(value);
+    }
+    
+    if (!isValid) {
+      setError('Invalid input format');
+      return;
+    }
+    
+    const numValue = Number(value);
+    if (isNaN(numValue) || numValue < sliderMin || numValue > sliderMax) {
       setError('Enter a valid number in range.');
     } else {
       setError('');
     }
+    
     setAllocation(value);
-    setSliderValue(Number(value));
+    setSliderValue(numValue);
   };
 
   // Helper to validate allocation input
   const isValidAllocation = () => {
-    if (!allocation) return false;
+    console.log('Validating allocation:', {
+      allocation,
+      allocType,
+      tradeAction: trade?.action,
+      userLiquidity,
+      userShares,
+      livePrice
+    });
+    
+    if (!allocation) {
+      console.log('No allocation value');
+      return false;
+    }
+    
     if (allocType === 'dollar' && trade.action === 'BUY') {
       // Only allow positive numbers with up to 2 decimals
-      if (!/^\d+(\.\d{1,2})?$/.test(allocation)) return false;
+      if (!/^\d+(\.\d{1,2})?$/.test(allocation)) {
+        console.log('Invalid dollar format');
+        return false;
+      }
       const amount = Number(allocation);
-      if (amount <= 0 || amount > (userLiquidity ?? 0)) return false;
+      if (amount <= 0 || amount > (userLiquidity ?? 0)) {
+        console.log('Invalid amount range:', { amount, userLiquidity });
+        return false;
+      }
       return true;
     }
+    
     if (allocType === 'shares' && trade.action === 'SELL') {
       // Only allow positive whole numbers
-      if (!/^\d+$/.test(allocation)) return false;
+      if (!/^\d+$/.test(allocation)) {
+        console.log('Invalid shares format');
+        return false;
+      }
       const shares = Number(allocation);
-      if (shares <= 0 || shares > userShares) return false;
+      if (shares <= 0 || shares > userShares) {
+        console.log('Invalid shares range:', { shares, userShares });
+        return false;
+      }
       return true;
     }
+    
+    console.log('No matching validation case');
     return false;
   };
 
