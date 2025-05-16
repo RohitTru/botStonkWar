@@ -59,15 +59,21 @@ def trade_acceptances():
         # Validate status
         if data.get('status') not in ('ACCEPTED', 'DENIED'):
             return jsonify({'error': 'Invalid status, must be ACCEPTED or DENIED'}), 400
-        # Validate allocation for ACCEPTED (dollar only)
+        # Validate allocation for ACCEPTED (dollar only, robust)
         if data['status'] == 'ACCEPTED':
             alloc_amt = data.get('allocation_amount')
-            if alloc_amt is None or float(alloc_amt) <= 0:
-                return jsonify({'error': 'Must allocate a positive dollar amount for acceptance'}), 400
+            print('DEBUG: allocation_amount received:', alloc_amt, type(alloc_amt))
+            try:
+                amt = float(alloc_amt)
+                amt = round(amt, 2)  # ensure at most two decimals
+            except (TypeError, ValueError):
+                return jsonify({'error': 'Must allocate a positive dollar amount for acceptance (invalid type)'}), 400
+            if amt <= 0:
+                return jsonify({'error': 'Must allocate a positive dollar amount for acceptance (must be > 0)'}), 400
         acceptance = TradeAcceptance(
             user_id=data['user_id'],
             trade_id=data['trade_id'],
-            allocation_amount=data.get('allocation_amount'),
+            allocation_amount=amt if data['status'] == 'ACCEPTED' else None,
             status=data['status']
         )
         db.session.add(acceptance)

@@ -151,8 +151,10 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     if (!allocation) return false;
     // Only allow positive numbers with up to 2 decimals
     if (!/^\d+(\.\d{1,2})?$/.test(allocation)) return false;
-    const amount = Number(allocation);
-    if (amount <= 0 || amount > effectiveLiquidity) return false;
+    const amount = parseFloat(allocation);
+    if (isNaN(amount) || amount <= 0 || amount > effectiveLiquidity) return false;
+    // Ensure at most two decimal places
+    if (Math.round(amount * 100) !== amount * 100) return false;
     return true;
   };
 
@@ -174,24 +176,19 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   };
   const submitResponse = async () => {
     if (!isValidAllocation()) {
-      setError('Invalid allocation input.');
+      setError('Please enter a valid positive dollar amount (up to 2 decimal places).');
       setStep('input');
       return;
     }
     if (action === 'ACCEPTED') {
-      let used = 0;
-      if (allocType === 'dollar' && trade.action === 'BUY') used = Number(allocation) || 0;
-      if (allocType === 'shares' && trade.action === 'SELL' && livePrice) used = (Number(allocation) || 0) * livePrice;
+      let used = parseFloat(allocation) || 0;
       if (used > liquidity) {
         setError('Cannot allocate more than your available liquidity.');
         setStep('input');
         return;
       }
-      if (
-        (allocType === 'dollar' && trade.action === 'BUY' && (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0)) ||
-        (allocType === 'shares' && trade.action === 'SELL' && (!allocation || isNaN(Number(allocation)) || Number(allocation) <= 0))
-      ) {
-        setError('You must allocate a positive amount or number of shares.');
+      if (used <= 0) {
+        setError('You must allocate a positive dollar amount.');
         setStep('input');
         return;
       }
@@ -199,15 +196,14 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     setStep('loading');
     setError('');
     try {
+      // Always send as float with two decimals
+      const floatAmount = parseFloat(parseFloat(allocation).toFixed(2));
       const body: any = {
         trade_id: trade.id,
         user_id: userId,
         status: action,
+        allocation_amount: floatAmount,
       };
-      if (action === 'ACCEPTED') {
-        if (allocType === 'dollar' && trade.action === 'BUY') body.allocation_amount = parseFloat(allocation);
-        if (allocType === 'shares' && trade.action === 'SELL') body.allocation_shares = parseInt(allocation);
-      }
       const res = await fetch('/api/trade_acceptances', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
