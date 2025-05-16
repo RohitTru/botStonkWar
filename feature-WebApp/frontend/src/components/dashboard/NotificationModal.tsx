@@ -45,29 +45,24 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
   };
 
   React.useEffect(() => {
-    if (trade && trade.action === 'BUY') {
+    if (trade) {
+      // Always use dollar allocation for both BUY and SELL
       fetch('/api/auth/me').then(res => res.json()).then(data => {
-        const balance = data.user?.balance ?? 0;
-        console.log('Initializing BUY trade state:', { balance });
+        const balance = data.user?.balance ?? liquidity ?? 0;
         setUserLiquidity(balance);
-        setAllocType('dollar');
+        setAllocation('1.00');
+        setSliderValue(1);
+        setError('');
+      }).catch(() => {
+        setUserLiquidity(liquidity ?? 0);
         setAllocation('1.00');
         setSliderValue(1);
         setError('');
       });
-    } else if (trade && trade.action === 'SELL') {
-      const pos = userPositions.find(p => p.symbol === trade.symbol);
-      const shares = pos ? pos.shares : 0;
-      console.log('Initializing SELL trade state:', { shares, symbol: trade.symbol });
-      setUserShares(shares);
-      setAllocType('shares');
-      setAllocation('1');
-      setSliderValue(1);
-      setError('');
     }
     setStep('choice');
     setAction(null);
-  }, [trade, userPositions, open]);
+  }, [trade, userPositions, open, liquidity]);
 
   // Fetch live price
   useEffect(() => {
@@ -108,14 +103,6 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
     const pos = userPositions.find(p => p.symbol === trade.symbol);
     if (!pos || pos.shares <= 0) return null;
   }
-
-  // Handle toggle between dollar and shares
-  const handleToggleAllocType = () => {
-    if (trade?.action === 'BUY') {
-      setAllocType((prev: 'dollar' | 'shares') => prev === 'dollar' ? 'shares' : 'dollar');
-      resetAllocation();
-    }
-  };
 
   // Handle slider change
   const handleSliderChange = (_: any, val: number | number[]) => {
@@ -160,50 +147,13 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
 
   // Helper to validate allocation input
   const isValidAllocation = () => {
-    console.log('Validating allocation:', {
-      allocation,
-      allocType,
-      tradeAction: trade?.action,
-      userLiquidity,
-      userShares,
-      livePrice
-    });
-    
-    if (!allocation) {
-      console.log('No allocation value');
-      return false;
-    }
-    
-    if (allocType === 'dollar' && trade.action === 'BUY') {
-      // Only allow positive numbers with up to 2 decimals
-      if (!/^\d+(\.\d{1,2})?$/.test(allocation)) {
-        console.log('Invalid dollar format');
-        return false;
-      }
-      const amount = Number(allocation);
-      if (amount <= 0 || amount > (userLiquidity ?? 0)) {
-        console.log('Invalid amount range:', { amount, userLiquidity });
-        return false;
-      }
-      return true;
-    }
-    
-    if (allocType === 'shares' && trade.action === 'SELL') {
-      // Only allow positive whole numbers
-      if (!/^\d+$/.test(allocation)) {
-        console.log('Invalid shares format');
-        return false;
-      }
-      const shares = Number(allocation);
-      if (shares <= 0 || shares > userShares) {
-        console.log('Invalid shares range:', { shares, userShares });
-        return false;
-      }
-      return true;
-    }
-    
-    console.log('No matching validation case');
-    return false;
+    const effectiveLiquidity = userLiquidity ?? liquidity ?? 0;
+    if (!allocation) return false;
+    // Only allow positive numbers with up to 2 decimals
+    if (!/^\d+(\.\d{1,2})?$/.test(allocation)) return false;
+    const amount = Number(allocation);
+    if (amount <= 0 || amount > effectiveLiquidity) return false;
+    return true;
   };
 
   const handleAccept = () => {
@@ -329,32 +279,22 @@ export default function NotificationModal({ open, trade, userId, onClose, onResp
           {step === 'input' && (
             <Box mt={2}>
               <Box display="flex" alignItems="center" gap={2} mb={1}>
-                <FormControlLabel
-                  control={
-                    <Switch
-                      checked={allocType === 'dollar'}
-                      onChange={handleToggleAllocType}
-                      color="primary"
-                      disabled={trade.action === 'SELL'}
-                    />
-                  }
-                  label={trade.action === 'BUY' ? (allocType === 'dollar' ? 'Dollar Amount' : 'Shares') : 'Shares'}
-                />
+                {/* Dollar-only allocation. To re-enable shares, add a toggle here. */}
                 <Typography variant="caption" sx={{ color: '#888' }}>
-                  {allocType === 'dollar' ? `Available: $${userLiquidity?.toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}` : `Shares owned: ${userShares}`}
+                  {`Available: $${(userLiquidity ?? liquidity ?? 0).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`}
                 </Typography>
               </Box>
               <Slider
                 value={sliderValue}
-                min={sliderMin}
-                max={sliderMax}
-                step={sliderStep}
+                min={1}
+                max={userLiquidity ?? liquidity ?? 1000}
+                step={0.01}
                 onChange={handleSliderChange}
                 valueLabelDisplay="auto"
                 sx={{ mb: 1 }}
               />
               <TextField
-                label={allocType === 'dollar' ? 'Dollar Amount' : 'Shares'}
+                label={'Dollar Amount'}
                 value={allocation}
                 onChange={handleInputChange}
                 type="number"
