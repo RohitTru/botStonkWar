@@ -59,17 +59,15 @@ def trade_acceptances():
         # Validate status
         if data.get('status') not in ('ACCEPTED', 'DENIED'):
             return jsonify({'error': 'Invalid status, must be ACCEPTED or DENIED'}), 400
-        # Validate allocation for ACCEPTED
+        # Validate allocation for ACCEPTED (dollar only)
         if data['status'] == 'ACCEPTED':
             alloc_amt = data.get('allocation_amount')
-            alloc_shares = data.get('allocation_shares')
-            if not ((alloc_amt is not None and float(alloc_amt) > 0) or (alloc_shares is not None and float(alloc_shares) > 0)):
-                return jsonify({'error': 'Must allocate amount or shares for acceptance'}), 400
+            if alloc_amt is None or float(alloc_amt) <= 0:
+                return jsonify({'error': 'Must allocate a positive dollar amount for acceptance'}), 400
         acceptance = TradeAcceptance(
             user_id=data['user_id'],
             trade_id=data['trade_id'],
             allocation_amount=data.get('allocation_amount'),
-            allocation_shares=data.get('allocation_shares'),
             status=data['status']
         )
         db.session.add(acceptance)
@@ -256,9 +254,8 @@ def user_equity():
         if failed_log:
             continue  # skip, funds should be returned
         amt = acc.allocation_amount or 0
-        shares = acc.allocation_shares or 0
         price = prices.get(trade.symbol, 0)
-        pending_total += float(amt) + float(shares) * price
+        pending_total += float(amt)
     total = equity + pending_total
     return jsonify({
         'equity': equity,
